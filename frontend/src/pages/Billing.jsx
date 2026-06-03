@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import API from '../utils/api';
 import { HiOutlineCreditCard, HiOutlineCash, HiOutlineDocumentText, HiOutlineCheck, HiOutlineQrcode } from 'react-icons/hi';
-import { FaCreditCard, FaCcStripe, FaPhone } from 'react-icons/fa';
+import { FaPhone } from 'react-icons/fa';
 
 export default function Billing() {
   const [activeTab, setActiveTab] = useState('plans');
@@ -56,58 +56,39 @@ export default function Billing() {
 
   const handleSubscribe = async (plan) => {
     if (plan.name.toLowerCase() === currentPlan) return;
-    setSubscribing(plan._id);
-    setProcessing(true);
-    try {
-      const { data } = await API.post('/billing/subscribe', {
-        planId: plan._id,
-        paymentMethod: 'razorpay'
-      });
-      if (!data.success) throw new Error(data.message);
-      const options = {
-        key: data.order.key_id || '',
-        amount: data.order.amount,
-        currency: data.order.currency,
-        name: 'RSendix.pro',
-        description: `${data.plan.name} Plan`,
-        order_id: data.order.id,
-        handler: async (response) => {
-          const verify = await API.post('/billing/subscribe/confirm', {
-            invoiceId: data.invoice._id,
-            paymentId: response.razorpay_payment_id,
-            paymentMethod: 'razorpay'
-          });
-          if (verify.data.success) {
-            alert(`Successfully subscribed to ${data.plan.name} plan!`);
-            setCurrentPlan(data.plan.name.toLowerCase());
-            fetchInvoices();
-          }
-        },
-        modal: { ondismiss: () => { setProcessing(false); setSubscribing(null); } }
-      };
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', () => { alert('Payment failed'); setProcessing(false); setSubscribing(null); });
-      rzp.open();
-    } catch (err) {
-      alert(err.response?.data?.message || err.message);
-      setProcessing(false);
-      setSubscribing(null);
+    if (plan.price === 0) {
+      try {
+        await API.post('/billing/subscribe', { planId: plan._id });
+        alert(`Subscribed to ${plan.name} plan!`);
+        setCurrentPlan(plan.name.toLowerCase());
+      } catch (err) {
+        alert(err.response?.data?.message || err.message);
+      }
+      return;
     }
+    setActiveTab('qr');
+    setUpiAmount(String(plan.price));
+    setSubscribing(null);
   };
 
   const handleUpiVerify = async () => {
     if (!upiRef || !upiAmount) return alert('Enter UPI transaction ID and amount');
     setVerifying(true);
     try {
+      const amount = parseFloat(upiAmount);
+      const matchedPlan = defaultPlans.find(p => p.price === amount && amount > 0);
       const { data } = await API.post('/billing/upi/verify', {
         upiTransactionId: upiRef,
-        amount: parseFloat(upiAmount)
+        amount,
+        planId: matchedPlan?._id || null
       });
       if (data.success) {
-        alert(`Payment verified! ${data.credits} credits added.`);
+        alert(`Payment verified! ${data.credits} credits added.${matchedPlan ? ` Upgraded to ${matchedPlan.name} plan!` : ''}`);
+        if (matchedPlan) setCurrentPlan(matchedPlan.name.toLowerCase());
         setUpiRef('');
         setUpiAmount('');
         fetchInvoices();
+        fetchCurrentPlan();
       }
     } catch (err) {
       alert(err.response?.data?.message || 'Verification failed');
@@ -231,17 +212,9 @@ export default function Billing() {
                   <p className="text-green-400 text-sm">You will receive: <strong>{Math.floor(parseFloat(purchaseAmount) / creditRate).toLocaleString()} Credits</strong></p>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-3">
-                <button onClick={handleRazorpayPurchase} disabled={!purchaseAmount || processing}
-                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium transition-all disabled:opacity-50">
-                  <FaCreditCard /> Pay with Razorpay
-                </button>
-                <button disabled={!purchaseAmount || processing}
-                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-medium transition-all disabled:opacity-50">
-                  <FaCcStripe /> Pay with Stripe
-                </button>
+              <div className="bg-purple-500/10 rounded-xl p-3 text-sm text-purple-300">
+                <p>💡 Use the <strong>QR Payment</strong> tab instead to pay via UPI (GPay/PhonePe/Paytm).</p>
               </div>
-              {processing && <div className="text-center text-gray-400 text-sm">Processing payment...</div>}
             </div>
           </div>
         </div>
