@@ -658,6 +658,22 @@ body {
 }
 .animate-slide-up { animation: slide-up 0.3s ease-out; }
 
+.touch-button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 0.1s ease;
+}
+.touch-button:active {
+  transform: scale(0.96);
+}
+
+@media (hover: none) and (pointer: coarse) {
+  button, a, .clickable {
+    cursor: default;
+    min-height: 44px;
+  }
+}
+
 @media (max-width: 480px) {
   .auth-card {
     padding: 1.25rem;

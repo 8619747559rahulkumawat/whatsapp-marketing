@@ -2,11 +2,13 @@ import { useState, useRef, useEffect, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
-import { HiOutlineBell, HiOutlineMenuAlt2, HiOutlineUser, HiOutlineLogout, HiOutlineCash, HiOutlineLockClosed } from 'react-icons/hi';
+import { useTheme } from '../contexts/ThemeContext';
+import { HiOutlineBell, HiOutlineMenuAlt2, HiOutlineUser, HiOutlineLogout, HiOutlineCash, HiOutlineLockClosed, HiOutlineSun, HiOutlineMoon } from 'react-icons/hi';
 import { FaWhatsapp } from 'react-icons/fa';
 
 const Header = memo(function Header({ setSidebarOpen, collapsed }) {
   const { user, logout } = useAuth();
+  const { dark, toggleTheme } = useTheme();
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -67,6 +69,10 @@ const Header = memo(function Header({ setSidebarOpen, collapsed }) {
               <span className="sm:hidden">{(credits/1000).toFixed(1)}k</span>
             </Link>
           )}
+
+          <button onClick={toggleTheme} className="p-1.5 sm:p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all" title={dark ? 'Switch to light mode' : 'Switch to dark mode'}>
+            {dark ? <HiOutlineSun size={18} className="sm:size-[22px]" /> : <HiOutlineMoon size={18} className="sm:size-[22px]" />}
+          </button>
 
           <button className="relative p-1.5 sm:p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all">
             <HiOutlineBell size={18} className="sm:size-[22px]" />

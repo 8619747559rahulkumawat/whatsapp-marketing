@@ -15,6 +15,7 @@ export default function Contacts() {
   const [groupForm, setGroupForm] = useState({ name: '', description: '' });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [selected, setSelected] = useState([]);
 
   useEffect(() => { fetchData(); }, [page, search]);
 
@@ -73,6 +74,27 @@ export default function Contacts() {
     try { await API.post('/contacts/groups', groupForm); setShowGroupModal(false); setGroupForm({ name: '', description: '' }); fetchData(); } catch (err) { console.error(err); }
   };
 
+  const toggleSelect = (id) => {
+    setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.length === contacts.length) {
+      setSelected([]);
+    } else {
+      setSelected(contacts.map(c => c._id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`Delete ${selected.length} selected contacts?`)) return;
+    try {
+      await API.post('/contacts/bulk-delete', { ids: selected });
+      setSelected([]);
+      fetchData();
+    } catch (err) { console.error(err); }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -99,6 +121,9 @@ export default function Contacts() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr className="table-header">
+              <th className="p-4 text-left w-10">
+                <input type="checkbox" checked={contacts.length > 0 && selected.length === contacts.length} onChange={toggleSelectAll} className="accent-purple-600" />
+              </th>
               <th className="p-4 text-left">Name</th>
               <th className="p-4 text-left">Phone</th>
               <th className="p-4 text-left">Email</th>
@@ -109,6 +134,9 @@ export default function Contacts() {
             <tbody>
               {contacts.map((c, idx) => (
                 <motion.tr key={c._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.03 }} className="table-row">
+                  <td className="p-4">
+                    <input type="checkbox" checked={selected.includes(c._id)} onChange={() => toggleSelect(c._id)} className="accent-purple-600" />
+                  </td>
                   <td className="p-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-300 text-sm font-bold">{c.name?.charAt(0) || '?'}</div><span className="text-white">{c.name || 'Unknown'}</span></div></td>
                   <td className="p-4 text-gray-300">{c.phone}</td>
                   <td className="p-4 text-gray-400 text-sm">{c.email || '-'}</td>
@@ -120,7 +148,7 @@ export default function Contacts() {
                   <td className="p-4"><button onClick={() => handleDelete(c._id)} className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20"><HiOutlineTrash size={16} /></button></td>
                 </motion.tr>
               ))}
-              {contacts.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-gray-500">No contacts found</td></tr>}
+              {contacts.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-gray-500">No contacts found</td></tr>}
             </tbody>
           </table>
         </div>
@@ -130,6 +158,14 @@ export default function Contacts() {
           ))}
         </div>}
       </div>
+
+      {selected.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 border border-white/10 rounded-2xl px-5 py-3 flex items-center gap-4 shadow-2xl backdrop-blur-xl">
+          <span className="text-white text-sm">{selected.length} selected</span>
+          <button onClick={handleBulkDelete} className="px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-all">Delete Selected</button>
+          <button onClick={() => setSelected([])} className="text-gray-400 hover:text-white text-sm transition-all">Cancel</button>
+        </div>
+      )}
 
       <AnimatePresence>
         {showModal && (

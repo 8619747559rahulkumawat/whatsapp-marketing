@@ -1,4 +1,4 @@
-import { useState, useEffect, memo } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,6 +13,7 @@ import {
   HiOutlineSparkles, HiOutlineCreditCard, HiOutlineCheckCircle,
   HiOutlineClipboardList, HiOutlineLockClosed, HiOutlineClock, HiOutlineDatabase,
   HiOutlineSwitchHorizontal, HiOutlineUpload, HiOutlineEye, HiOutlineRefresh, HiOutlineTrash,
+  HiOutlineSearch,
 } from 'react-icons/hi';
 import { FaWhatsapp, FaBrain, FaRobot } from 'react-icons/fa';
 
@@ -64,6 +65,18 @@ const Sidebar = memo(function Sidebar({ isOpen, setIsOpen, collapsed, setCollaps
   const { user, logout } = useAuth();
   const [chatUnread, setChatUnread] = useState(getUnreadCount());
   const [showLockPopup, setShowLockPopup] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const sidebarRef = useRef(null);
+
+  const [isDesktop, setIsDesktop] = useState(
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : false
+  );
+
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   useEffect(() => onUnreadChange(setChatUnread), []);
 
@@ -144,13 +157,39 @@ const Sidebar = memo(function Sidebar({ isOpen, setIsOpen, collapsed, setCollaps
         )}
       </AnimatePresence>
 
-      <aside
-        className={`fixed top-0 left-0 h-full z-40 bg-gradient-to-b from-[#1e0b4a] via-[#0f0326] to-[#1a0533] border-r border-white/5 overflow-y-auto transition-all duration-300 sidebar-scroll ${collapsed ? 'w-full sm:w-20' : 'w-full sm:w-64'} ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
+      {!isDesktop && !isOpen && (
+        <motion.div
+          className="fixed left-0 top-0 w-5 h-full z-30"
+          drag="x"
+          dragConstraints={{ left: 0, right: 300 }}
+          dragElastic={0.2}
+          onDragEnd={(_, { offset }) => {
+            if (offset.x > 80) setIsOpen(true);
+          }}
+          style={{ touchAction: 'none' }}
+        />
+      )}
+
+      <motion.aside
+        ref={sidebarRef}
+        initial={false}
+        animate={{ x: isDesktop ? 0 : (isOpen ? 0 : '-100%') }}
+        transition={{ type: 'tween', duration: 0.3, ease: 'easeInOut' }}
+        drag={isDesktop ? false : 'x'}
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.2}
+        onDragEnd={(_, { offset }) => {
+          if (offset.x > 80) setIsOpen(true);
+          else if (offset.x < -80) setIsOpen(false);
+        }}
+        whileTap={{ cursor: 'grabbing' }}
+        style={{ touchAction: 'pan-y' }}
+        className={`fixed top-0 left-0 h-full z-40 bg-gradient-to-b from-[#1e0b4a] via-[#0f0326] to-[#1a0533] border-r border-white/5 overflow-y-auto sidebar-scroll ${collapsed ? 'w-full sm:w-20' : 'w-full sm:w-64'}`}
       >
         <div className="p-5 lg:p-6 border-b border-white/10">
           <Link to="/dashboard" className="flex items-center gap-3" onClick={() => setIsOpen(false)}>
             <div className="w-10 h-10 lg:w-14 lg:h-14 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
-              <img src="/logo.jpeg" alt="RSendix.pro" className="w-full h-full object-cover" />
+              <picture><source srcSet="/logo.webp" type="image/webp" /><img src="/logo.jpeg" alt="RSendix.pro" className="w-full h-full object-cover" /></picture>
             </div>
             {!collapsed && (
               <div className="min-w-0">
@@ -170,12 +209,30 @@ const Sidebar = memo(function Sidebar({ isOpen, setIsOpen, collapsed, setCollaps
           </button>
         </div>
 
+        {!collapsed && (
+          <div className="px-4 mb-2 relative">
+            <HiOutlineSearch className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-500 text-base" />
+            <input
+              type="text"
+              placeholder="Search pages..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+            />
+          </div>
+        )}
+
         <nav className="p-4 sm:p-4 space-y-1">
-          {userNav.map(item => (
+          {userNav
+            .filter(item => item.label.toLowerCase().includes(searchQuery.toLowerCase()))
+            .map(item => (
             <NavLink key={item.path} item={item} onClick={() => setIsOpen(false)} />
           ))}
 
-          {isSuperAdmin && superAdminNav.map(section => (
+          {isSuperAdmin && superAdminNav.map(section => ({
+            ...section,
+            items: section.items.filter(item => item.label.toLowerCase().includes(searchQuery.toLowerCase()))
+          })).filter(section => section.items.length > 0).map(section => (
             <NavSection key={section.section} title={section.section} items={section.items} />
           ))}
         </nav>
@@ -200,7 +257,7 @@ const Sidebar = memo(function Sidebar({ isOpen, setIsOpen, collapsed, setCollaps
             {!collapsed && <span className="text-sm font-medium">Logout</span>}
           </button>
         </div>
-      </aside>
+      </motion.aside>
 
       <SubscribePopup
         isOpen={showLockPopup}

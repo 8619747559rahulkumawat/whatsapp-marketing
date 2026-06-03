@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import API from '../utils/api';
 import { HiOutlinePlus, HiOutlinePlay, HiOutlinePause, HiOutlineTrash } from 'react-icons/hi';
-import { FaRocket, FaWhatsapp } from 'react-icons/fa';
+import { useAutoSave } from '../hooks/useAutoSave';
+import FormField from '../components/FormField';
 
 const campaignTypes = ['bulk', 'dp', 'button', 'premium', 'brand', 'scheduled'];
 const messageTypes = ['text', 'image', 'video', 'document', 'audio'];
@@ -19,10 +20,40 @@ export default function Campaigns() {
   });
   const [contacts, setContacts] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [draftIndicator, setDraftIndicator] = useState(false);
+
+  const { restore, clearDraft, hasDraft } = useAutoSave('campaign_draft', form);
+
+  const handleChange = useCallback((name, value) => {
+    setForm(prev => ({ ...prev, [name]: value }));
+  }, []);
+
+  useEffect(() => {
+    if (hasDraft()) {
+      const saved = restore();
+      if (saved && saved.name) {
+        if (confirm('You have an unsaved campaign draft. Would you like to restore it?')) {
+          setForm(saved);
+        } else {
+          clearDraft();
+        }
+      }
+    }
+  }, []); // eslint-disable-line
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (!showModal || !form.name) return;
+    setDraftIndicator(false);
+    const timer = setTimeout(() => {
+      setDraftIndicator(true);
+      setTimeout(() => setDraftIndicator(false), 2000);
+    }, 2000);
+    return () => { clearTimeout(timer); setDraftIndicator(false); };
+  }, [form, showModal]);
 
   const fetchData = async () => {
     try {
@@ -58,6 +89,7 @@ export default function Campaigns() {
     e.preventDefault();
     try {
       await API.post('/campaigns', form);
+      clearDraft();
       setShowModal(false);
       setForm({ name: '', type: 'bulk', sessionId: '', messageType: 'text', message: '', delay: 2000, isPersonalized: false, contactIds: [], groupIds: [], buttons: [] });
       fetchData();
@@ -144,45 +176,49 @@ export default function Campaigns() {
         {showModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
             <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-[#1a1a2e] rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-white/10" onClick={e => e.stopPropagation()}>
-              <h2 className="text-xl font-bold text-white mb-6">Create New Campaign</h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-white">Create New Campaign</h2>
+                <AnimatePresence>
+                  {draftIndicator && (
+                    <motion.span
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="text-xs text-green-400 bg-green-500/10 px-2.5 py-1 rounded-full"
+                    >
+                      Draft saved
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
               <form onSubmit={handleCreate} className="space-y-4">
+                <FormField label="Campaign Name" name="name" value={form.name} onChange={handleChange} required />
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Campaign Name</label>
-                    <input className="input-field" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Campaign Type</label>
-                    <select className="input-field" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
+                  <FormField label="Campaign Type" name="type">
+                    <select className="input-field" value={form.type} onChange={e => handleChange('type', e.target.value)}>
                       {campaignTypes.map(t => <option key={t} value={t} className="capitalize">{t}</option>)}
                     </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Message Type</label>
-                    <select className="input-field" value={form.messageType} onChange={e => setForm({ ...form, messageType: e.target.value })}>
+                  </FormField>
+                  <FormField label="Message Type" name="messageType">
+                    <select className="input-field" value={form.messageType} onChange={e => handleChange('messageType', e.target.value)}>
                       {messageTypes.map(t => <option key={t} value={t} className="capitalize">{t}</option>)}
                     </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">WhatsApp Session</label>
-                    <select className="input-field" value={form.sessionId} onChange={e => setForm({ ...form, sessionId: e.target.value })} required>
+                  </FormField>
+                  <FormField label="WhatsApp Session" name="sessionId">
+                    <select className="input-field" value={form.sessionId} onChange={e => handleChange('sessionId', e.target.value)} required>
                       <option value="">Select Session</option>
                       {sessions.filter(s => s.status === 'connected').map(s => (
                         <option key={s._id} value={s._id}>{s.name} ({s.phoneNumber || 'No phone'})</option>
                       ))}
                     </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Delay (ms)</label>
-                     <input type="number" className="input-field" value={form.delay} onChange={e => setForm({ ...form, delay: parseInt(e.target.value) })} />
-                  </div>
+                  </FormField>
+                  <FormField label="Delay (ms)" name="delay" type="number" value={form.delay} onChange={handleChange} />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Message Content</label>
-                  <textarea className="input-field h-24" value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} placeholder="Use {name}, {phone}, {email} for personalization" required />
-                </div>
+                <FormField label="Message Content" name="message">
+                  <textarea className="input-field h-24" value={form.message} onChange={e => handleChange('message', e.target.value)} placeholder="Use {name}, {phone}, {email} for personalization" required />
+                </FormField>
                 <div className="flex items-center gap-2">
-                  <input type="checkbox" checked={form.isPersonalized} onChange={e => setForm({ ...form, isPersonalized: e.target.checked })} className="rounded" />
+                  <input type="checkbox" checked={form.isPersonalized} onChange={e => handleChange('isPersonalized', e.target.checked)} className="rounded" />
                   <label className="text-sm text-gray-300">Enable Personalization</label>
                 </div>
                 <div className="flex gap-3 justify-end pt-4">

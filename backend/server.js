@@ -112,12 +112,23 @@ app.get('/qr/:id', async (req, res) => {
 
 const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
 if (fs.existsSync(frontendDist)) {
-  app.use(express.static(frontendDist));
+  app.use(express.static(frontendDist, {
+    maxAge: '7d',
+    immutable: true,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      } else if (filePath.match(/\.(js|css|webp|png|jpg|jpeg|svg|ico)$/)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+    }
+  }));
   app.get('*', (req, res) => {
     const isApiRequest = req.path === '/api' || req.path.startsWith('/api/');
     if (isApiRequest) {
       return res.status(404).json({ success: false, message: 'API route not found' });
     }
+    res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(path.join(frontendDist, 'index.html'));
   });
   console.log('Serving frontend from:', frontendDist);
