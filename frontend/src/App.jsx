@@ -41,6 +41,22 @@ const Cleanup = lazy(() => import('./pages/Cleanup'));
 const ImportContacts = lazy(() => import('./pages/ImportContacts'));
 const MessagePreview = lazy(() => import('./pages/MessagePreview'));
 const FollowUp = lazy(() => import('./pages/FollowUp'));
+const Deals = lazy(() => import('./pages/Deals'));
+const Tasks = lazy(() => import('./pages/Tasks'));
+const Email = lazy(() => import('./pages/Email'));
+const Products = lazy(() => import('./pages/Products'));
+const Quotes = lazy(() => import('./pages/Quotes'));
+const Meetings = lazy(() => import('./pages/Meetings'));
+const WebForms = lazy(() => import('./pages/WebForms'));
+const CrmDashboard = lazy(() => import('./pages/CrmDashboard'));
+const EmailCampaigns = lazy(() => import('./pages/EmailCampaigns'));
+const SmsCampaigns = lazy(() => import('./pages/SmsCampaigns'));
+const EmailTemplates = lazy(() => import('./pages/EmailTemplates'));
+const Goals = lazy(() => import('./pages/Goals'));
+const Contracts = lazy(() => import('./pages/Contracts'));
+const Surveys = lazy(() => import('./pages/Surveys'));
+const Webhooks = lazy(() => import('./pages/Webhooks'));
+const Roles = lazy(() => import('./pages/Roles'));
 
 function PageLoader() {
   const [show, setShow] = useState(false);
@@ -115,6 +131,22 @@ export default function App() {
           <Route path="/import-contacts" element={<ImportContacts />} />
           <Route path="/message-preview" element={<MessagePreview />} />
           <Route path="/follow-up" element={<FollowUp />} />
+          <Route path="/deals" element={<Deals />} />
+          <Route path="/tasks" element={<Tasks />} />
+          <Route path="/email" element={<Email />} />
+          <Route path="/products" element={<Products />} />
+          <Route path="/quotes" element={<Quotes />} />
+          <Route path="/meetings" element={<Meetings />} />
+          <Route path="/webforms" element={<WebForms />} />
+          <Route path="/crm" element={<CrmDashboard />} />
+          <Route path="/email-campaigns" element={<EmailCampaigns />} />
+          <Route path="/sms-campaigns" element={<SmsCampaigns />} />
+          <Route path="/email-templates" element={<EmailTemplates />} />
+          <Route path="/goals" element={<Goals />} />
+          <Route path="/contracts" element={<Contracts />} />
+          <Route path="/surveys" element={<Surveys />} />
+          <Route path="/webhooks" element={<Webhooks />} />
+          <Route path="/roles" element={<Roles />} />
         </Route>
 
         <Route element={<AdminRoute><DashboardLayout /></AdminRoute>}>

@@ -13,7 +13,7 @@ import {
   HiOutlineSparkles, HiOutlineCreditCard, HiOutlineCheckCircle,
   HiOutlineClipboardList, HiOutlineLockClosed, HiOutlineClock, HiOutlineDatabase,
   HiOutlineSwitchHorizontal, HiOutlineUpload, HiOutlineEye, HiOutlineRefresh, HiOutlineTrash,
-  HiOutlineSearch,
+  HiOutlineSearch, HiOutlineTrendingUp,
 } from 'react-icons/hi';
 import { FaWhatsapp, FaBrain, FaRobot } from 'react-icons/fa';
 
@@ -47,6 +47,7 @@ const userNav = [
   { path: '/settings', label: 'Settings', icon: HiOutlineCog },
   { path: '/auto-reply', label: 'Auto Reply', icon: HiOutlineSwitchHorizontal },
   { path: '/follow-up', label: 'Follow-up', icon: HiOutlineRefresh },
+  { path: '/crm', label: 'CRM', icon: HiOutlineTrendingUp },
   { path: '/cleanup', label: 'Cleanup', icon: HiOutlineTrash },
   { path: '/import-contacts', label: 'Import Contacts', icon: HiOutlineUpload },
   { path: '/message-preview', label: 'Preview', icon: HiOutlineEye },

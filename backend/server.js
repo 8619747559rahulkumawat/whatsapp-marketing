@@ -91,7 +91,29 @@ app.use('/api/cleanup', require('./routes/cleanup'));
 app.use('/api/import-contacts', require('./routes/importContacts'));
 app.use('/api/preview', require('./routes/preview'));
 app.use('/api/follow-up', require('./routes/followUp'));
-
+app.use('/api/deals', require('./routes/deals'));
+app.use('/api/activities', require('./routes/activities'));
+app.use('/api/tasks', require('./routes/tasks'));
+app.use('/api/email', require('./routes/email'));
+app.use('/api/products', require('./routes/products'));
+app.use('/api/quotes', require('./routes/quotes'));
+app.use('/api/meetings', require('./routes/meetings'));
+app.use('/api/webforms', require('./routes/webforms'));
+app.use('/f', require('./routes/webforms').publicRouter);
+app.use('/api/lead-scores', require('./routes/leadScores'));
+app.use('/api/email-campaigns', require('./routes/emailCampaigns'));
+app.use('/t', require('./routes/emailCampaigns').publicRouter);
+app.use('/api/sms-campaigns', require('./routes/smsCampaigns'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/dashboard-configs', require('./routes/dashboardConfigs'));
+app.use('/api/email-templates', require('./routes/emailTemplates'));
+app.use('/api/goals', require('./routes/goals'));
+app.use('/api/contracts', require('./routes/contracts'));
+app.use('/api/surveys', require('./routes/surveys'));
+app.use('/api/webhooks/api', require('./routes/webhooks'));
+app.use('/api/roles', require('./routes/roles'));
+app.use('/api/email-sync', require('./routes/emailSync'));
+app.use('/s', require('./routes/surveys').publicRouter);
 
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'RSendix.pro API is running', timestamp: new Date().toISOString() });
