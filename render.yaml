@@ -11,7 +11,7 @@ services:
       - key: PORT
         value: "10000"
       - key: MONGODB_URI
-        value: will-use-in-memory-fallback
+        value: mongodb+srv://rsendix_admin:RSendixPro2026!@cluster0.exeq63f.mongodb.net/whatsapp_marketing?retryWrites=true&w=majority
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN

@@ -218,26 +218,11 @@ function startServer() {
 }
 
 async function connectDB() {
-  try {
-    await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000,
-      bufferCommands: false
-    });
-    console.log('MongoDB connected successfully');
-    return true;
-  } catch (err) {
-    console.warn('MongoDB connection failed:', err.message);
-    if (process.env.NODE_ENV === 'production') {
-      console.log('Starting in-memory MongoDB...');
-      const { MongoMemoryServer } = require('mongodb-memory-server-core');
-      const mongod = await MongoMemoryServer.create();
-      const uri = mongod.getUri();
-      await mongoose.connect(uri, { bufferCommands: false });
-      console.log('In-memory MongoDB connected:', uri);
-      return true;
-    }
-    throw err;
-  }
+  await mongoose.connect(MONGODB_URI, {
+    serverSelectionTimeoutMS: 10000,
+    bufferCommands: false
+  });
+  console.log('MongoDB connected successfully');
 }
 
 connectDB()
