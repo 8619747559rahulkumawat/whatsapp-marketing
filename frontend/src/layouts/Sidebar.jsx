@@ -84,14 +84,14 @@ export default function Sidebar({ isOpen, setIsOpen, collapsed, setCollapsed }) 
     const Icon = item.icon;
     const locked = isPathLocked(item.path);
 
-    if (locked) {
-      return (
-        <div
-          onClick={() => setShowLockPopup(true)}
-          className="flex items-center gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-xl transition-all duration-200 relative cursor-pointer opacity-50 text-gray-400 hover:bg-white/5"
-        >
-          <HiOutlineLockClosed className="text-base lg:text-xl flex-shrink-0 text-orange-400" />
-          {!collapsed && <span className="text-xs lg:text-sm font-medium flex-1">{item.label}</span>}
+      if (locked) {
+        return (
+          <div
+            onClick={() => setShowLockPopup(true)}
+            className="flex items-center gap-3 px-4 lg:px-4 py-3 lg:py-3 rounded-xl transition-all duration-200 relative cursor-pointer opacity-50 text-gray-400 hover:bg-white/5"
+          >
+          <HiOutlineLockClosed className="text-lg lg:text-xl flex-shrink-0 text-orange-400" />
+          {!collapsed && <span className="text-sm lg:text-sm font-medium flex-1">{item.label}</span>}
           {!collapsed && <span className="text-[10px] text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded-full">Locked</span>}
         </div>
       );
@@ -99,11 +99,11 @@ export default function Sidebar({ isOpen, setIsOpen, collapsed, setCollapsed }) 
 
     return (
       <Link to={item.path} onClick={onClick}>
-        <div className={`flex items-center gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-xl transition-all duration-200 relative
+        <div className={`flex items-center gap-3 px-4 lg:px-4 py-3 lg:py-3 rounded-xl transition-all duration-200 relative
           ${isActive(item.path) ? 'bg-purple-600/20 text-purple-300 border border-purple-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
         >
-          <Icon className="text-base lg:text-xl flex-shrink-0" />
-          {!collapsed && <span className="text-xs lg:text-sm font-medium">{item.label}</span>}
+          <Icon className="text-lg lg:text-xl flex-shrink-0" />
+          {!collapsed && <span className="text-sm lg:text-sm font-medium">{item.label}</span>}
           {item.path === '/live-chat' && chatUnread > 0 && (
             <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{chatUnread > 99 ? '99+' : chatUnread}</span>
           )}
@@ -147,15 +147,15 @@ export default function Sidebar({ isOpen, setIsOpen, collapsed, setCollapsed }) 
       <aside
         className={`fixed top-0 left-0 h-full z-40 bg-gradient-to-b from-[#1e0b4a] via-[#0f0326] to-[#1a0533] border-r border-white/5 overflow-y-auto transition-all duration-300 sidebar-scroll ${collapsed ? 'w-full sm:w-20' : 'w-full sm:w-64'} ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
       >
-        <div className="p-4 lg:p-6 border-b border-white/10">
+        <div className="p-5 lg:p-6 border-b border-white/10">
           <Link to="/dashboard" className="flex items-center gap-3" onClick={() => setIsOpen(false)}>
             <div className="w-10 h-10 lg:w-14 lg:h-14 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
               <img src="/logo.jpeg" alt="RSendix.pro" className="w-full h-full object-cover" />
             </div>
             {!collapsed && (
               <div className="min-w-0">
-                <h1 className="text-white font-bold text-sm lg:text-lg truncate">RSendix.pro</h1>
-                <p className="text-gray-400 text-[10px] lg:text-xs truncate hidden sm:block">SMART BULK MESSAGING PLATFORM</p>
+                <h1 className="text-white font-bold text-base lg:text-lg truncate">RSendix.pro</h1>
+                <p className="text-gray-400 text-xs lg:text-xs truncate hidden sm:block">SMART BULK MESSAGING PLATFORM</p>
               </div>
             )}
           </Link>
@@ -170,7 +170,7 @@ export default function Sidebar({ isOpen, setIsOpen, collapsed, setCollapsed }) 
           </button>
         </div>
 
-        <nav className="p-4 space-y-1">
+        <nav className="p-4 sm:p-4 space-y-1">
           {userNav.map(item => (
             <NavLink key={item.path} item={item} onClick={() => setIsOpen(false)} />
           ))}
@@ -181,7 +181,7 @@ export default function Sidebar({ isOpen, setIsOpen, collapsed, setCollapsed }) 
         </nav>
 
         <div className="sticky bottom-0 left-0 right-0 p-4 border-t border-white/10 bg-gradient-to-b from-transparent via-[#16213e] to-[#0f3460]">
-          <div className="flex items-center gap-3 px-4 py-2 mb-2">
+          <div className="flex items-center gap-3 px-4 sm:px-4 py-3 sm:py-2 mb-2">
             <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
               {user?.name?.charAt(0)?.toUpperCase() || 'U'}
             </div>
@@ -194,7 +194,7 @@ export default function Sidebar({ isOpen, setIsOpen, collapsed, setCollapsed }) 
           </div>
           <button
             onClick={() => { logout(); setIsOpen(false); }}
-            className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all w-full"
+            className="flex items-center gap-3 px-4 py-3 sm:py-3 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all w-full"
           >
             <HiOutlineLogout className="text-xl flex-shrink-0" />
             {!collapsed && <span className="text-sm font-medium">Logout</span>}
