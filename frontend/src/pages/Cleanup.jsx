@@ -30,11 +30,11 @@ export default function Cleanup() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Smart List Cleanup</h1>
-        <p className="text-gray-400 text-sm mt-1">Remove inactive numbers that are not on WhatsApp</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-white">Smart List Cleanup</h1>
+        <p className="text-gray-400 text-xs sm:text-sm mt-1">Remove inactive numbers that are not on WhatsApp</p>
       </div>
 
-      <div className="glass-card p-6 max-w-xl">
+      <div className="glass-card p-4 sm:p-6 max-w-xl">
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">WhatsApp Session</label>
@@ -60,19 +60,19 @@ export default function Cleanup() {
             <h3 className="text-white font-semibold mb-3">Results</h3>
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3 bg-white/5 rounded-lg text-center">
-                <p className="text-2xl font-bold text-white">{result.total}</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">{result.total}</p>
                 <p className="text-xs text-gray-400">Total Checked</p>
               </div>
               <div className="p-3 bg-green-500/10 rounded-lg text-center">
-                <p className="text-2xl font-bold text-green-400">{result.active}</p>
+                <p className="text-xl sm:text-2xl font-bold text-green-400">{result.active}</p>
                 <p className="text-xs text-gray-400">Active (WhatsApp)</p>
               </div>
               <div className="p-3 bg-yellow-500/10 rounded-lg text-center">
-                <p className="text-2xl font-bold text-yellow-400">{result.inactive}</p>
+                <p className="text-xl sm:text-2xl font-bold text-yellow-400">{result.inactive}</p>
                 <p className="text-xs text-gray-400">Inactive (Kept)</p>
               </div>
               <div className="p-3 bg-red-500/10 rounded-lg text-center">
-                <p className="text-2xl font-bold text-red-400">{result.removed}</p>
+                <p className="text-xl sm:text-2xl font-bold text-red-400">{result.removed}</p>
                 <p className="text-xs text-gray-400">Removed</p>
               </div>
             </div>

@@ -53,15 +53,15 @@ export default function DashboardLayout() {
     <div className={`min-h-screen ${isAdmin ? 'admin-bg' : 'bg-[#0f0f1a]'}`}>
       {isAdmin && (
         <>
-          <div className="admin-orb admin-orb-1" />
-          <div className="admin-orb admin-orb-2" />
-          <div className="admin-orb admin-orb-3" />
-          <div className="admin-ring admin-ring-1" />
-          <div className="admin-ring admin-ring-2" />
-          <div className="admin-shape admin-diamond admin-diamond-1" />
-          <div className="admin-shape admin-diamond admin-diamond-2" />
-          <div className="admin-shape admin-rect admin-rect-1" />
-          <div className="admin-shape admin-rect admin-rect-2" />
+          <div className="admin-orb admin-orb-1 hidden sm:block" />
+          <div className="admin-orb admin-orb-2 hidden sm:block" />
+          <div className="admin-orb admin-orb-3 hidden sm:block" />
+          <div className="admin-ring admin-ring-1 hidden sm:block" />
+          <div className="admin-ring admin-ring-2 hidden sm:block" />
+          <div className="admin-shape admin-diamond admin-diamond-1 hidden sm:block" />
+          <div className="admin-shape admin-diamond admin-diamond-2 hidden sm:block" />
+          <div className="admin-shape admin-rect admin-rect-1 hidden sm:block" />
+          <div className="admin-shape admin-rect admin-rect-2 hidden sm:block" />
         </>
       )}
       <div className="relative z-10">

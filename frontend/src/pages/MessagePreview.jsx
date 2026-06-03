@@ -42,12 +42,12 @@ export default function MessagePreview() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Message Preview</h1>
-        <p className="text-gray-400 text-sm mt-1">Preview how your message will look before sending</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-white">Message Preview</h1>
+        <p className="text-gray-400 text-xs sm:text-sm mt-1">Preview how your message will look before sending</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="glass-card p-6">
+        <div className="glass-card p-4 sm:p-6">
           <h2 className="text-white font-semibold mb-4">Template</h2>
           <div className="space-y-4">
             <div>
@@ -80,14 +80,14 @@ export default function MessagePreview() {
               </div>
             </div>
 
-            <button onClick={handlePreview} disabled={loading || !template} className="btn-primary w-full flex items-center justify-center gap-2">
+            <button onClick={handlePreview} disabled={loading || !template} className="btn-primary w-full flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm">
               {loading ? <span className="animate-spin">⟳</span> : <HiOutlineEye />}
               {loading ? 'Rendering...' : 'Preview'}
             </button>
           </div>
         </div>
 
-        <div className="glass-card p-6">
+        <div className="glass-card p-4 sm:p-6">
           <h2 className="text-white font-semibold mb-4">Preview</h2>
           {preview ? (
             <div className="space-y-4">

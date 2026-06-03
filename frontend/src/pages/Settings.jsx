@@ -92,8 +92,8 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Settings</h1>
-        <p className="text-gray-400 text-sm mt-1">Manage your account settings</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-white">Settings</h1>
+        <p className="text-gray-400 text-xs sm:text-sm mt-1">Manage your account settings</p>
       </div>
 
       {message.text && (
@@ -108,14 +108,14 @@ export default function Settings() {
 
       <div className="flex gap-2 flex-wrap">
         {['profile', 'password', ...(user?.role === 'admin' || user?.role === 'super_admin' ? ['credits'] : [])].map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-2 rounded-xl text-sm font-medium capitalize transition-all ${activeTab === tab ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium capitalize transition-all ${activeTab === tab ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
             {tab === 'profile' ? <span className="flex items-center gap-2"><HiOutlineUser /> Profile</span> : tab === 'password' ? <span className="flex items-center gap-2"><HiOutlineLockClosed /> Password</span> : <span className="flex items-center gap-2"><HiOutlineCash /> Credits</span>}
           </button>
         ))}
       </div>
 
       {activeTab === 'profile' && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-6 max-w-lg">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-4 sm:p-6 max-w-lg">
           <form onSubmit={handleProfileUpdate} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Name</label>
@@ -132,7 +132,7 @@ export default function Settings() {
             <div className="flex items-center gap-3 p-3 rounded-xl bg-purple-500/10 text-purple-300 text-sm">
               <FaWhatsapp /> Credits: {user?.credits?.toLocaleString() || 0}
             </div>
-            <button type="submit" disabled={saving} className="btn-primary px-6 py-2 rounded-xl text-white flex items-center gap-2">
+            <button type="submit" disabled={saving} className="btn-primary px-4 sm:px-6 py-2 rounded-xl text-white flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
               <HiOutlineSaveAs /> {saving ? 'Saving...' : 'Save Changes'}
             </button>
           </form>
@@ -140,7 +140,7 @@ export default function Settings() {
       )}
 
       {activeTab === 'password' && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-6 max-w-lg">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-4 sm:p-6 max-w-lg">
           <form onSubmit={handlePasswordChange} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Current Password</label>
@@ -154,7 +154,7 @@ export default function Settings() {
               <label className="block text-sm font-medium text-gray-300 mb-2">Confirm New Password</label>
               <input type="password" className="input-field" value={password.confirmPassword} onChange={e => setPassword({ ...password, confirmPassword: e.target.value })} required />
             </div>
-            <button type="submit" disabled={saving} className="btn-primary px-6 py-2 rounded-xl text-white">
+            <button type="submit" disabled={saving} className="btn-primary px-4 sm:px-6 py-2 rounded-xl text-white text-xs sm:text-sm">
               {saving ? 'Changing...' : 'Change Password'}
             </button>
           </form>
@@ -163,7 +163,7 @@ export default function Settings() {
 
       {activeTab === 'credits' && (user?.role === 'admin' || user?.role === 'super_admin') && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 max-w-lg">
-          <div className="glass-card p-6">
+          <div className="glass-card p-4 sm:p-6">
             <h3 className="text-white font-semibold mb-4 flex items-center gap-2"><HiOutlineCash /> Credit Price Settings</h3>
             <div className="p-4 rounded-xl bg-purple-500/10 text-purple-300 mb-4 text-sm">
               Current Rate: <strong>1 Credit = {creditRate} Rs</strong>
@@ -174,13 +174,13 @@ export default function Settings() {
                 <input type="number" step="0.01" min="0.01" className="input-field" value={newRate} onChange={e => setNewRate(e.target.value)} required />
               </div>
               <p className="text-gray-400 text-xs">Example: 0.15 means client pays 150 Rs for 1000 Credits</p>
-              <button type="submit" disabled={saving} className="btn-primary px-6 py-2 rounded-xl text-white">
+              <button type="submit" disabled={saving} className="btn-primary px-4 sm:px-6 py-2 rounded-xl text-white text-xs sm:text-sm">
                 {saving ? 'Saving...' : 'Save Rate'}
               </button>
             </form>
           </div>
 
-          <div className="glass-card p-6">
+          <div className="glass-card p-4 sm:p-6">
             <h3 className="text-white font-semibold mb-4 flex items-center gap-2"><HiOutlineCash /> Admin Credits</h3>
             <div className="p-4 rounded-xl bg-purple-500/10 text-purple-300 mb-4 text-sm">
               Your Credits: <strong>{user?.credits?.toLocaleString() || 0}</strong>
@@ -195,7 +195,7 @@ export default function Settings() {
                   Price: <strong>{(parseFloat(creditAmount) * parseFloat(creditRate)).toLocaleString()} Rs</strong>
                 </div>
               )}
-              <button type="submit" disabled={saving} className="btn-primary px-6 py-2 rounded-xl text-white">
+              <button type="submit" disabled={saving} className="btn-primary px-4 sm:px-6 py-2 rounded-xl text-white text-xs sm:text-sm">
                 {saving ? 'Updating...' : 'Update Credits'}
               </button>
             </form>

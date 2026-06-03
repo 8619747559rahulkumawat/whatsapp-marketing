@@ -153,12 +153,12 @@ export default function GroupScraper() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Group Contact Scraper</h1>
-          <p className="text-gray-400 text-sm mt-1">Extract members from WhatsApp groups</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Group Contact Scraper</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Extract members from WhatsApp groups</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <select className="input-field text-sm py-1.5" value={exportSessionId} onChange={e => setExportSessionId(e.target.value)}>
               <option value="">Select session</option>
@@ -172,26 +172,26 @@ export default function GroupScraper() {
               {exportingContacts ? 'Exporting...' : 'Export Contacts'}
             </button>
           </div>
-          <button onClick={() => setShowScrapeModal(true)} className="btn-primary px-4 py-2 rounded-xl text-white text-sm font-medium flex items-center gap-2">
+          <button onClick={() => setShowScrapeModal(true)} className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2">
             <FaUserPlus /> Scrape Group
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="glass-card p-5 text-center">
-          <HiOutlineUsers className="text-3xl text-purple-400 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-white">{scrapes.length}</p>
+        <div className="glass-card p-4 sm:p-5 text-center">
+          <HiOutlineUsers className="text-2xl sm:text-3xl text-purple-400 mx-auto mb-2" />
+          <p className="text-xl sm:text-2xl font-bold text-white">{scrapes.length}</p>
           <p className="text-gray-400 text-sm">Groups Scraped</p>
         </div>
-        <div className="glass-card p-5 text-center">
-          <FaWhatsapp className="text-3xl text-green-400 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-white">{scrapes.reduce((s, g) => s + (g.totalMembers || g.participants?.length || 0), 0)}</p>
+        <div className="glass-card p-4 sm:p-5 text-center">
+          <FaWhatsapp className="text-2xl sm:text-3xl text-green-400 mx-auto mb-2" />
+          <p className="text-xl sm:text-2xl font-bold text-white">{scrapes.reduce((s, g) => s + (g.totalMembers || g.participants?.length || 0), 0)}</p>
           <p className="text-gray-400 text-sm">Total Members</p>
         </div>
-        <div className="glass-card p-5 text-center">
-          <HiOutlineDownload className="text-3xl text-blue-400 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-white">{scrapes.filter(s => s.imported).length}</p>
+        <div className="glass-card p-4 sm:p-5 text-center">
+          <HiOutlineDownload className="text-2xl sm:text-3xl text-blue-400 mx-auto mb-2" />
+          <p className="text-xl sm:text-2xl font-bold text-white">{scrapes.filter(s => s.imported).length}</p>
           <p className="text-gray-400 text-sm">Imported to Contacts</p>
         </div>
       </div>

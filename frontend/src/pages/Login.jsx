@@ -52,8 +52,8 @@ export default function Login() {
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-4 overflow-hidden mx-auto ring-2 ring-purple-500/30">
             <img src="/logo.jpeg" alt="RSendix.pro" className="w-full h-full object-cover" />
           </div>
-          <h1 className="auth-logo-text text-3xl font-bold">RSendix.pro</h1>
-          <p className="auth-logo-sub mt-1 text-sm font-medium tracking-wider">SMART BULK MESSAGING PLATFORM</p>
+          <h1 className="auth-logo-text text-2xl sm:text-3xl font-bold">RSendix.pro</h1>
+          <p className="auth-logo-sub mt-1 text-xs sm:text-sm font-medium tracking-wider">SMART BULK MESSAGING PLATFORM</p>
           <p className="auth-logo-desc mt-2">Sign in to your account</p>
         </div>
 

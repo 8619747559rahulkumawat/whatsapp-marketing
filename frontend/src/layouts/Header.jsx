@@ -53,22 +53,24 @@ export default function Header({ setSidebarOpen, collapsed }) {
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1 sm:gap-4">
           {showLockWarning ? (
-            <Link to="/billing" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500/10 text-orange-300 border border-orange-500/20 text-sm font-medium hover:bg-orange-500/20 transition-all">
-              <HiOutlineLockClosed />
-              <span>0 Credits - Subscribe</span>
+            <Link to="/billing" className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-xl bg-orange-500/10 text-orange-300 border border-orange-500/20 text-xs sm:text-sm font-medium hover:bg-orange-500/20 transition-all">
+              <HiOutlineLockClosed size={16} className="hidden sm:block" />
+              <span className="hidden sm:inline">0 Credits -</span>
+              <span>Subscribe</span>
             </Link>
           ) : (
-            <Link to="/wallet" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600/10 text-purple-300 border border-purple-500/20 text-sm font-medium hover:bg-purple-600/20 transition-all">
-              <HiOutlineCash />
-              <span>{credits?.toLocaleString() || 0} Credits</span>
+            <Link to="/wallet" className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-xl bg-purple-600/10 text-purple-300 border border-purple-500/20 text-xs sm:text-sm font-medium hover:bg-purple-600/20 transition-all">
+              <HiOutlineCash size={16} />
+              <span className="hidden sm:inline">{credits?.toLocaleString() || 0}</span>
+              <span className="sm:hidden">{(credits/1000).toFixed(1)}k</span>
             </Link>
           )}
 
-          <button className="relative p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all">
-            <HiOutlineBell size={22} />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+          <button className="relative p-1.5 sm:p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all">
+            <HiOutlineBell size={18} className="sm:size-[22px]" />
+            <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-red-500 rounded-full" />
           </button>
 
           <div className="relative" ref={dropdownRef}>

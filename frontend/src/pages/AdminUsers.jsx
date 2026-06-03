@@ -116,18 +116,18 @@ export default function AdminUsers() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">User Management</h1>
-          <p className="text-gray-400 text-sm mt-1">Manage all platform users</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">User Management</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Manage all platform users</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={() => setShowCreateModal(true)} className="btn-primary px-4 py-2 rounded-xl text-white text-sm font-medium flex items-center gap-2">
-            <HiOutlinePlus /> Create User
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <button onClick={() => setShowCreateModal(true)} className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2">
+            <HiOutlinePlus /> <span className="hidden sm:inline">Create User</span><span className="sm:hidden">User</span>
           </button>
           <div className="relative">
             <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input className="input-field pl-10 py-2 w-64" placeholder="Search users..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+            <input className="input-field pl-10 py-2 w-full sm:w-64" placeholder="Search users..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
           </div>
         </div>
       </div>
@@ -136,37 +136,37 @@ export default function AdminUsers() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr className="table-header">
-              <th className="p-4 text-left">User</th>
-              <th className="p-4 text-left">Email</th>
-              <th className="p-4 text-left">Role</th>
-              <th className="p-4 text-left">Plan</th>
-              <th className="p-4 text-left">Credits</th>
-              <th className="p-4 text-left">Status</th>
-              <th className="p-4 text-left">Joined</th>
-              <th className="p-4 text-left">Actions</th>
+              <th className="p-2 sm:p-4 text-left whitespace-nowrap">User</th>
+              <th className="p-2 sm:p-4 text-left whitespace-nowrap">Email</th>
+              <th className="p-2 sm:p-4 text-left whitespace-nowrap">Role</th>
+              <th className="p-2 sm:p-4 text-left whitespace-nowrap">Plan</th>
+              <th className="p-2 sm:p-4 text-left whitespace-nowrap">Credits</th>
+              <th className="p-2 sm:p-4 text-left whitespace-nowrap">Status</th>
+              <th className="p-2 sm:p-4 text-left whitespace-nowrap">Joined</th>
+              <th className="p-2 sm:p-4 text-left whitespace-nowrap">Actions</th>
             </tr></thead>
             <tbody>
               {users.map((u, idx) => (
                 <motion.tr key={u._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.03 }} className="table-row">
-                  <td className="p-4">
+                  <td className="p-2 sm:p-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-300 text-sm font-bold">{u.name?.charAt(0)}</div>
                       <span className="text-white font-medium">{u.name}</span>
                     </div>
                   </td>
-                  <td className="p-4 text-gray-300 text-sm">{u.email}</td>
-                  <td className="p-4"><span className={`badge ${u.role === 'admin' || u.role === 'super_admin' ? 'badge-purple' : u.role === 'reseller' ? 'badge-info' : 'badge-success'} text-xs capitalize`}>{u.role === 'super_admin' ? 'super admin' : u.role}</span></td>
-                  <td className="p-4">
+                  <td className="p-2 sm:p-4 text-gray-300 text-sm whitespace-nowrap">{u.email}</td>
+                  <td className="p-2 sm:p-4 whitespace-nowrap"><span className={`badge ${u.role === 'admin' || u.role === 'super_admin' ? 'badge-purple' : u.role === 'reseller' ? 'badge-info' : 'badge-success'} text-xs capitalize`}>{u.role === 'super_admin' ? 'super admin' : u.role}</span></td>
+                  <td className="p-2 sm:p-4 whitespace-nowrap">
                     <span className={`badge ${planColors[u.plan] || 'badge-gray'} text-xs capitalize`}>{u.plan || 'free'}</span>
                   </td>
-                  <td className="p-4 text-gray-300">{u.credits?.toLocaleString()}</td>
-                  <td className="p-4">
+                  <td className="p-2 sm:p-4 text-gray-300 whitespace-nowrap">{u.credits?.toLocaleString()}</td>
+                  <td className="p-2 sm:p-4 whitespace-nowrap">
                     <button onClick={() => toggleUserStatus(u._id, u.isActive)} className={`badge ${u.isActive ? 'badge-success' : 'badge-danger'} text-xs`}>
                       {u.isActive ? 'Active' : 'Blocked'}
                     </button>
                   </td>
-                  <td className="p-4 text-gray-400 text-sm">{new Date(u.createdAt).toLocaleDateString()}</td>
-                  <td className="p-4">
+                  <td className="p-2 sm:p-4 text-gray-400 text-sm whitespace-nowrap">{new Date(u.createdAt).toLocaleDateString()}</td>
+                  <td className="p-2 sm:p-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       <button onClick={() => { setSelectedUser(u); setPlanForm({ plan: u.plan || 'free' }); setShowPlanModal(true); }} className="p-2 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20" title="Change Plan">
                         <HiOutlineCollection size={16} />

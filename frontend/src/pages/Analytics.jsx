@@ -74,12 +74,12 @@ export default function Analytics() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Analytics Dashboard</h1>
-          <p className="text-gray-400 text-sm mt-1">Real-time metrics and campaign performance</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Analytics Dashboard</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Real-time metrics and campaign performance</p>
         </div>
-        <button onClick={exportReport} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 text-green-400 text-sm hover:bg-green-500/20">
+        <button onClick={exportReport} className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl bg-green-500/10 text-green-400 text-xs sm:text-sm hover:bg-green-500/20">
           <HiOutlineDownload /> Export Report
         </button>
       </div>
@@ -89,7 +89,7 @@ export default function Analytics() {
           const Icon = tab.icon;
           return (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+              className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
               <Icon /> {tab.label}
             </button>
           );
@@ -109,9 +109,9 @@ export default function Analytics() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-gray-400 text-sm">{card.label}</p>
-                  <p className={`text-2xl font-bold ${card.color} mt-1`}>{card.value.toLocaleString()}</p>
+                  <p className={`text-xl sm:text-2xl font-bold ${card.color} mt-1`}>{card.value.toLocaleString()}</p>
                 </div>
-                <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center"><Icon className={`text-2xl ${card.color}`} /></div>
+                <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center"><Icon className={`text-xl sm:text-2xl ${card.color}`} /></div>
               </div>
             </motion.div>
           );
@@ -119,7 +119,7 @@ export default function Analytics() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 glass-card p-6">
+        <div className="lg:col-span-2 glass-card p-4 sm:p-6">
           <h3 className="text-white font-semibold mb-4">Message Timeline (30 days)</h3>
           {timeline.length > 0 ? (
             <Line data={lineData} options={{ responsive: true, plugins: { legend: { labels: { color: '#9ca3af' } } }, scales: { x: { ticks: { color: '#9ca3af' } }, y: { ticks: { color: '#9ca3af' } } } }} />
@@ -127,18 +127,18 @@ export default function Analytics() {
             <div className="h-48 flex items-center justify-center text-gray-500">No data available</div>
           )}
         </div>
-        <div className="glass-card p-6">
+        <div className="glass-card p-4 sm:p-6">
           <h3 className="text-white font-semibold mb-4">Message Distribution</h3>
           <Doughnut data={doughnutData} options={{ cutout: '70%', plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af', padding: 16 } } } }} />
           <div className="text-center mt-4">
-            <p className="text-2xl font-bold text-white">{stats?.deliveryRate || 0}%</p>
+            <p className="text-xl sm:text-2xl font-bold text-white">{stats?.deliveryRate || 0}%</p>
             <p className="text-gray-400 text-sm">Overall Delivery Rate</p>
           </div>
         </div>
       </div>
 
       {activeTab === 'funnel' && funnelData && (
-        <div className="glass-card p-6">
+          <div className="glass-card p-4 sm:p-6">
           <h3 className="text-white font-semibold mb-4">Conversion Funnel</h3>
           <Bar data={funnelData} options={{ responsive: true, plugins: { legend: { labels: { color: '#9ca3af' } } }, scales: { x: { ticks: { color: '#9ca3af' } }, y: { ticks: { color: '#9ca3af' } } } }} />
         </div>
@@ -149,22 +149,22 @@ export default function Analytics() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead><tr className="table-header">
-                <th className="p-4 text-left">Campaign</th>
-                <th className="p-4 text-left">Status</th>
-                <th className="p-4 text-left">Sent</th>
-                <th className="p-4 text-left">Delivered</th>
-                <th className="p-4 text-left">Failed</th>
-                <th className="p-4 text-left">Rate</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Campaign</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Status</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Sent</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Delivered</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Failed</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Rate</th>
               </tr></thead>
               <tbody>
                 {campaigns.campaigns.map((c, idx) => (
                   <tr key={c._id} className="table-row">
-                    <td className="p-4 text-white font-medium">{c.name}</td>
-                    <td className="p-4"><span className={`badge text-xs ${c.status === 'completed' ? 'badge-success' : c.status === 'running' ? 'badge-info' : c.status === 'failed' ? 'badge-danger' : 'badge-warning'}`}>{c.status}</span></td>
-                    <td className="p-4 text-gray-300">{c.sentCount || 0}</td>
-                    <td className="p-4 text-gray-300">{c.deliveredCount || 0}</td>
-                    <td className="p-4 text-gray-300">{c.failedCount || 0}</td>
-                    <td className="p-4">{c.sentCount > 0 ? `${Math.round(((c.deliveredCount || 0) / c.sentCount) * 100)}%` : '-'}</td>
+                    <td className="p-2 sm:p-4 text-white font-medium whitespace-nowrap">{c.name}</td>
+                    <td className="p-2 sm:p-4 whitespace-nowrap"><span className={`badge text-xs ${c.status === 'completed' ? 'badge-success' : c.status === 'running' ? 'badge-info' : c.status === 'failed' ? 'badge-danger' : 'badge-warning'}`}>{c.status}</span></td>
+                    <td className="p-2 sm:p-4 text-gray-300 whitespace-nowrap">{c.sentCount || 0}</td>
+                    <td className="p-2 sm:p-4 text-gray-300 whitespace-nowrap">{c.deliveredCount || 0}</td>
+                    <td className="p-2 sm:p-4 text-gray-300 whitespace-nowrap">{c.failedCount || 0}</td>
+                    <td className="p-2 sm:p-4 whitespace-nowrap">{c.sentCount > 0 ? `${Math.round(((c.deliveredCount || 0) / c.sentCount) * 100)}%` : '-'}</td>
                   </tr>
                 ))}
                 {(!campaigns.campaigns || campaigns.campaigns.length === 0) && <tr><td colSpan={6} className="p-8 text-center text-gray-500">No campaigns yet</td></tr>}

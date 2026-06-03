@@ -143,8 +143,8 @@ export default function Billing() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Billing & Subscription</h1>
-        <p className="text-gray-400 text-sm mt-1">Manage your subscription and purchase credits</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-white">Billing & Subscription</h1>
+        <p className="text-gray-400 text-xs sm:text-sm mt-1">Manage your subscription and purchase credits</p>
         <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-purple-500/10 text-purple-300">
           Current Plan: <span className="uppercase font-bold">{currentPlan}</span>
         </div>
@@ -155,7 +155,7 @@ export default function Billing() {
           const Icon = tab.icon;
           return (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+              className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
               <Icon /> {tab.label}
             </button>
           );
@@ -168,11 +168,11 @@ export default function Billing() {
             const isCurrent = plan.name.toLowerCase() === currentPlan;
             return (
               <motion.div key={plan._id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }}
-                className={`glass-card p-6 ${idx === 2 ? 'border-purple-500/50 ring-1 ring-purple-500/30' : ''}`}>
+                className={`glass-card p-4 sm:p-6 ${idx === 2 ? 'border-purple-500/50 ring-1 ring-purple-500/30' : ''}`}>
                 {idx === 2 && <div className="text-xs text-purple-400 bg-purple-500/10 px-3 py-1 rounded-full inline-block mb-3">Most Popular</div>}
                 <h3 className="text-xl font-bold text-white capitalize">{plan.name}</h3>
                 <div className="mt-4 mb-6">
-                  <span className="text-3xl font-bold text-white">₹{plan.price}</span>
+                  <span className="text-2xl sm:text-3xl font-bold text-white">₹{plan.price}</span>
                   <span className="text-gray-400">/{plan.interval}</span>
                 </div>
                 <ul className="space-y-3 mb-6">
@@ -192,7 +192,7 @@ export default function Billing() {
 
       {activeTab === 'purchase' && (
         <div className="max-w-lg">
-          <div className="glass-card p-6">
+          <div className="glass-card p-4 sm:p-6">
             <h3 className="text-white font-semibold mb-4">Purchase Credits</h3>
             <div className="bg-purple-500/10 rounded-xl p-4 mb-6">
               <p className="text-purple-300 text-sm">Current Rate: <strong>1 Credit = ₹{creditRate}</strong></p>
@@ -228,20 +228,20 @@ export default function Billing() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead><tr className="table-header">
-                <th className="p-4 text-left">Invoice #</th>
-                <th className="p-4 text-left">Amount</th>
-                <th className="p-4 text-left">Status</th>
-                <th className="p-4 text-left">Payment</th>
-                <th className="p-4 text-left">Date</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Invoice #</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Amount</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Status</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Payment</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Date</th>
               </tr></thead>
               <tbody>
                 {invoices.map((inv) => (
                   <tr key={inv._id} className="table-row">
-                    <td className="p-4 text-white font-medium">{inv.invoiceNumber}</td>
-                    <td className="p-4 text-gray-300">{inv.currency} {inv.amount}</td>
-                    <td className="p-4"><span className={`badge text-xs ${inv.status === 'paid' ? 'badge-success' : inv.status === 'draft' ? 'badge-warning' : 'badge-danger'}`}>{inv.status}</span></td>
-                    <td className="p-4 text-gray-400 text-sm capitalize">{inv.paymentMethod || '-'}</td>
-                    <td className="p-4 text-gray-400 text-sm">{new Date(inv.createdAt).toLocaleDateString()}</td>
+                    <td className="p-2 sm:p-4 text-white font-medium whitespace-nowrap">{inv.invoiceNumber}</td>
+                    <td className="p-2 sm:p-4 text-gray-300 whitespace-nowrap">{inv.currency} {inv.amount}</td>
+                    <td className="p-2 sm:p-4 whitespace-nowrap"><span className={`badge text-xs ${inv.status === 'paid' ? 'badge-success' : inv.status === 'draft' ? 'badge-warning' : 'badge-danger'}`}>{inv.status}</span></td>
+                    <td className="p-2 sm:p-4 text-gray-400 text-sm capitalize whitespace-nowrap">{inv.paymentMethod || '-'}</td>
+                    <td className="p-2 sm:p-4 text-gray-400 text-sm whitespace-nowrap">{new Date(inv.createdAt).toLocaleDateString()}</td>
                   </tr>
                 ))}
                 {invoices.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-gray-500">No invoices yet</td></tr>}

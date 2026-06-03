@@ -71,12 +71,12 @@ export default function AutoReply() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Auto Reply</h1>
-          <p className="text-gray-400 text-sm mt-1">Auto-reply to incoming WhatsApp messages</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Auto Reply</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Auto-reply to incoming WhatsApp messages</p>
         </div>
-        <button onClick={openCreate} className="btn-primary flex items-center gap-2">
+        <button onClick={openCreate} className="btn-primary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
           <HiOutlinePlus /> New Rule
         </button>
       </div>
@@ -92,27 +92,27 @@ export default function AutoReply() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead><tr className="table-header">
-                <th className="p-4 text-left">Name</th>
-                <th className="p-4 text-left">Keyword</th>
-                <th className="p-4 text-left">Match</th>
-                <th className="p-4 text-left">Reply</th>
-                <th className="p-4 text-left">Status</th>
-                <th className="p-4 text-right">Actions</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Name</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Keyword</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Match</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Reply</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Status</th>
+                <th className="p-2 sm:p-4 text-right whitespace-nowrap">Actions</th>
               </tr></thead>
               <tbody>
                 {rules.map(rule => (
                   <tr key={rule._id} className="border-t border-white/5 hover:bg-white/5 transition">
-                    <td className="p-4 text-white font-medium">{rule.name || '-'}</td>
-                    <td className="p-4 text-purple-300 font-mono text-sm">{rule.keyword}</td>
-                    <td className="p-4 text-gray-400 text-sm capitalize">{rule.matchType}</td>
-                    <td className="p-4 text-gray-300 text-sm max-w-[200px] truncate">{rule.replyText}</td>
-                    <td className="p-4">
+                    <td className="p-2 sm:p-4 text-white font-medium whitespace-nowrap">{rule.name || '-'}</td>
+                    <td className="p-2 sm:p-4 text-purple-300 font-mono text-sm whitespace-nowrap">{rule.keyword}</td>
+                    <td className="p-2 sm:p-4 text-gray-400 text-sm capitalize whitespace-nowrap">{rule.matchType}</td>
+                    <td className="p-2 sm:p-4 text-gray-300 text-sm max-w-[200px] truncate">{rule.replyText}</td>
+                    <td className="p-2 sm:p-4 whitespace-nowrap">
                       <button onClick={() => toggleActive(rule)}
                         className={`px-3 py-1 rounded-full text-xs font-medium ${rule.isActive ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}>
                         {rule.isActive ? 'Active' : 'Inactive'}
                       </button>
                     </td>
-                    <td className="p-4 text-right">
+                    <td className="p-2 sm:p-4 text-right whitespace-nowrap">
                       <button onClick={() => openEdit(rule)} className="p-2 text-gray-400 hover:text-white transition"><HiOutlinePencil /></button>
                       <button onClick={() => handleDelete(rule._id)} className="p-2 text-gray-400 hover:text-red-400 transition"><HiOutlineTrash /></button>
                     </td>

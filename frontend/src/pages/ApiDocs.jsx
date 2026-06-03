@@ -48,13 +48,13 @@ export default function ApiDocs() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">API Documentation</h1>
-          <p className="text-gray-400 text-sm mt-1">Integrate RSendix.pro Smart Bulk Messaging with your apps</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">API Documentation</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Integrate RSendix.pro Smart Bulk Messaging with your apps</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn-primary px-4 py-2 rounded-xl text-white text-sm font-medium flex items-center gap-2">
-          <HiOutlinePlus /> Create API Key
+        <button onClick={() => setShowModal(true)} className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2">
+          <HiOutlinePlus /> <span className="hidden sm:inline">Create API Key</span><span className="sm:hidden">API Key</span>
         </button>
       </div>
 
@@ -86,14 +86,14 @@ export default function ApiDocs() {
           </div>
           {endpoints.map((ep, idx) => (
             <motion.div key={idx} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }} className="glass-card overflow-hidden">
-              <div className="p-4 border-b border-white/5 flex items-center gap-3">
+              <div className="p-2 sm:p-4 border-b border-white/5 flex items-center gap-3">
                 <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${ep.method === 'GET' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}`}>
                   {ep.method}
                 </span>
                 <code className="text-purple-300 text-sm">{ep.path}</code>
               </div>
-              <div className="p-4">
-                <p className="text-gray-400 text-sm mb-3">{ep.desc}</p>
+              <div className="p-2 sm:p-4">
+                <p className="text-gray-400 text-xs sm:text-sm mb-3">{ep.desc}</p>
                 {ep.body && (
                   <div className="bg-[#0f0f1a] rounded-lg p-3">
                     <pre className="text-xs text-gray-300">{JSON.stringify(ep.body, null, 2)}</pre>

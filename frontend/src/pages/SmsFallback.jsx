@@ -43,36 +43,36 @@ export default function SmsFallback() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">WhatsApp → SMS Fallback</h1>
-          <p className="text-gray-400 text-sm mt-1">Ensure message delivery via SMS when WhatsApp fails</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">WhatsApp → SMS Fallback</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Ensure message delivery via SMS when WhatsApp fails</p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 text-blue-400 text-sm">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 text-blue-400 text-xs sm:text-sm">
           <HiOutlinePhone /> {stats?.total || 0} total fallbacks
         </div>
       </div>
 
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="glass-card p-5 text-center">
-            <FaSms className="text-3xl text-purple-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-white">{stats.total}</p>
+          <div className="glass-card p-4 sm:p-5 text-center">
+            <FaSms className="text-2xl sm:text-3xl text-purple-400 mx-auto mb-2" />
+            <p className="text-xl sm:text-2xl font-bold text-white">{stats.total}</p>
             <p className="text-gray-400 text-sm">Total SMS Sent</p>
           </div>
-          <div className="glass-card p-5 text-center">
-            <HiOutlineCheckCircle className="text-3xl text-green-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-white">{stats.sent}</p>
+          <div className="glass-card p-4 sm:p-5 text-center">
+            <HiOutlineCheckCircle className="text-2xl sm:text-3xl text-green-400 mx-auto mb-2" />
+            <p className="text-xl sm:text-2xl font-bold text-white">{stats.sent}</p>
             <p className="text-gray-400 text-sm">Delivered</p>
           </div>
-          <div className="glass-card p-5 text-center">
-            <HiOutlineXCircle className="text-3xl text-red-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-white">{stats.failed}</p>
+          <div className="glass-card p-4 sm:p-5 text-center">
+            <HiOutlineXCircle className="text-2xl sm:text-3xl text-red-400 mx-auto mb-2" />
+            <p className="text-xl sm:text-2xl font-bold text-white">{stats.failed}</p>
             <p className="text-gray-400 text-sm">Failed</p>
           </div>
-          <div className="glass-card p-5 text-center">
-            <HiOutlineCurrencyDollar className="text-3xl text-yellow-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-white">${stats.totalCost?.toFixed(4) || '0.00'}</p>
+          <div className="glass-card p-4 sm:p-5 text-center">
+            <HiOutlineCurrencyDollar className="text-2xl sm:text-3xl text-yellow-400 mx-auto mb-2" />
+            <p className="text-xl sm:text-2xl font-bold text-white">${stats.totalCost?.toFixed(4) || '0.00'}</p>
             <p className="text-gray-400 text-sm">Total Cost</p>
           </div>
         </div>
@@ -80,7 +80,7 @@ export default function SmsFallback() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <div className="glass-card p-5">
+          <div className="glass-card p-4 sm:p-5">
             <h2 className="text-white font-semibold mb-4 flex items-center gap-2"><FaSms className="text-purple-400" /> Fallback Logs</h2>
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {logs.map((log, idx) => (
@@ -107,7 +107,7 @@ export default function SmsFallback() {
         </div>
 
         <div>
-          <div className="glass-card p-5">
+          <div className="glass-card p-4 sm:p-5">
             <h2 className="text-white font-semibold mb-4 flex items-center gap-2"><HiOutlinePhone className="text-purple-400" /> Test Fallback</h2>
             <div className="space-y-4">
               <div>
@@ -118,7 +118,7 @@ export default function SmsFallback() {
                 <label className="block text-sm font-medium text-gray-300 mb-2">Message</label>
                 <textarea className="input-field h-24" value={testMessage} onChange={e => setTestMessage(e.target.value)} placeholder="Test message..." />
               </div>
-              <button onClick={testFallback} className="btn-primary w-full px-4 py-2 rounded-xl text-white flex items-center justify-center gap-2">
+              <button onClick={testFallback} className="btn-primary w-full px-4 py-2 rounded-xl text-white flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm">
                 <HiOutlineRefresh /> Test SMS Fallback
               </button>
               {testResult && (
@@ -130,7 +130,7 @@ export default function SmsFallback() {
             </div>
           </div>
 
-          <div className="glass-card p-5 mt-4">
+          <div className="glass-card p-4 sm:p-5 mt-4">
             <h3 className="text-white font-semibold mb-2">How it works</h3>
             <ul className="text-gray-400 text-sm space-y-2">
               <li className="flex items-start gap-2"><HiOutlineCheckCircle className="text-green-400 mt-0.5 flex-shrink-0" /> WhatsApp message is sent</li>

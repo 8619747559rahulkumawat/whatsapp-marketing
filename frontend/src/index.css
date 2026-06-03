@@ -626,4 +626,39 @@ body {
   .auth-ring-2 { width: 180px; height: 180px; }
   .auth-ring-3 { width: 350px; height: 350px; }
   .auth-ring-4 { width: 120px; height: 120px; }
+
+  .admin-orb-1, .admin-orb-2, .admin-orb-3 { display: none; }
+  .admin-ring-1, .admin-ring-2 { display: none; }
+  .admin-diamond-1, .admin-diamond-2 { display: none; }
+  .admin-rect-1, .admin-rect-2 { display: none; }
+
+  .none {
+    font-size: 13px;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1023px) {
+  .admin-orb-1 { width: 300px; height: 300px; }
+  .admin-orb-2 { width: 250px; height: 250px; }
+  .admin-orb-3 { width: 200px; height: 200px; }
+  .admin-ring-1 { width: 200px; height: 200px; }
+  .admin-ring-2 { width: 150px; height: 150px; }
+}
+
+@media (max-width: 768px) {
+  .table-header {
+    font-size: 0.65rem;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-card {
+    padding: 1.25rem;
+    border-radius: 16px;
+  }
+  .auth-card .input-field {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
 }

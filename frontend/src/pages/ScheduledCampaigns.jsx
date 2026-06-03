@@ -55,35 +55,35 @@ export default function ScheduledCampaigns() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Scheduled Campaigns</h1>
-          <p className="text-gray-400 text-sm mt-1">Schedule campaigns for later or recurring delivery</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Scheduled Campaigns</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Schedule campaigns for later or recurring delivery</p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="btn-primary px-4 py-2 rounded-xl text-white text-sm font-medium flex items-center gap-2">
-          <HiOutlinePlus /> Schedule Campaign
+        <button onClick={() => setShowCreate(true)} className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2">
+          <HiOutlinePlus /> <span className="hidden sm:inline">Schedule Campaign</span><span className="sm:hidden">Schedule</span>
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="glass-card p-5 text-center">
-          <HiOutlineCalendar className="text-3xl text-purple-400 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-white">{scheduled.length}</p>
+        <div className="glass-card p-4 sm:p-5 text-center">
+          <HiOutlineCalendar className="text-2xl sm:text-3xl text-purple-400 mx-auto mb-2" />
+          <p className="text-xl sm:text-2xl font-bold text-white">{scheduled.length}</p>
           <p className="text-gray-400 text-sm">Total Scheduled</p>
         </div>
-        <div className="glass-card p-5 text-center">
-          <HiOutlineClock className="text-3xl text-yellow-400 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-white">{scheduled.filter(s => s.status === 'pending').length}</p>
+        <div className="glass-card p-4 sm:p-5 text-center">
+          <HiOutlineClock className="text-2xl sm:text-3xl text-yellow-400 mx-auto mb-2" />
+          <p className="text-xl sm:text-2xl font-bold text-white">{scheduled.filter(s => s.status === 'pending').length}</p>
           <p className="text-gray-400 text-sm">Pending</p>
         </div>
-        <div className="glass-card p-5 text-center">
-          <HiOutlinePlay className="text-3xl text-blue-400 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-white">{scheduled.filter(s => s.status === 'processing').length}</p>
+        <div className="glass-card p-4 sm:p-5 text-center">
+          <HiOutlinePlay className="text-2xl sm:text-3xl text-blue-400 mx-auto mb-2" />
+          <p className="text-xl sm:text-2xl font-bold text-white">{scheduled.filter(s => s.status === 'processing').length}</p>
           <p className="text-gray-400 text-sm">Processing</p>
         </div>
-        <div className="glass-card p-5 text-center">
-          <HiOutlineRefresh className="text-3xl text-green-400 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-white">{scheduled.filter(s => s.scheduleType !== 'once').length}</p>
+        <div className="glass-card p-4 sm:p-5 text-center">
+          <HiOutlineRefresh className="text-2xl sm:text-3xl text-green-400 mx-auto mb-2" />
+          <p className="text-xl sm:text-2xl font-bold text-white">{scheduled.filter(s => s.scheduleType !== 'once').length}</p>
           <p className="text-gray-400 text-sm">Recurring</p>
         </div>
       </div>
@@ -93,17 +93,17 @@ export default function ScheduledCampaigns() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/5 text-left text-xs text-gray-400 uppercase">
-                <th className="p-4">Campaign</th>
-                <th className="p-4">Scheduled At</th>
-                <th className="p-4">Type</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">Actions</th>
+                <th className="p-2 sm:p-4 whitespace-nowrap">Campaign</th>
+                <th className="p-2 sm:p-4 whitespace-nowrap">Scheduled At</th>
+                <th className="p-2 sm:p-4 whitespace-nowrap">Type</th>
+                <th className="p-2 sm:p-4 whitespace-nowrap">Status</th>
+                <th className="p-2 sm:p-4 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
               {scheduled.map((s, idx) => (
                 <motion.tr key={s._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.03 }} className="border-b border-white/5 hover:bg-white/5">
-                  <td className="p-4">
+                  <td className="p-2 sm:p-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
                       <FaWhatsapp className="text-green-400" />
                       <div>
@@ -112,18 +112,18 @@ export default function ScheduledCampaigns() {
                       </div>
                     </div>
                   </td>
-                  <td className="p-4">
+                  <td className="p-2 sm:p-4 whitespace-nowrap">
                     <p className="text-white text-sm">{new Date(s.scheduledAt).toLocaleString()}</p>
                     <p className="text-gray-500 text-xs">{s.timezone || 'UTC'}</p>
                   </td>
-                  <td className="p-4">
+                  <td className="p-2 sm:p-4 whitespace-nowrap">
                     <span className="badge badge-info text-xs">{s.scheduleType || 'once'}</span>
                     {s.repeatConfig?.every && <p className="text-gray-500 text-xs mt-1">Every {s.repeatConfig.every} {s.repeatConfig.unit}</p>}
                   </td>
-                  <td className="p-4">
+                  <td className="p-2 sm:p-4 whitespace-nowrap">
                     <span className={`badge text-xs ${statusColors[s.status] || 'badge-info'}`}>{s.status}</span>
                   </td>
-                  <td className="p-4">
+                  <td className="p-2 sm:p-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       {s.status === 'pending' && (
                         <button onClick={() => cancelSchedule(s._id)} className="p-1.5 rounded-lg bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20" title="Cancel">

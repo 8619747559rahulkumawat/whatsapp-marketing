@@ -55,12 +55,12 @@ export default function Audit() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Audit Log</h1>
-          <p className="text-gray-400 text-sm mt-1">Track all actions performed in your organization</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Audit Log</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Track all actions performed in your organization</p>
         </div>
-        <button onClick={clearLogs} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 text-sm">
+        <button onClick={clearLogs} className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs sm:text-sm">
           <HiOutlineTrash size={16} /> Clear Logs
         </button>
       </div>
@@ -74,7 +74,7 @@ export default function Audit() {
             { label: 'Unique Actions', value: stats.uniqueActions || 0 },
           ].map((s, i) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="glass-card p-4 text-center">
-              <p className="text-2xl font-bold text-white">{s.value}</p>
+              <p className="text-xl sm:text-2xl font-bold text-white">{s.value}</p>
               <p className="text-gray-400 text-xs">{s.label}</p>
             </motion.div>
           ))}
@@ -108,7 +108,7 @@ export default function Audit() {
             <option value={30}>Last 30 days</option>
             <option value={90}>Last 90 days</option>
           </select>
-          <button onClick={fetchLogs} className="btn-primary px-4 py-2 rounded-xl text-white text-sm">Apply</button>
+          <button onClick={fetchLogs} className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm">Apply</button>
         </div>
       </div>
 

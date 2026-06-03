@@ -28,6 +28,7 @@ export default function LiveChat() {
    const fileInputRef = useRef(null);
    const emojiRef = useRef(null);
    const { user } = useAuth();
+   const [showMobileList, setShowMobileList] = useState(true);
    const [callStatus, setCallStatus] = useState('idle');
    const [callType, setCallType] = useState('video');
    const [roomName, setRoomName] = useState('');
@@ -441,9 +442,9 @@ export default function LiveChat() {
   ) || [];
 
   return (
-    <div className="h-[calc(100vh-7rem)] flex gap-4">
+    <div className="h-[calc(100dvh-7rem)] min-h-[400px] flex gap-4 relative">
       {/* Chat List */}
-      <div className="w-80 flex-shrink-0 glass-card overflow-hidden flex flex-col">
+      <div className={`${showMobileList ? 'flex' : 'hidden'} md:flex w-full md:w-80 flex-shrink-0 glass-card overflow-hidden flex-col absolute md:relative inset-0 z-10 md:z-auto ${!showMobileList && 'md:flex'}`}>
         <div className="p-3 border-b border-white/10">
           <h2 className="text-white font-semibold mb-2">Chats</h2>
           <input className="input-field text-sm" placeholder="Search chats..." value={search} onChange={e => setSearch(e.target.value)} />
@@ -451,7 +452,7 @@ export default function LiveChat() {
         <div className="flex-1 overflow-y-auto">
           {filteredConvs.map((conv, idx) => (
             <motion.div key={conv.userId} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.02 }}
-              onClick={() => { selectedConvRef.current = conv; setSelectedConv(conv); setSearchMsg(''); setConversations(prev => prev.map(c => c.userId === conv.userId ? { ...c, unread: 0 } : c)); API.put('/chat/read/' + encodeURIComponent(conv.userId)).catch(() => {}); }}
+              onClick={() => { selectedConvRef.current = conv; setSelectedConv(conv); setShowMobileList(false); setSearchMsg(''); setConversations(prev => prev.map(c => c.userId === conv.userId ? { ...c, unread: 0 } : c)); API.put('/chat/read/' + encodeURIComponent(conv.userId)).catch(() => {}); }}
               className={`p-3 border-b border-white/5 cursor-pointer hover:bg-white/5 group relative ${selectedConv?.userId === conv.userId ? 'bg-purple-600/20 border-l-2 border-l-purple-500' : ''}`}>
               <div className="flex items-center gap-3">
                 <div className="relative">
@@ -493,12 +494,15 @@ export default function LiveChat() {
       </div>
 
       {/* Chat Window */}
-      <div className="flex-1 glass-card overflow-hidden flex flex-col">
+      <div className={`${!showMobileList && selectedConv ? 'flex' : 'hidden'} md:flex flex-1 glass-card overflow-hidden flex-col absolute md:relative inset-0 md:inset-auto z-10 md:z-auto`}>
         {selectedConv ? (
           <>
             {/* Header */}
             <div className="p-3 border-b border-white/10 bg-white/5 flex items-center justify-between">
               <div className="flex items-center gap-3">
+                <button onClick={() => setShowMobileList(true)} className="md:hidden text-gray-400 hover:text-white mr-1">
+                  <FaTimes size={14} />
+                </button>
                 {selectedConv.profilePic ? (
                   <img src={selectedConv.profilePic} alt="" className="w-10 h-10 rounded-full object-cover" />
                 ) : (

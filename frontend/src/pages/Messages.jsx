@@ -39,13 +39,13 @@ export default function Messages() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Messages</h1>
-          <p className="text-gray-400 text-sm mt-1">Message history and send new messages</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Messages</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Message history and send new messages</p>
         </div>
-        <button onClick={() => setShowSendModal(true)} className="btn-whatsapp px-4 py-2 rounded-xl text-white text-sm font-medium flex items-center gap-2">
-          <FaPaperPlane /> Send Message
+        <button onClick={() => setShowSendModal(true)} className="btn-whatsapp px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2">
+          <FaPaperPlane /> <span className="hidden sm:inline">Send Message</span><span className="sm:hidden">Send</span>
         </button>
       </div>
 
@@ -53,20 +53,20 @@ export default function Messages() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr className="table-header">
-              <th className="p-4 text-left">To</th>
-              <th className="p-4 text-left">Content</th>
-              <th className="p-4 text-left">Type</th>
-              <th className="p-4 text-left">Status</th>
-              <th className="p-4 text-left">Sent At</th>
+              <th className="p-2 sm:p-4 text-left whitespace-nowrap">To</th>
+              <th className="p-2 sm:p-4 text-left whitespace-nowrap">Content</th>
+              <th className="p-2 sm:p-4 text-left whitespace-nowrap">Type</th>
+              <th className="p-2 sm:p-4 text-left whitespace-nowrap">Status</th>
+              <th className="p-2 sm:p-4 text-left whitespace-nowrap">Sent At</th>
             </tr></thead>
             <tbody>
               {messages.map((msg, idx) => (
                 <motion.tr key={msg._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.02 }} className="table-row">
-                  <td className="p-4"><div className="flex items-center gap-2"><FaWhatsapp className="text-whatsapp-500" /><span className="text-gray-300">{msg.to}</span></div></td>
-                  <td className="p-4 text-gray-400 text-sm max-w-xs truncate">{msg.content}</td>
-                  <td className="p-4"><span className="capitalize text-sm text-gray-300">{msg.messageType}</span></td>
-                  <td className="p-4"><span className={`badge ${msg.status === 'sent' ? 'badge-info' : msg.status === 'delivered' ? 'badge-success' : msg.status === 'failed' ? 'badge-danger' : 'badge-warning'}`}>{msg.status}</span></td>
-                  <td className="p-4 text-gray-400 text-sm">{msg.sentAt ? new Date(msg.sentAt).toLocaleString() : '-'}</td>
+                  <td className="p-2 sm:p-4 whitespace-nowrap"><div className="flex items-center gap-2"><FaWhatsapp className="text-whatsapp-500" /><span className="text-gray-300">{msg.to}</span></div></td>
+                  <td className="p-2 sm:p-4 text-gray-400 text-sm max-w-xs truncate">{msg.content}</td>
+                  <td className="p-2 sm:p-4 whitespace-nowrap"><span className="capitalize text-sm text-gray-300">{msg.messageType}</span></td>
+                  <td className="p-2 sm:p-4 whitespace-nowrap"><span className={`badge ${msg.status === 'sent' ? 'badge-info' : msg.status === 'delivered' ? 'badge-success' : msg.status === 'failed' ? 'badge-danger' : 'badge-warning'}`}>{msg.status}</span></td>
+                  <td className="p-2 sm:p-4 text-gray-400 text-sm whitespace-nowrap">{msg.sentAt ? new Date(msg.sentAt).toLocaleString() : '-'}</td>
                 </motion.tr>
               ))}
               {messages.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-gray-500">No messages yet</td></tr>}

@@ -195,7 +195,7 @@ export default function Pricing() {
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.1 }}
-                className={`relative rounded-3xl p-6 flex flex-col ${
+                className={`relative rounded-3xl p-4 sm:p-6 flex flex-col ${
                   plan.popular
                     ? 'bg-gradient-to-b from-[#1a1a2e] to-[#16213e] border-2 border-purple-500/50 shadow-xl shadow-purple-500/10'
                     : 'bg-[#1a1a2e]/80 border border-white/10'
@@ -208,12 +208,12 @@ export default function Pricing() {
                 )}
 
                 <div className="mb-6">
-                  <h3 className="text-2xl font-bold text-white capitalize">{plan.name}</h3>
+                  <h3 className="text-xl sm:text-2xl font-bold text-white capitalize">{plan.name}</h3>
                   <p className="text-gray-400 text-sm mt-1 min-h-[40px]">{plan.description}</p>
                 </div>
 
                 <div className="mb-6">
-                  <span className="text-4xl font-bold text-white">₹{plan.price}</span>
+                  <span className="text-3xl sm:text-4xl font-bold text-white">₹{plan.price}</span>
                   <span className="text-gray-400 text-sm ml-1">/{plan.interval}</span>
                 </div>
 
@@ -269,9 +269,9 @@ export default function Pricing() {
         )}
 
         <div className="text-center mt-16">
-          <h2 className="text-2xl font-bold text-white mb-4">Need More Credits?</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-white mb-4">Need More Credits?</h2>
           <p className="text-gray-400 mb-6">1 Credit = ₹0.15. Purchase credits separately anytime.</p>
-          <Link to={user ? "/wallet" : "/register"} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white/5 text-white border border-white/10 hover:bg-white/10 transition-all font-medium">
+          <Link to={user ? "/wallet" : "/register"} className="inline-flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl bg-white/5 text-white border border-white/10 hover:bg-white/10 transition-all font-medium text-xs sm:text-sm">
             {user ? 'Buy Credits' : 'Get Started Free'} <HiOutlineArrowRight />
           </Link>
         </div>

@@ -151,12 +151,12 @@ export default function BulkSms() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Bulk WhatsApp Messaging</h1>
-          <p className="text-gray-400 text-sm mt-1">Send messages with images to multiple numbers</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Bulk WhatsApp Messaging</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Send messages with images to multiple numbers</p>
         </div>
-        <button onClick={fetchSessions} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 text-sm">
+        <button onClick={fetchSessions} className="flex items-center gap-1 sm:gap-2 px-3 py-2 rounded-xl border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 text-xs sm:text-sm">
           <FaRedo size={14} /> Refresh Status
         </button>
       </div>
@@ -169,7 +169,7 @@ export default function BulkSms() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-4">
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-4 sm:p-6">
             <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
               <FaWhatsapp className="text-whatsapp-500" /> WhatsApp Session
             </h3>
@@ -192,7 +192,7 @@ export default function BulkSms() {
             )}
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-6">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-white font-semibold flex items-center gap-2"><FaDownload /> Phone Numbers</h3>
               <span className="text-sm text-gray-400">{parsedCount} numbers</span>
@@ -218,7 +218,7 @@ export default function BulkSms() {
             <button onClick={() => setShowContacts(!showContacts)} className="text-xs text-purple-400 hover:text-purple-300 mt-2">+ Add from contacts</button>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-6">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-4 sm:p-6">
             <h3 className="text-white font-semibold mb-4">Delay Between Messages</h3>
             <div className="flex items-center gap-4">
               <input type="range" min="1000" max="10000" step="500" value={delay} onChange={e => setDelay(parseInt(e.target.value))} className="flex-1 accent-purple-500" />
@@ -230,12 +230,12 @@ export default function BulkSms() {
         </div>
 
         <div className="space-y-4">
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-4 sm:p-6">
             <h3 className="text-white font-semibold mb-4">Message Content</h3>
             <textarea className="input-field h-32" value={message} onChange={e => setMessage(e.target.value)} placeholder="Type your message here..." />
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-6">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-4 sm:p-6">
             <h3 className="text-white font-semibold mb-4 flex items-center gap-2"><FaImage /> Attach Image (Optional)</h3>
             <input type="file" ref={fileRef} accept="image/*" onChange={handleFileSelect} className="hidden" />
             {filePreview ? (
@@ -259,7 +259,7 @@ export default function BulkSms() {
           </motion.div>
 
           {results.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-white font-semibold">Results</h3>
                 <div className="flex items-center gap-3 text-sm">

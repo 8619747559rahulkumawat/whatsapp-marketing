@@ -54,37 +54,37 @@ export default function Automation() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Automation Builder</h1>
-          <p className="text-gray-400 text-sm mt-1">Create visual automation flows for your campaigns</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Automation Builder</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Create visual automation flows for your campaigns</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn-primary px-4 py-2 rounded-xl text-white text-sm font-medium flex items-center gap-2">
-          <HiOutlinePlus /> Create Flow
+        <button onClick={() => setShowModal(true)} className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2">
+          <HiOutlinePlus /> <span className="hidden sm:inline">Create Flow</span><span className="sm:hidden">Flow</span>
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="glass-card p-5 text-center">
-          <FaProjectDiagram className="text-3xl text-purple-400 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-white">{flows.length}</p>
+        <div className="glass-card p-4 sm:p-5 text-center">
+          <FaProjectDiagram className="text-2xl sm:text-3xl text-purple-400 mx-auto mb-2" />
+          <p className="text-xl sm:text-2xl font-bold text-white">{flows.length}</p>
           <p className="text-gray-400 text-sm">Total Flows</p>
         </div>
-        <div className="glass-card p-5 text-center">
-          <HiOutlinePlay className="text-3xl text-green-400 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-white">{flows.filter(f => f.status === 'active').length}</p>
+        <div className="glass-card p-4 sm:p-5 text-center">
+          <HiOutlinePlay className="text-2xl sm:text-3xl text-green-400 mx-auto mb-2" />
+          <p className="text-xl sm:text-2xl font-bold text-white">{flows.filter(f => f.status === 'active').length}</p>
           <p className="text-gray-400 text-sm">Active</p>
         </div>
-        <div className="glass-card p-5 text-center">
-          <HiOutlineCog className="text-3xl text-blue-400 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-white">{flows.filter(f => f.status === 'draft').length}</p>
+        <div className="glass-card p-4 sm:p-5 text-center">
+          <HiOutlineCog className="text-2xl sm:text-3xl text-blue-400 mx-auto mb-2" />
+          <p className="text-xl sm:text-2xl font-bold text-white">{flows.filter(f => f.status === 'draft').length}</p>
           <p className="text-gray-400 text-sm">Drafts</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {flows.map((flow, idx) => (
-          <motion.div key={flow._id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} className="glass-card p-5 glass-card-hover">
+          <motion.div key={flow._id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} className="glass-card p-4 sm:p-5 glass-card-hover">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">

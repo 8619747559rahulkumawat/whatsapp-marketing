@@ -47,13 +47,13 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
-          <p className="text-gray-400 text-sm mt-1">Platform overview and monitoring</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Admin Dashboard</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Platform overview and monitoring</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Link to="/admin/users" className="btn-primary px-4 py-2 rounded-xl text-white text-sm font-medium">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <Link to="/admin/users" className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm font-medium">
             Manage Users
           </Link>
         </div>
@@ -67,10 +67,10 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-gray-400 text-sm">{card.label}</p>
-                  <p className={`text-2xl font-bold ${card.color} mt-1`}>{card.value.toLocaleString()}</p>
+                  <p className={`text-xl sm:text-2xl font-bold ${card.color} mt-1`}>{card.value.toLocaleString()}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center">
-                  <Icon className={`text-2xl ${card.color}`} />
+                  <Icon className={`text-xl sm:text-2xl ${card.color}`} />
                 </div>
               </div>
             </motion.div>
@@ -79,18 +79,18 @@ export default function AdminDashboard() {
       </div>
 
       {subStats && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="glass-card p-6">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="glass-card p-4 sm:p-6">
           <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
             <HiOutlineCreditCard className="text-purple-400" /> Subscription Overview
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="p-4 rounded-xl bg-white/5 text-center">
-              <p className="text-2xl font-bold text-white">{subStats.total || 0}</p>
+              <p className="text-xl sm:text-2xl font-bold text-white">{subStats.total || 0}</p>
               <p className="text-gray-400 text-xs mt-1">Total Subscriptions</p>
             </div>
             {['free', 'starter', 'professional', 'enterprise'].map(plan => (
               <div key={plan} className="p-4 rounded-xl bg-white/5 text-center">
-                <p className={`text-2xl font-bold capitalize ${planColors[plan]}`}>{subStats.byPlan?.[plan] || 0}</p>
+                <p className={`text-xl sm:text-2xl font-bold capitalize ${planColors[plan]}`}>{subStats.byPlan?.[plan] || 0}</p>
                 <p className="text-gray-400 text-xs mt-1 capitalize">{plan}</p>
               </div>
             ))}
@@ -102,7 +102,7 @@ export default function AdminDashboard() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-4 sm:p-6">
           <h3 className="text-white font-semibold mb-4">Recent Users</h3>
           <div className="space-y-3">
             {recentUsers.map(u => (
@@ -124,7 +124,7 @@ export default function AdminDashboard() {
           </div>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-6">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-4 sm:p-6">
           <h3 className="text-white font-semibold mb-4">Recent Campaigns</h3>
           <div className="space-y-3">
             {recentCampaigns.map(c => (

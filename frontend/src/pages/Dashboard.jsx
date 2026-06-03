@@ -67,14 +67,14 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-          <p className="text-gray-400 text-sm mt-1">Welcome back, {user?.name}</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Dashboard</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Welcome back, {user?.name}</p>
         </div>
         <div className="flex items-center gap-3">
-          <Link to="/campaigns" className="btn-primary px-4 py-2 rounded-xl text-white text-sm font-medium flex items-center gap-2">
-            <FaRocket /> New Campaign
+          <Link to="/campaigns" className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm font-medium flex items-center gap-2">
+            <FaRocket size={14} /> New Campaign
           </Link>
         </div>
       </div>
@@ -111,8 +111,10 @@ export default function Dashboard() {
           transition={{ delay: 0.4 }}
           className="lg:col-span-2 glass-card p-6"
         >
-          <h3 className="text-white font-semibold mb-4">Message Analytics</h3>
-          <Line data={lineData} options={{ responsive: true, plugins: { legend: { labels: { color: '#9ca3af' } } }, scales: { x: { ticks: { color: '#9ca3af' } }, y: { ticks: { color: '#9ca3af' } } } }} />
+          <h3 className="text-white font-semibold mb-4 text-sm sm:text-base">Message Analytics</h3>
+          <div className="min-h-[200px] sm:min-h-[300px]">
+            <Line data={lineData} options={{ responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af', boxWidth: 12, padding: 12, font: { size: 11 } } } }, scales: { x: { ticks: { color: '#9ca3af', font: { size: 10 } } }, y: { ticks: { color: '#9ca3af', font: { size: 10 } } } } }} />
+          </div>
         </motion.div>
 
         <motion.div
@@ -121,11 +123,13 @@ export default function Dashboard() {
           transition={{ delay: 0.5 }}
           className="glass-card p-6"
         >
-          <h3 className="text-white font-semibold mb-4">Delivery Rate</h3>
+          <h3 className="text-white font-semibold mb-4 text-sm sm:text-base">Delivery Rate</h3>
           <div className="flex flex-col items-center">
-            <Doughnut data={doughnutData} options={{ cutout: '70%', plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af', padding: 16 } } } }} />
-            <p className="text-3xl font-bold text-white mt-4">{stats?.deliveryRate || 0}%</p>
-            <p className="text-gray-400 text-sm">Delivery Rate</p>
+            <div className="w-full max-w-[220px] sm:max-w-[260px]">
+              <Doughnut data={doughnutData} options={{ cutout: '70%', responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af', padding: 12, boxWidth: 12, font: { size: 11 } } } } }} />
+            </div>
+            <p className="text-2xl sm:text-3xl font-bold text-white mt-4">{stats?.deliveryRate || 0}%</p>
+            <p className="text-gray-400 text-xs sm:text-sm">Delivery Rate</p>
           </div>
         </motion.div>
       </div>

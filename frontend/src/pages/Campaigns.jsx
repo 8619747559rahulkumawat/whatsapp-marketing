@@ -71,13 +71,13 @@ export default function Campaigns() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Campaigns</h1>
-          <p className="text-gray-400 text-sm mt-1">Manage your WhatsApp campaigns</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Campaigns</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Manage your WhatsApp campaigns</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn-primary px-4 py-2 rounded-xl text-white text-sm font-medium flex items-center gap-2">
-          <HiOutlinePlus /> New Campaign
+        <button onClick={() => setShowModal(true)} className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2">
+          <HiOutlinePlus /> <span className="hidden sm:inline">New Campaign</span><span className="sm:hidden">Campaign</span>
         </button>
       </div>
 
@@ -86,14 +86,14 @@ export default function Campaigns() {
           <table className="w-full">
             <thead>
               <tr className="table-header">
-                <th className="p-4 text-left">Name</th>
-                <th className="p-4 text-left">Type</th>
-                <th className="p-4 text-left">Status</th>
-                <th className="p-4 text-left">Sent</th>
-                <th className="p-4 text-left">Delivered</th>
-                <th className="p-4 text-left">Failed</th>
-                <th className="p-4 text-left">Created</th>
-                <th className="p-4 text-left">Actions</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Name</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Type</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Status</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Sent</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Delivered</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Failed</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Created</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -105,16 +105,16 @@ export default function Campaigns() {
                   transition={{ delay: idx * 0.05 }}
                   className="table-row"
                 >
-                  <td className="p-4">
+                  <td className="p-2 sm:p-4 whitespace-nowrap">
                     <Link to={`/campaigns/${camp._id}`} className="text-white font-medium hover:text-purple-400">{camp.name}</Link>
                   </td>
-                  <td className="p-4"><span className="capitalize text-sm text-gray-300">{camp.type}</span></td>
-                  <td className="p-4"><span className={getStatusBadge(camp.status)}>{camp.status}</span></td>
-                  <td className="p-4 text-gray-300">{camp.sentCount}</td>
-                  <td className="p-4 text-gray-300">{camp.deliveredCount}</td>
-                  <td className="p-4 text-gray-300">{camp.failedCount}</td>
-                  <td className="p-4 text-gray-400 text-sm">{new Date(camp.createdAt).toLocaleDateString()}</td>
-                  <td className="p-4">
+                  <td className="p-2 sm:p-4 whitespace-nowrap"><span className="capitalize text-sm text-gray-300">{camp.type}</span></td>
+                  <td className="p-2 sm:p-4 whitespace-nowrap"><span className={getStatusBadge(camp.status)}>{camp.status}</span></td>
+                  <td className="p-2 sm:p-4 text-gray-300 whitespace-nowrap">{camp.sentCount}</td>
+                  <td className="p-2 sm:p-4 text-gray-300 whitespace-nowrap">{camp.deliveredCount}</td>
+                  <td className="p-2 sm:p-4 text-gray-300 whitespace-nowrap">{camp.failedCount}</td>
+                  <td className="p-2 sm:p-4 text-gray-400 text-sm whitespace-nowrap">{new Date(camp.createdAt).toLocaleDateString()}</td>
+                  <td className="p-2 sm:p-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       {camp.status === 'draft' && (
                         <button onClick={() => handleAction(camp._id, 'start')} className="p-2 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20" title="Start"><HiOutlinePlay size={16} /></button>

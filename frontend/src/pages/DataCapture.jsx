@@ -60,35 +60,35 @@ export default function DataCapture() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Data Capture & Auto CRM</h1>
-          <p className="text-gray-400 text-sm mt-1">Automatically extract and update contact data from messages</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Data Capture & Auto CRM</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Automatically extract and update contact data from messages</p>
         </div>
       </div>
 
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="glass-card p-5 text-center">
-            <HiOutlineUserGroup className="text-3xl text-purple-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-white">{stats.totalContacts}</p>
+          <div className="glass-card p-4 sm:p-5 text-center">
+            <HiOutlineUserGroup className="text-2xl sm:text-3xl text-purple-400 mx-auto mb-2" />
+            <p className="text-xl sm:text-2xl font-bold text-white">{stats.totalContacts}</p>
             <p className="text-gray-400 text-sm">Total Contacts</p>
           </div>
-          <div className="glass-card p-5 text-center">
-            <HiOutlineDatabase className="text-3xl text-blue-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-white">{stats.totalWithData}</p>
+          <div className="glass-card p-4 sm:p-5 text-center">
+            <HiOutlineDatabase className="text-2xl sm:text-3xl text-blue-400 mx-auto mb-2" />
+            <p className="text-xl sm:text-2xl font-bold text-white">{stats.totalWithData}</p>
             <p className="text-gray-400 text-sm">With Captured Data</p>
           </div>
-          <div className="glass-card p-5 text-center">
-            <HiOutlineChartBar className="text-3xl text-green-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-white">{stats.captureRate}%</p>
+          <div className="glass-card p-4 sm:p-5 text-center">
+            <HiOutlineChartBar className="text-2xl sm:text-3xl text-green-400 mx-auto mb-2" />
+            <p className="text-xl sm:text-2xl font-bold text-white">{stats.captureRate}%</p>
             <p className="text-gray-400 text-sm">Data Capture Rate</p>
           </div>
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="glass-card p-5">
+        <div className="glass-card p-4 sm:p-5">
           <h2 className="text-white font-semibold mb-4 flex items-center gap-2"><FaBrain className="text-purple-400" /> Extract Data from Message</h2>
           <p className="text-gray-400 text-sm mb-4">Paste a customer message to automatically extract fields like email, phone, address, name, and order info.</p>
           <div className="space-y-4">
@@ -100,7 +100,7 @@ export default function DataCapture() {
               <label className="block text-sm font-medium text-gray-300 mb-2">Message</label>
               <textarea className="input-field h-28" value={extractMessage} onChange={e => setExtractMessage(e.target.value)} placeholder="Paste the customer message here..." />
             </div>
-            <button onClick={extractData} className="btn-primary px-4 py-2 rounded-xl text-white flex items-center gap-2">
+            <button onClick={extractData} className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
               <FaRobot /> Extract Data
             </button>
             {extractResult && (
@@ -133,11 +133,11 @@ export default function DataCapture() {
         </div>
 
         <div className="space-y-6">
-          <div className="glass-card p-5">
+          <div className="glass-card p-4 sm:p-5">
             <h2 className="text-white font-semibold mb-4 flex items-center gap-2"><HiOutlineSearch className="text-purple-400" /> Search Contact Data</h2>
             <div className="flex gap-3">
               <input className="input-field flex-1" value={searchPhone} onChange={e => setSearchPhone(e.target.value)} placeholder="Search by phone..." />
-              <button onClick={searchContact} className="btn-primary px-4 py-2 rounded-xl text-white">Search</button>
+              <button onClick={searchContact} className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm">Search</button>
             </div>
             {contactResult && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-4 p-4 bg-white/5 rounded-xl">
@@ -161,7 +161,7 @@ export default function DataCapture() {
             )}
           </div>
 
-          <div className="glass-card p-5">
+          <div className="glass-card p-4 sm:p-5">
             <h3 className="text-white font-semibold mb-2">How it works</h3>
             <ul className="text-gray-400 text-sm space-y-2">
               <li className="flex items-start gap-2"><span className="text-purple-400 mt-0.5">1.</span> AI analyzes incoming messages for entity data</li>

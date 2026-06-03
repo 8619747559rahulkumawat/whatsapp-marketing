@@ -49,17 +49,17 @@ export default function ImportContacts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Import Contacts</h1>
-          <p className="text-gray-400 text-sm mt-1">Upload CSV or Excel file to bulk add contacts</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Import Contacts</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Upload CSV or Excel file to bulk add contacts</p>
         </div>
-        <button onClick={downloadSample} className="btn-secondary flex items-center gap-2">
+        <button onClick={downloadSample} className="btn-secondary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
           <HiOutlineDownload /> Sample CSV
         </button>
       </div>
 
-      <div className="glass-card p-6 max-w-xl">
+      <div className="glass-card p-4 sm:p-6 max-w-xl">
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-300 mb-1">Contact Group (optional)</label>
           <select className="input-field" value={groupId} onChange={e => setGroupId(e.target.value)}>
@@ -93,7 +93,7 @@ export default function ImportContacts() {
           )}
         </div>
 
-        <button onClick={handleUpload} disabled={!file || uploading} className="btn-primary w-full mt-4 flex items-center justify-center gap-2">
+        <button onClick={handleUpload} disabled={!file || uploading} className="btn-primary w-full mt-4 flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm">
           {uploading ? <span className="animate-spin">⟳</span> : <HiOutlineUpload />}
           {uploading ? 'Importing...' : 'Import Contacts'}
         </button>
@@ -103,15 +103,15 @@ export default function ImportContacts() {
             <h3 className="text-white font-semibold mb-3">Import Summary</h3>
             <div className="grid grid-cols-3 gap-3">
               <div className="p-3 bg-white/5 rounded-lg text-center">
-                <p className="text-2xl font-bold text-white">{result.total}</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">{result.total}</p>
                 <p className="text-xs text-gray-400">Total</p>
               </div>
               <div className="p-3 bg-green-500/10 rounded-lg text-center">
-                <p className="text-2xl font-bold text-green-400">{result.imported}</p>
+                <p className="text-xl sm:text-2xl font-bold text-green-400">{result.imported}</p>
                 <p className="text-xs text-gray-400">Imported</p>
               </div>
               <div className="p-3 bg-yellow-500/10 rounded-lg text-center">
-                <p className="text-2xl font-bold text-yellow-400">{result.skipped}</p>
+                <p className="text-xl sm:text-2xl font-bold text-yellow-400">{result.skipped}</p>
                 <p className="text-xs text-gray-400">Skipped (duplicates)</p>
               </div>
             </div>

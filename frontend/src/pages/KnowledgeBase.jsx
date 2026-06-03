@@ -109,38 +109,38 @@ export default function KnowledgeBase() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">AI Knowledge Base</h1>
-          <p className="text-gray-400 text-sm mt-1">Train AI on your documents and data for smart responses</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">AI Knowledge Base</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Train AI on your documents and data for smart responses</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {openaiKey !== 'configured' && (
-            <button onClick={() => setShowKeyInput(true)} className="btn-primary px-4 py-2 rounded-xl text-white text-sm font-medium flex items-center gap-2 bg-orange-600 hover:bg-orange-500">
-              <HiOutlineChip /> Set OpenAI Key
+            <button onClick={() => setShowKeyInput(true)} className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 bg-orange-600 hover:bg-orange-500">
+              <HiOutlineChip /> <span className="hidden sm:inline">Set OpenAI Key</span><span className="sm:hidden">OpenAI</span>
             </button>
           )}
-          <button onClick={() => setShowCreate(true)} className="btn-primary px-4 py-2 rounded-xl text-white text-sm font-medium flex items-center gap-2">
-            <HiOutlinePlus /> Create Knowledge Base
+          <button onClick={() => setShowCreate(true)} className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2">
+            <HiOutlinePlus /> <span className="hidden sm:inline">Create Knowledge Base</span><span className="sm:hidden">New KB</span>
           </button>
         </div>
       </div>
 
       {analytics && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="glass-card p-5 text-center">
-            <FaBrain className="text-3xl text-purple-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-white">{analytics.totalKnowledgeBases || analytics.totalKbs || kbs.length}</p>
+          <div className="glass-card p-4 sm:p-5 text-center">
+            <FaBrain className="text-2xl sm:text-3xl text-purple-400 mx-auto mb-2" />
+            <p className="text-xl sm:text-2xl font-bold text-white">{analytics.totalKnowledgeBases || analytics.totalKbs || kbs.length}</p>
             <p className="text-gray-400 text-sm">Knowledge Bases</p>
           </div>
-          <div className="glass-card p-5 text-center">
-            <HiOutlineDocument className="text-3xl text-blue-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-white">{analytics.totalChunks || analytics.totalDocuments || 0}</p>
+          <div className="glass-card p-4 sm:p-5 text-center">
+            <HiOutlineDocument className="text-2xl sm:text-3xl text-blue-400 mx-auto mb-2" />
+            <p className="text-xl sm:text-2xl font-bold text-white">{analytics.totalChunks || analytics.totalDocuments || 0}</p>
             <p className="text-gray-400 text-sm">Total Chunks</p>
           </div>
-          <div className="glass-card p-5 text-center">
-            <HiOutlineBookOpen className="text-3xl text-green-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-white">{analytics.totalQueries || 0}</p>
+          <div className="glass-card p-4 sm:p-5 text-center">
+            <HiOutlineBookOpen className="text-2xl sm:text-3xl text-green-400 mx-auto mb-2" />
+            <p className="text-xl sm:text-2xl font-bold text-white">{analytics.totalQueries || 0}</p>
             <p className="text-gray-400 text-sm">AI Queries</p>
           </div>
         </div>
@@ -186,7 +186,7 @@ export default function KnowledgeBase() {
               <div className="glass-card p-4">
                 <div className="flex gap-3 mb-4">
                   <input className="input-field flex-1" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search your knowledge base..." />
-                  <button onClick={searchKnowledge} className="btn-primary px-4 py-2 rounded-xl text-white flex items-center gap-2">
+                  <button onClick={searchKnowledge} className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                     <HiOutlineSearch /> Search
                   </button>
                 </div>
@@ -213,8 +213,8 @@ export default function KnowledgeBase() {
               </div>
             </>
           ) : (
-            <div className="glass-card p-12 text-center">
-              <FaBrain className="text-6xl text-purple-400/30 mx-auto mb-4" />
+            <div className="glass-card p-6 sm:p-12 text-center">
+              <FaBrain className="text-4xl sm:text-6xl text-purple-400/30 mx-auto mb-4" />
               <h3 className="text-white font-semibold text-lg mb-2">Select a Knowledge Base</h3>
               <p className="text-gray-400 text-sm">Choose a knowledge base from the left to view its contents, upload documents, and search.</p>
             </div>

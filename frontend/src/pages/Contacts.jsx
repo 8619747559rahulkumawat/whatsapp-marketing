@@ -75,23 +75,23 @@ export default function Contacts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Contacts</h1>
-          <p className="text-gray-400 text-sm mt-1">Manage your contact list and groups</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Contacts</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Manage your contact list and groups</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input className="input-field pl-10 py-2 w-48" placeholder="Search..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <div className="relative flex-1 sm:flex-none min-w-[140px] sm:min-w-0">
+            <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+            <input className="input-field pl-9 py-2 w-full sm:w-48 text-sm" placeholder="Search..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
           </div>
-          <label className="btn-primary px-4 py-2 rounded-xl text-white text-sm font-medium flex items-center gap-2 cursor-pointer">
-            <HiOutlineUpload /> Import
+          <label className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 cursor-pointer">
+            <HiOutlineUpload size={14} /> <span className="hidden sm:inline">Import</span>
             <input type="file" accept=".csv" onChange={handleImport} className="hidden" />
           </label>
-          <button onClick={handleExport} className="px-4 py-2 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 text-sm flex items-center gap-2"><HiOutlineDownload /> Export</button>
-          <button onClick={() => setShowGroupModal(true)} className="px-4 py-2 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 text-sm flex items-center gap-2"><FaTag /> Groups</button>
-          <button onClick={() => setShowModal(true)} className="btn-primary px-4 py-2 rounded-xl text-white text-sm font-medium flex items-center gap-2"><HiOutlinePlus /> Add</button>
+          <button onClick={handleExport} className="px-3 sm:px-4 py-2 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 text-xs sm:text-sm flex items-center gap-1 sm:gap-2"><HiOutlineDownload size={14} /> <span className="hidden sm:inline">Export</span></button>
+          <button onClick={() => setShowGroupModal(true)} className="px-3 sm:px-4 py-2 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 text-xs sm:text-sm flex items-center gap-1 sm:gap-2"><FaTag size={14} /> <span className="hidden sm:inline">Groups</span></button>
+          <button onClick={() => setShowModal(true)} className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2"><HiOutlinePlus size={14} /> <span className="hidden sm:inline">Add</span></button>
         </div>
       </div>
 

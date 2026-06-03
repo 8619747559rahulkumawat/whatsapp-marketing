@@ -61,8 +61,8 @@ export default function Compliance() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Compliance Suite</h1>
-        <p className="text-gray-400 text-sm mt-1">Manage opt-in/opt-out, DND, and GDPR compliance</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-white">Compliance Suite</h1>
+        <p className="text-gray-400 text-xs sm:text-sm mt-1">Manage opt-in/opt-out, DND, and GDPR compliance</p>
       </div>
 
       <div className="flex gap-2 flex-wrap">
@@ -70,7 +70,7 @@ export default function Compliance() {
           const Icon = tab.icon;
           return (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+              className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
               <Icon /> {tab.label}
             </button>
           );
@@ -79,8 +79,8 @@ export default function Compliance() {
 
       {activeTab === 'logs' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-2">
               {['', 'opt_in', 'opt_out', 'gdpr_request'].map(t => (
                 <button key={t} onClick={() => { setFilter(t); setPage(1); }}
                   className={`px-3 py-1 rounded-lg text-xs ${filter === t ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 hover:text-white'}`}>
@@ -88,7 +88,7 @@ export default function Compliance() {
                 </button>
               ))}
             </div>
-            <button onClick={exportLogs} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-500/10 text-green-400 text-sm hover:bg-green-500/20">
+            <button onClick={exportLogs} className="flex items-center gap-1 sm:gap-2 px-3 py-2 rounded-xl bg-green-500/10 text-green-400 text-xs sm:text-sm hover:bg-green-500/20">
               <HiOutlineDownload /> Export CSV
             </button>
           </div>
@@ -96,22 +96,22 @@ export default function Compliance() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead><tr className="table-header">
-                  <th className="p-4 text-left">Date</th>
-                  <th className="p-4 text-left">Type</th>
-                  <th className="p-4 text-left">Phone</th>
-                  <th className="p-4 text-left">Method</th>
-                  <th className="p-4 text-left">Keyword</th>
-                  <th className="p-4 text-left">Status</th>
+                  <th className="p-2 sm:p-4 text-left whitespace-nowrap">Date</th>
+                  <th className="p-2 sm:p-4 text-left whitespace-nowrap">Type</th>
+                  <th className="p-2 sm:p-4 text-left whitespace-nowrap">Phone</th>
+                  <th className="p-2 sm:p-4 text-left whitespace-nowrap">Method</th>
+                  <th className="p-2 sm:p-4 text-left whitespace-nowrap">Keyword</th>
+                  <th className="p-2 sm:p-4 text-left whitespace-nowrap">Status</th>
                 </tr></thead>
                 <tbody>
                   {logs.map((l, idx) => (
                     <tr key={l._id} className="table-row">
-                      <td className="p-4 text-gray-400 text-sm">{new Date(l.timestamp).toLocaleString()}</td>
-                      <td className="p-4"><span className={`badge text-xs ${l.type === 'opt_in' ? 'badge-success' : l.type === 'opt_out' ? 'badge-danger' : 'badge-info'}`}>{l.type}</span></td>
-                      <td className="p-4 text-gray-300 text-sm">{l.phone}</td>
-                      <td className="p-4 text-gray-400 text-sm capitalize">{l.method}</td>
-                      <td className="p-4 text-gray-400 text-sm">{l.keyword || '-'}</td>
-                      <td className="p-4">{l.processed ? <span className="badge badge-success text-xs">Processed</span> : <span className="badge badge-warning text-xs">Pending</span>}</td>
+                      <td className="p-2 sm:p-4 text-gray-400 text-sm whitespace-nowrap">{new Date(l.timestamp).toLocaleString()}</td>
+                      <td className="p-2 sm:p-4 whitespace-nowrap"><span className={`badge text-xs ${l.type === 'opt_in' ? 'badge-success' : l.type === 'opt_out' ? 'badge-danger' : 'badge-info'}`}>{l.type}</span></td>
+                      <td className="p-2 sm:p-4 text-gray-300 text-sm whitespace-nowrap">{l.phone}</td>
+                      <td className="p-2 sm:p-4 text-gray-400 text-sm capitalize whitespace-nowrap">{l.method}</td>
+                      <td className="p-2 sm:p-4 text-gray-400 text-sm whitespace-nowrap">{l.keyword || '-'}</td>
+                      <td className="p-2 sm:p-4 whitespace-nowrap">{l.processed ? <span className="badge badge-success text-xs">Processed</span> : <span className="badge badge-warning text-xs">Pending</span>}</td>
                     </tr>
                   ))}
                   {logs.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-gray-500">No compliance logs found</td></tr>}
@@ -131,7 +131,7 @@ export default function Compliance() {
 
       {activeTab === 'dnd' && (
         <div className="max-w-lg">
-          <div className="glass-card p-6">
+          <div className="glass-card p-4 sm:p-6">
             <h3 className="text-white font-semibold mb-4">DND Check</h3>
             <p className="text-gray-400 text-sm mb-4">Check if a phone number has opted out (DND)</p>
             <div className="flex gap-3">
@@ -155,7 +155,7 @@ export default function Compliance() {
       )}
 
       {activeTab === 'subscribers' && (
-        <div className="glass-card p-6">
+        <div className="glass-card p-4 sm:p-6">
           <h3 className="text-white font-semibold mb-4">Subscriber Management</h3>
           {subscribers.length === 0 ? (
             <p className="text-gray-500 text-center py-8">No subscribers yet</p>
@@ -163,18 +163,18 @@ export default function Compliance() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead><tr className="table-header">
-                  <th className="p-3 text-left">Phone</th>
-                  <th className="p-3 text-left">Status</th>
-                  <th className="p-3 text-left">Source</th>
-                  <th className="p-3 text-left">Subscribed</th>
+                  <th className="p-2 sm:p-3 text-left whitespace-nowrap">Phone</th>
+                  <th className="p-2 sm:p-3 text-left whitespace-nowrap">Status</th>
+                  <th className="p-2 sm:p-3 text-left whitespace-nowrap">Source</th>
+                  <th className="p-2 sm:p-3 text-left whitespace-nowrap">Subscribed</th>
                 </tr></thead>
                 <tbody>
                   {subscribers.map(s => (
                     <tr key={s._id} className="table-row">
-                      <td className="p-3 text-gray-300">{s.phone}</td>
-                      <td className="p-3"><span className={`badge text-xs ${s.status === 'subscribed' ? 'badge-success' : 'badge-danger'}`}>{s.status}</span></td>
-                      <td className="p-3 text-gray-400 text-sm capitalize">{s.source}</td>
-                      <td className="p-3 text-gray-400 text-sm">{new Date(s.subscribedAt).toLocaleDateString()}</td>
+                      <td className="p-2 sm:p-3 text-gray-300 whitespace-nowrap">{s.phone}</td>
+                      <td className="p-2 sm:p-3 whitespace-nowrap"><span className={`badge text-xs ${s.status === 'subscribed' ? 'badge-success' : 'badge-danger'}`}>{s.status}</span></td>
+                      <td className="p-2 sm:p-3 text-gray-400 text-sm capitalize whitespace-nowrap">{s.source}</td>
+                      <td className="p-2 sm:p-3 text-gray-400 text-sm whitespace-nowrap">{new Date(s.subscribedAt).toLocaleDateString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -186,7 +186,7 @@ export default function Compliance() {
 
       {activeTab === 'gdpr' && (
         <div className="max-w-2xl">
-          <div className="glass-card p-6">
+          <div className="glass-card p-4 sm:p-6">
             <h3 className="text-white font-semibold mb-4">GDPR Data Requests</h3>
             <p className="text-gray-400 text-sm mb-4">Manage data access, export, and deletion requests</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

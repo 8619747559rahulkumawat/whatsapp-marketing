@@ -111,10 +111,10 @@ export default function AIAssist() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">AI Assistant</h1>
-          <p className="text-gray-400 text-sm mt-1">Powered by Ollama (Local AI - Free)</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">AI Assistant</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Powered by Ollama (Local AI - Free)</p>
         </div>
         <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${ollamaStatus?.available ? (ollamaStatus?.hasModel ? 'bg-green-500/10 text-green-400' : 'bg-yellow-500/10 text-yellow-400') : 'bg-red-500/10 text-red-400'}`}>
           <HiOutlineChip />
@@ -127,7 +127,7 @@ export default function AIAssist() {
           const Icon = tab.icon;
           return (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+              className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
               <Icon /> {tab.label}
             </button>
           );
@@ -180,7 +180,7 @@ export default function AIAssist() {
 
       {activeTab === 'smart_reply' && (
         <div className="max-w-2xl">
-          <div className="glass-card p-6">
+          <div className="glass-card p-4 sm:p-6">
             <h3 className="text-white font-semibold mb-4 flex items-center gap-2"><HiOutlineSparkles className="text-purple-400" /> Smart Reply Generator</h3>
             <p className="text-gray-400 text-sm mb-4">Generate professional replies to customer messages</p>
             <textarea className="input-field h-32 mb-4" value={smartReplyInput} onChange={e => setSmartReplyInput(e.target.value)} placeholder="Paste the customer message here..." />
@@ -198,7 +198,7 @@ export default function AIAssist() {
 
       {activeTab === 'sentiment' && (
         <div className="max-w-2xl">
-          <div className="glass-card p-6">
+          <div className="glass-card p-4 sm:p-6">
             <h3 className="text-white font-semibold mb-4 flex items-center gap-2"><HiOutlineEmojiHappy className="text-purple-400" /> Sentiment Analysis</h3>
             <p className="text-gray-400 text-sm mb-4">Analyze the sentiment of any message</p>
             <textarea className="input-field h-32 mb-4" value={sentimentInput} onChange={e => setSentimentInput(e.target.value)} placeholder="Enter a message to analyze..." />
@@ -214,7 +214,7 @@ export default function AIAssist() {
 
       {activeTab === 'optimize' && (
         <div className="max-w-2xl">
-          <div className="glass-card p-6">
+          <div className="glass-card p-4 sm:p-6">
             <h3 className="text-white font-semibold mb-4 flex items-center gap-2"><HiOutlinePencil className="text-purple-400" /> Message Optimizer</h3>
             <p className="text-gray-400 text-sm mb-4">Optimize your marketing messages for better engagement</p>
             <textarea className="input-field h-32 mb-4" value={optimizeInput} onChange={e => setOptimizeInput(e.target.value)} placeholder="Enter your message to optimize..." />
@@ -231,7 +231,7 @@ export default function AIAssist() {
 
       {activeTab === 'suggestions' && (
         <div className="max-w-2xl">
-          <div className="glass-card p-6">
+          <div className="glass-card p-4 sm:p-6">
             <h3 className="text-white font-semibold mb-4 flex items-center gap-2"><HiOutlineLightBulb className="text-purple-400" /> AI Suggestions</h3>
             <p className="text-gray-400 text-sm mb-4">Get actionable suggestions for your campaigns</p>
             <button onClick={getSuggestion} className="btn-primary px-6 py-2 rounded-xl text-white mb-4">Get Suggestion</button>

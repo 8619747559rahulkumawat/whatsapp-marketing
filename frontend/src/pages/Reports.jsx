@@ -50,12 +50,12 @@ export default function Reports() {
                 { label: 'Failed', value: stats?.failedMessages || 0, color: 'text-red-400' },
               ].map((item, idx) => (
                 <motion.div key={idx} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }} className="glass-card p-4 text-center">
-                  <p className={`text-2xl font-bold ${item.color}`}>{item.value.toLocaleString()}</p>
+                  <p className={`text-xl sm:text-2xl font-bold ${item.color}`}>{item.value.toLocaleString()}</p>
                   <p className="text-gray-400 text-sm mt-1">{item.label}</p>
                 </motion.div>
               ))}
             </div>
-            <div className="glass-card p-6">
+            <div className="glass-card p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-white font-semibold">Delivery Performance</h3>
                 <button onClick={() => handleExport('all')} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 text-sm"><HiOutlineDownload /> Export All</button>
@@ -78,24 +78,24 @@ export default function Reports() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead><tr className="table-header">
-                  <th className="p-4 text-left">Campaign</th>
-                  <th className="p-4 text-left">Type</th>
-                  <th className="p-4 text-left">Status</th>
-                  <th className="p-4 text-left">Sent</th>
-                  <th className="p-4 text-left">Delivered</th>
-                  <th className="p-4 text-left">Failed</th>
-                  <th className="p-4 text-left">Export</th>
+                  <th className="p-2 sm:p-4 text-left whitespace-nowrap">Campaign</th>
+                  <th className="p-2 sm:p-4 text-left whitespace-nowrap">Type</th>
+                  <th className="p-2 sm:p-4 text-left whitespace-nowrap">Status</th>
+                  <th className="p-2 sm:p-4 text-left whitespace-nowrap">Sent</th>
+                  <th className="p-2 sm:p-4 text-left whitespace-nowrap">Delivered</th>
+                  <th className="p-2 sm:p-4 text-left whitespace-nowrap">Failed</th>
+                  <th className="p-2 sm:p-4 text-left whitespace-nowrap">Export</th>
                 </tr></thead>
                 <tbody>
                   {campaigns.map((c, idx) => (
                     <motion.tr key={c._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.05 }} className="table-row">
-                      <td className="p-4 text-white">{c.name}</td>
-                      <td className="p-4 capitalize text-gray-300">{c.type}</td>
-                      <td className="p-4"><span className={`badge ${c.status === 'completed' ? 'badge-success' : c.status === 'running' ? 'badge-info' : 'badge-warning'}`}>{c.status}</span></td>
-                      <td className="p-4 text-gray-300">{c.sentCount}</td>
-                      <td className="p-4 text-gray-300">{c.deliveredCount}</td>
-                      <td className="p-4 text-gray-300">{c.failedCount}</td>
-                      <td className="p-4"><button onClick={() => handleExport('campaign', c._id)} className="p-2 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20"><HiOutlineDownload size={16} /></button></td>
+                      <td className="p-2 sm:p-4 text-white whitespace-nowrap">{c.name}</td>
+                      <td className="p-2 sm:p-4 capitalize text-gray-300 whitespace-nowrap">{c.type}</td>
+                      <td className="p-2 sm:p-4 whitespace-nowrap"><span className={`badge ${c.status === 'completed' ? 'badge-success' : c.status === 'running' ? 'badge-info' : 'badge-warning'}`}>{c.status}</span></td>
+                      <td className="p-2 sm:p-4 text-gray-300 whitespace-nowrap">{c.sentCount}</td>
+                      <td className="p-2 sm:p-4 text-gray-300 whitespace-nowrap">{c.deliveredCount}</td>
+                      <td className="p-2 sm:p-4 text-gray-300 whitespace-nowrap">{c.failedCount}</td>
+                      <td className="p-2 sm:p-4 whitespace-nowrap"><button onClick={() => handleExport('campaign', c._id)} className="p-2 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20"><HiOutlineDownload size={16} /></button></td>
                     </motion.tr>
                   ))}
                   {campaigns.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-gray-500">No campaigns yet</td></tr>}
@@ -110,16 +110,16 @@ export default function Reports() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Reports</h1>
-          <p className="text-gray-400 text-sm mt-1">Campaign and delivery analytics</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Reports</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Campaign and delivery analytics</p>
         </div>
       </div>
 
       <div className="flex gap-2">
         {['overview', 'campaigns'].map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-2 rounded-xl text-sm font-medium capitalize transition-all ${activeTab === tab ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium capitalize transition-all ${activeTab === tab ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
             {tab}
           </button>
         ))}

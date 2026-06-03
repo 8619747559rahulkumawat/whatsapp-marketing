@@ -105,25 +105,25 @@ export default function Templates() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Message Templates</h1>
-          <p className="text-gray-400 text-sm mt-1">Create and manage WhatsApp message templates</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Message Templates</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Create and manage WhatsApp message templates</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="relative flex-1 sm:flex-none">
             <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input className="input-field pl-10 py-2 w-64" placeholder="Search templates..." value={search} onChange={e => setSearch(e.target.value)} />
+            <input className="input-field pl-10 py-2 w-full sm:w-64" placeholder="Search templates..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-          <button onClick={openCreate} className="btn-primary px-4 py-2 rounded-xl text-white text-sm font-medium flex items-center gap-2">
-            <HiOutlinePlus /> Create Template
+          <button onClick={openCreate} className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm font-medium flex items-center justify-center gap-1 sm:gap-2">
+            <HiOutlinePlus /> <span className="hidden sm:inline">Create Template</span><span className="sm:hidden">Create</span>
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((tmpl, idx) => (
-          <motion.div key={tmpl._id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} className="glass-card p-5 glass-card-hover">
+          <motion.div key={tmpl._id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} className="glass-card p-4 sm:p-5 glass-card-hover">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
@@ -167,7 +167,7 @@ export default function Templates() {
 
       {showModal && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
-          <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-[#1a1a2e] rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-white/10" onClick={e => e.stopPropagation()}>
+          <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-[#1a1a2e] rounded-2xl p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-white/10" onClick={e => e.stopPropagation()}>
             <h2 className="text-xl font-bold text-white mb-4">{editing ? 'Edit Template' : 'Create Template'}</h2>
             <form onSubmit={handleSave} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -206,8 +206,8 @@ export default function Templates() {
                 </select>
               </div>
               <div className="flex gap-3 justify-end pt-4">
-                <button type="button" onClick={() => setShowModal(false)} className="px-6 py-2 rounded-xl border border-white/10 text-gray-300">Cancel</button>
-                <button type="submit" className="btn-primary px-6 py-2 rounded-xl text-white">{editing ? 'Update' : 'Create'}</button>
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 sm:px-6 py-2 rounded-xl border border-white/10 text-gray-300 text-xs sm:text-sm">Cancel</button>
+                <button type="submit" className="btn-primary px-4 sm:px-6 py-2 rounded-xl text-white text-xs sm:text-sm">{editing ? 'Update' : 'Create'}</button>
               </div>
             </form>
           </motion.div>

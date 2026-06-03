@@ -84,8 +84,8 @@ export default function Integrations() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Integration Hub</h1>
-        <p className="text-gray-400 text-sm mt-1">Connect your apps with webhooks and API keys</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-white">Integration Hub</h1>
+        <p className="text-gray-400 text-xs sm:text-sm mt-1">Connect your apps with webhooks and API keys</p>
       </div>
 
       {testResult && (
@@ -97,15 +97,15 @@ export default function Integrations() {
 
       <div className="flex gap-2 flex-wrap">
         <button onClick={() => setActiveTab('webhooks')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeTab === 'webhooks' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+          className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all ${activeTab === 'webhooks' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
           <HiOutlineLink /> Webhooks
         </button>
         <button onClick={() => setActiveTab('api')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeTab === 'api' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+          className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all ${activeTab === 'api' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
           <HiOutlineCode /> API Keys
         </button>
         <button onClick={() => setActiveTab('marketplace')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeTab === 'marketplace' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+          className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all ${activeTab === 'marketplace' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
           <FaPlug /> Integration Marketplace
         </button>
       </div>
@@ -113,13 +113,13 @@ export default function Integrations() {
       {activeTab === 'webhooks' && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <button onClick={() => setShowWebhookModal(true)} className="btn-primary px-4 py-2 rounded-xl text-white text-sm font-medium flex items-center gap-2">
+            <button onClick={() => setShowWebhookModal(true)} className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2">
               <HiOutlinePlus /> Add Webhook
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {webhooks.map((wh, idx) => (
-              <motion.div key={wh._id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} className="glass-card p-5">
+              <motion.div key={wh._id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} className="glass-card p-4 sm:p-5">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
@@ -188,13 +188,13 @@ export default function Integrations() {
       {activeTab === 'api' && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <button onClick={() => setShowApiModal(true)} className="btn-primary px-4 py-2 rounded-xl text-white text-sm font-medium flex items-center gap-2">
+            <button onClick={() => setShowApiModal(true)} className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2">
               <HiOutlinePlus /> Create API Key
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {apiKeys.map((key, idx) => (
-              <motion.div key={key._id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} className="glass-card p-5">
+              <motion.div key={key._id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} className="glass-card p-4 sm:p-5">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
@@ -262,8 +262,8 @@ export default function Integrations() {
             { name: 'REST API', desc: 'Direct API access for custom integrations', icon: HiOutlineCode, color: 'text-green-400', status: 'Available', docs: true },
             { name: 'Webhooks', desc: 'Real-time event notifications', icon: HiOutlineLink, color: 'text-purple-400', status: 'Available' }
           ].map((item, idx) => (
-            <motion.div key={item.name} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }} className="glass-card p-5 text-center glass-card-hover">
-              <item.icon className={`text-4xl ${item.color} mx-auto mb-3`} />
+            <motion.div key={item.name} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }} className="glass-card p-4 sm:p-5 text-center glass-card-hover">
+              <item.icon className={`text-3xl sm:text-4xl ${item.color} mx-auto mb-3`} />
               <h3 className="text-white font-semibold mb-2">{item.name}</h3>
               <p className="text-gray-400 text-xs mb-4">{item.desc}</p>
               <span className={`badge text-xs ${item.status === 'Available' ? 'badge-success' : 'badge-warning'}`}>{item.status}</span>
