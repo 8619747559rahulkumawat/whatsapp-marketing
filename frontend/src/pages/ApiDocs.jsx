@@ -16,7 +16,7 @@ export default function ApiDocs() {
     try {
       const { data } = await API.get('/api/keys');
       if (data.success) setKeys(data.keys);
-    } catch { } finally { setLoading(false); }
+    } catch { console.error("API Error"); } finally { setLoading(false); }
   };
 
   const createKey = async (e) => {
@@ -26,12 +26,12 @@ export default function ApiDocs() {
       setShowModal(false);
       setForm({ name: '', permissions: ['send'] });
       fetchKeys();
-    } catch { }
+    } catch (err) { console.error(err); }
   };
 
   const deleteKey = async (id) => {
     if (!confirm('Delete this API key?')) return;
-    try { await API.delete(`/api/keys/${id}`); fetchKeys(); } catch { }
+    try { await API.delete(`/api/keys/${id}`); fetchKeys(); } catch (err) { console.error(err); }
   };
 
   const copyToClipboard = (text) => {

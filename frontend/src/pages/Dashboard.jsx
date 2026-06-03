@@ -24,14 +24,14 @@ export default function Dashboard() {
     try {
       const { data } = await API.get('/reports/dashboard');
       if (data.success) setStats(data.stats);
-    } catch { }
+    } catch (err) { console.error(err); }
   };
 
   const fetchMonthly = async () => {
     try {
       const { data } = await API.get('/reports/monthly');
       if (data.success) setMonthlyStats(data.stats);
-    } catch { }
+    } catch (err) { console.error(err); }
   };
 
   const statCards = [

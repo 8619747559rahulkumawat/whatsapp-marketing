@@ -130,7 +130,7 @@ export default function LiveChat() {
         const convs = mergeConversations(chatRes.data.conversations || [], msgRes.data.messages || []);
         fetchProfilePics(convs, connectedSessions);
       }
-    } catch { }
+    } catch (err) { console.error(err); }
   };
 
   const mergeConversations = (chatConvs, whatsappMsgs) => {
@@ -205,7 +205,7 @@ export default function LiveChat() {
       setConversations(prev => prev.map(c => c.userId === selectedConv.userId ? { ...c, messages: [...(c.messages || []), optimisticMsg], lastTime: new Date() } : c));
       try {
         await API.post('/messages/send', { sessionId: sessions[0]?.sessionId, to: phone, messageType: 'text', message: msg });
-      } catch { }
+      } catch (err) { console.error(err); }
     } else {
       const socket = connectSocket();
       socket.emit('call:offer', { room, userId: selectedConv.userId, type, fromName: user?.name || 'Admin' });
@@ -253,7 +253,7 @@ export default function LiveChat() {
 
   const endCall = () => {
     if (jitsiRef.current) {
-      try { jitsiRef.current.dispose(); } catch {}
+      try { jitsiRef.current.dispose(); } catch (err) { console.error(err); }
       jitsiRef.current = null;
     }
     const container = document.getElementById('jitsi-container');
@@ -387,7 +387,7 @@ export default function LiveChat() {
         setConversations(prev => prev.filter(c => c.userId !== userId));
         if (selectedConv?.userId === userId) setSelectedConv(null);
       }
-    } catch { }
+    } catch (err) { console.error(err); }
   };
 
   const togglePin = (userId) => {

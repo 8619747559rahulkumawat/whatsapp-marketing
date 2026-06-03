@@ -36,14 +36,14 @@ export default function Campaigns() {
       if (sessRes.data.success) setSessions(sessRes.data.sessions);
       if (contRes.data.success) setContacts(contRes.data.contacts);
       if (grpRes.data.success) setGroups(grpRes.data.groups);
-    } catch { } finally { setLoading(false); }
+    } catch { console.error("API Error"); } finally { setLoading(false); }
   };
 
   const handleAction = async (id, action) => {
     try {
       await API.post(`/campaigns/${id}/${action}`);
       fetchData();
-    } catch { }
+    } catch (err) { console.error(err); }
   };
 
   const handleDelete = async (id) => {
@@ -51,7 +51,7 @@ export default function Campaigns() {
     try {
       await API.delete(`/campaigns/${id}`);
       fetchData();
-    } catch { }
+    } catch (err) { console.error(err); }
   };
 
   const handleCreate = async (e) => {
@@ -61,7 +61,7 @@ export default function Campaigns() {
       setShowModal(false);
       setForm({ name: '', type: 'bulk', sessionId: '', messageType: 'text', message: '', delay: 2000, isPersonalized: false, contactIds: [], groupIds: [], buttons: [] });
       fetchData();
-    } catch { }
+    } catch (err) { console.error(err); }
   };
 
   const getStatusBadge = (status) => {

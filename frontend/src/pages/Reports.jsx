@@ -21,7 +21,7 @@ export default function Reports() {
       const [statsRes, campRes] = await Promise.all([API.get('/reports/dashboard'), API.get('/reports/campaigns')]);
       if (statsRes.data.success) setStats(statsRes.data.stats);
       if (campRes.data.success) setCampaigns(campRes.data.campaigns);
-    } catch { } finally { setLoading(false); }
+    } catch { console.error("API Error"); } finally { setLoading(false); }
   };
 
   const handleExport = async (type, campaignId) => {
@@ -34,7 +34,7 @@ export default function Reports() {
       a.href = url;
       a.download = `report-${Date.now()}.csv`;
       a.click();
-    } catch { }
+    } catch (err) { console.error(err); }
   };
 
   const tabContent = () => {

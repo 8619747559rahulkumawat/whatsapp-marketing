@@ -116,7 +116,7 @@ const checkOllamaStatus = async (req, res) => {
         const hasModel = models.data.some(m => m.id === (process.env.OPENAI_MODEL || 'gpt-4o-mini'));
         res.json({ success: true, available: true, provider: 'openai', hasModel, models: models.data.map(m => m.id) });
         return;
-      } catch {}
+      } catch (err) { console.error(err); }
     }
     const axios = require('axios');
     const { data } = await axios.get('http://localhost:11434/api/tags', { timeout: 3000 });

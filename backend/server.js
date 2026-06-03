@@ -47,9 +47,12 @@ const limiter = rateLimit({
   message: { success: false, message: 'Too many requests, please try again later' }
 });
 
+app.use(require('compression')());
+app.use(require('helmet')({ crossOriginResourcePolicy: false }));
 app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use('/api/', limiter);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const uploadDir = path.join(__dirname, process.env.UPLOAD_DIR || 'uploads');

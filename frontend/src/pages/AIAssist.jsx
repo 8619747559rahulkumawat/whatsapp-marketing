@@ -31,14 +31,14 @@ export default function AIAssist() {
     try {
       const { data } = await API.get('/ai/ollama-status');
       setOllamaStatus(data);
-    } catch {}
+    } catch (err) { console.error(err); }
   };
 
   const loadChatHistory = async () => {
     try {
       const { data } = await API.get('/ai/chat');
       if (data.success) setMessages(data.messages);
-    } catch {}
+    } catch (err) { console.error(err); }
   };
 
   const sendChat = async (e) => {

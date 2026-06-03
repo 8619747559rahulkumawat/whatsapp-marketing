@@ -19,19 +19,19 @@ export default function Audit() {
       if (filter.days) params.append('days', filter.days);
       const { data } = await API.get(`/audit?${params}`);
       if (data.success) setLogs(data.logs);
-    } catch {} finally { setLoading(false); }
+    } catch { console.error("API Error"); } finally { setLoading(false); }
   };
 
   const fetchStats = async () => {
     try {
       const { data } = await API.get('/audit/stats');
       if (data.success) setStats(data.stats);
-    } catch {}
+    } catch (err) { console.error(err); }
   };
 
   const clearLogs = async () => {
     if (!confirm('Clear all audit logs? This cannot be undone.')) return;
-    try { await API.delete('/audit/clear'); setLogs([]); setStats(null); } catch {}
+    try { await API.delete('/audit/clear'); setLogs([]); setStats(null); } catch (err) { console.error(err); }
   };
 
   const actionColors = {

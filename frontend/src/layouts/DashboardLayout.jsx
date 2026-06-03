@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Sidebar from './Sidebar';
@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { connectSocket } from '../utils/socket';
 import { incrementUnread } from '../stores/chatStore';
 
-export default function DashboardLayout() {
+const DashboardLayout = memo(function DashboardLayout() {
   const { user, token } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -80,4 +80,5 @@ export default function DashboardLayout() {
       </div>
     </div>
   );
-}
+});
+export default DashboardLayout;

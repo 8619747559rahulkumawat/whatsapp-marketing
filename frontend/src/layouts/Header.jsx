@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { HiOutlineBell, HiOutlineMenuAlt2, HiOutlineUser, HiOutlineLogout, HiOutlineCash, HiOutlineLockClosed } from 'react-icons/hi';
 import { FaWhatsapp } from 'react-icons/fa';
 
-export default function Header({ setSidebarOpen, collapsed }) {
+const Header = memo(function Header({ setSidebarOpen, collapsed }) {
   const { user, logout } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
@@ -124,4 +124,5 @@ export default function Header({ setSidebarOpen, collapsed }) {
       </div>
     </header>
   );
-}
+});
+export default Header;

@@ -20,14 +20,14 @@ export default function AdminDashboard() {
     try {
       const { data: res } = await API.get('/admin/dashboard');
       if (res.success) setData(res);
-    } catch { } finally { setLoading(false); }
+    } catch { console.error("API Error"); } finally { setLoading(false); }
   };
 
   const fetchSubStats = async () => {
     try {
       const { data: res } = await API.get('/admin/subscriptions/stats');
       if (res.success) setSubStats(res.stats);
-    } catch {}
+    } catch (err) { console.error(err); }
   };
 
   const stats = data?.stats || {};

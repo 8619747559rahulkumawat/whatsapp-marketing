@@ -26,7 +26,7 @@ export default function Contacts() {
       ]);
       if (contRes.data.success) { setContacts(contRes.data.contacts); setTotalPages(contRes.data.pagination.pages); }
       if (grpRes.data.success) setGroups(grpRes.data.groups);
-    } catch { } finally { setLoading(false); }
+    } catch { console.error("API Error"); } finally { setLoading(false); }
   };
 
   const handleCreate = async (e) => {
@@ -36,12 +36,12 @@ export default function Contacts() {
       setShowModal(false);
       setForm({ name: '', phone: '', email: '', groups: [] });
       fetchData();
-    } catch { }
+    } catch (err) { console.error(err); }
   };
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this contact?')) return;
-    try { await API.delete(`/contacts/${id}`); fetchData(); } catch { }
+    try { await API.delete(`/contacts/${id}`); fetchData(); } catch (err) { console.error(err); }
   };
 
   const handleImport = async (e) => {
@@ -53,7 +53,7 @@ export default function Contacts() {
       const { data } = await API.post('/contacts/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       alert(`Imported: ${data.imported}, Skipped: ${data.skipped}`);
       fetchData();
-    } catch { }
+    } catch (err) { console.error(err); }
     e.target.value = '';
   };
 
@@ -65,12 +65,12 @@ export default function Contacts() {
       a.href = url;
       a.download = 'contacts.csv';
       a.click();
-    } catch { }
+    } catch (err) { console.error(err); }
   };
 
   const createGroup = async (e) => {
     e.preventDefault();
-    try { await API.post('/contacts/groups', groupForm); setShowGroupModal(false); setGroupForm({ name: '', description: '' }); fetchData(); } catch { }
+    try { await API.post('/contacts/groups', groupForm); setShowGroupModal(false); setGroupForm({ name: '', description: '' }); fetchData(); } catch (err) { console.error(err); }
   };
 
   return (

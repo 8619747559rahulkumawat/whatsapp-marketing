@@ -98,7 +98,7 @@ const getConnectionStatus = async (sessionId) => {
     const Session = require('../models/Session');
     const dbSession = await Session.findOne({ sessionId }).select('status phone');
     if (dbSession && dbSession.status === 'connected') return { status: 'connected', phone: dbSession.phone || '' };
-  } catch {}
+  } catch (err) { console.error("WhatsApp Error:", err); }
   if (sock) return { status: 'connecting', phone: '' };
   return { status: 'disconnected', phone: '' };
 };
@@ -118,8 +118,8 @@ const cleanupSession = (sessionId) => {
   sessionsStore.delete(sessionId);
   const oldSock = sessions.get(sessionId);
   if (oldSock) {
-    try { oldSock.ev?.removeAllListeners?.(); } catch {}
-    try { oldSock.end(new Error('Session replaced')); } catch {}
+    try { oldSock.ev?.removeAllListeners?.(); } catch (err) { console.error("WhatsApp Error:", err); }
+    try { oldSock.end(new Error('Session replaced')); } catch (err) { console.error("WhatsApp Error:", err); }
   }
   sessions.delete(sessionId);
 };
@@ -168,7 +168,7 @@ const connectSession = async (sessionId, io) => {
     const store = makeInMemoryStore({ logger: pino({ level: 'silent' }) });
     try {
       store.readFromFile(storePath);
-    } catch {}
+    } catch (err) { console.error("WhatsApp Error:", err); }
     store.bind(sock.ev);
     sessionsStore.set(sessionId, store);
 
@@ -188,7 +188,7 @@ const connectSession = async (sessionId, io) => {
             if (c.id) existing[c.id] = { ...existing[c.id], ...c };
           }
           fs.writeFileSync(contactFile, JSON.stringify(existing));
-          try { store.writeToFile(storePath); } catch {}
+          try { store.writeToFile(storePath); } catch (err) { console.error("WhatsApp Error:", err); }
         } catch (e) { console.error('[Baileys] History contacts persist error:', e.message); }
       }
     });
@@ -265,7 +265,7 @@ const connectSession = async (sessionId, io) => {
           session.lastSynced = new Date();
           await session.save();
           // Defer store persistence to give time for contacts to sync
-          setTimeout(() => { try { store.writeToFile(storePath); } catch {} }, 10000);
+          setTimeout(() => { try { store.writeToFile(storePath); } catch (err) { console.error("WhatsApp Error:", err); } }, 10000);
           if (io) {
             io.to(`session_${sessionId}`).emit('session:connected', { sessionId });
             io.emit('session:update', { sessionId, status: 'connected', phone: session.phone });
@@ -507,7 +507,7 @@ const connectSession = async (sessionId, io) => {
                     if (rule.matchType === 'exact') matched = msgLower === kwLower;
                     else if (rule.matchType === 'contains') matched = msgLower.includes(kwLower);
                     else if (rule.matchType === 'regex') {
-                      try { matched = new RegExp(rule.keyword, 'i').test(msgLower); } catch {}
+                      try { matched = new RegExp(rule.keyword, 'i').test(msgLower); } catch (err) { console.error("WhatsApp Error:", err); }
                     }
                     if (matched) {
                       if (rule.oncePerContact && rule.sentContacts?.includes(phone)) continue;
@@ -842,7 +842,7 @@ const fetchContactName = async (sessionId, phone) => {
       const Chat = require('../models/Chat');
       const chat = await Chat.findOne({ waPhone: cleanPhone }).sort({ createdAt: -1 }).select('waName').lean();
       if (chat?.waName && chat.waName !== cleanPhone && !/^\d+$/.test(chat.waName)) return chat.waName;
-    } catch {}
+    } catch (err) { console.error("WhatsApp Error:", err); }
 
     const cmap = sessionsContactMap.get(sessionId);
     if (cmap) {
@@ -862,7 +862,7 @@ const fetchContactName = async (sessionId, phone) => {
           if (name && !/^\d+$/.test(name)) return name;
         }
       }
-    } catch {}
+    } catch (err) { console.error("WhatsApp Error:", err); }
 
     return '';
   } catch {
@@ -948,15 +948,15 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
     // Clean up any existing socket first
     const existingSock = sessions.get(sessionId);
     if (existingSock) {
-      try { existingSock.end(undefined); } catch {}
-      try { existingSock.ws?.close(); } catch {}
+      try { existingSock.end(undefined); } catch (err) { console.error("WhatsApp Error:", err); }
+      try { existingSock.ws?.close(); } catch (err) { console.error("WhatsApp Error:", err); }
     }
     cleanupSession(sessionId);
     const sessionDir = getSessionDir(sessionId);
     // Remove existing auth creds so pairing starts fresh
     const credsFile = path.join(sessionDir, 'creds.json');
     if (fs.existsSync(credsFile)) {
-      try { fs.unlinkSync(credsFile); } catch {}
+      try { fs.unlinkSync(credsFile); } catch (err) { console.error("WhatsApp Error:", err); }
     }
     if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
@@ -1008,7 +1008,7 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
     // Set up event handlers (same as connectSession)
     const storePath = path.join(sessionDir, 'baileys-store.json');
     const store = makeInMemoryStore({ logger: pino({ level: 'silent' }) });
-    try { store.readFromFile(storePath); } catch {}
+    try { store.readFromFile(storePath); } catch (err) { console.error("WhatsApp Error:", err); }
     store.bind(sock.ev);
     sessionsStore.set(sessionId, store);
 
@@ -1047,7 +1047,7 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
           await sessionDoc.save();
           if (io) io.emit('session:update', { sessionId, status: 'connected', phone: sessionDoc.phone });
           console.log(`[Baileys] Session ${sessionId} paired & connected!`);
-          setTimeout(() => { try { store.writeToFile(storePath); } catch {} }, 10000);
+          setTimeout(() => { try { store.writeToFile(storePath); } catch (err) { console.error("WhatsApp Error:", err); } }, 10000);
         }
         if (connection === 'close') {
           const reason = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.data?.reason || 428;

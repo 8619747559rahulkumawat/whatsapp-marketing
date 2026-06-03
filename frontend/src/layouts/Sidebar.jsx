@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
@@ -59,7 +59,7 @@ const superAdminNav = [
   ]},
 ];
 
-export default function Sidebar({ isOpen, setIsOpen, collapsed, setCollapsed }) {
+const Sidebar = memo(function Sidebar({ isOpen, setIsOpen, collapsed, setCollapsed }) {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [chatUnread, setChatUnread] = useState(getUnreadCount());
@@ -209,4 +209,5 @@ export default function Sidebar({ isOpen, setIsOpen, collapsed, setCollapsed }) 
       />
     </>
   );
-}
+});
+export default Sidebar;

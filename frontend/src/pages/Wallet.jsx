@@ -18,7 +18,7 @@ export default function Wallet() {
     try {
       const { data } = await API.get(`/wallet/transactions?page=${page}&limit=20`);
       if (data.success) { setTransactions(data.transactions); setTotalPages(data.pagination.pages); }
-    } catch { } finally { setLoading(false); }
+    } catch { console.error("API Error"); } finally { setLoading(false); }
   };
 
   return (

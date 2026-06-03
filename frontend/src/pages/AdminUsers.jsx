@@ -29,7 +29,7 @@ export default function AdminUsers() {
     try {
       const { data } = await API.get(`/admin/users?page=${page}&limit=20&search=${search}`);
       if (data.success) { setUsers(data.users); setTotalPages(data.pagination.pages); }
-    } catch { } finally { setLoading(false); }
+    } catch { console.error("API Error"); } finally { setLoading(false); }
   };
 
   useEffect(() => {
@@ -42,12 +42,12 @@ export default function AdminUsers() {
     try {
       await API.put(`/admin/users/${id}`, { isActive: !isActive });
       fetchUsers();
-    } catch { }
+    } catch (err) { console.error(err); }
   };
 
   const deleteUser = async (id) => {
     if (!confirm('Delete this user and all associated data permanently?')) return;
-    try { await API.delete(`/admin/users/${id}`); fetchUsers(); } catch { }
+    try { await API.delete(`/admin/users/${id}`); fetchUsers(); } catch (err) { console.error(err); }
   };
 
   const handleCreateUser = async (e) => {
@@ -91,7 +91,7 @@ export default function AdminUsers() {
       setShowCreditModal(false);
       setCreditForm({ amount: '', description: '' });
       fetchUsers();
-    } catch { }
+    } catch (err) { console.error(err); }
   };
 
   const handlePlanChange = async (e) => {
