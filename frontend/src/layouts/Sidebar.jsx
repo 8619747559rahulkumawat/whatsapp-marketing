@@ -145,7 +145,7 @@ export default function Sidebar({ isOpen, setIsOpen, collapsed, setCollapsed }) 
       </AnimatePresence>
 
       <aside
-        className={`fixed top-0 left-0 h-full z-40 bg-gradient-to-b from-[#1e0b4a] via-[#0f0326] to-[#1a0533] border-r border-white/5 overflow-y-auto transition-all duration-300 sidebar-scroll ${collapsed ? 'w-20' : 'w-64'} ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
+        className={`fixed top-0 left-0 h-full z-40 bg-gradient-to-b from-[#1e0b4a] via-[#0f0326] to-[#1a0533] border-r border-white/5 overflow-y-auto transition-all duration-300 sidebar-scroll ${collapsed ? 'w-full sm:w-20' : 'w-full sm:w-64'} ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
       >
         <div className="p-4 lg:p-6 border-b border-white/10">
           <Link to="/dashboard" className="flex items-center gap-3" onClick={() => setIsOpen(false)}>
