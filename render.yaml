@@ -21,6 +21,6 @@ services:
       - key: ADMIN_PASSWORD
         value: Admin@123
       - key: CORS_ORIGIN
-        value: https://whatsapp-marketing.onrender.com
+        value: https://whatsapp-marketing-c1qj.onrender.com
       - key: CLEANUP_ENABLED
         value: "false"
