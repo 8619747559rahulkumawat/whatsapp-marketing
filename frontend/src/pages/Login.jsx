@@ -108,9 +108,6 @@ export default function Login() {
           <Link to="/register" className="text-link font-medium">Register</Link>
         </p>
 
-        <p className="text-center text-xs auth-logo-desc mt-2 opacity-70">
-          Admin: admin@digitalsms.biz / Admin@123
-        </p>
       </motion.div>
     </div>
   );
