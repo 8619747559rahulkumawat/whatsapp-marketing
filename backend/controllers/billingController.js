@@ -166,8 +166,29 @@ exports.subscribeToPlan = async (req, res) => {
     const { planId, paymentMethod } = req.body;
     if (!planId) return res.status(400).json({ success: false, message: 'Plan ID required' });
 
-    const plan = await SubscriptionPlan.findById(planId);
-    if (!plan || !plan.isActive) return res.status(404).json({ success: false, message: 'Plan not found' });
+    let plan;
+    const isValidObjectId = require('mongoose').Types.ObjectId.isValid(planId);
+    if (isValidObjectId) {
+      plan = await SubscriptionPlan.findById(planId);
+      if (!plan || !plan.isActive) return res.status(404).json({ success: false, message: 'Plan not found' });
+    } else {
+      const defaultPlans = {
+        free: { name: 'Free', price: 0, currency: 'INR', interval: 'month' },
+        starter: { name: 'Starter', price: 499, currency: 'INR', interval: 'month' },
+        professional: { name: 'Professional', price: 1999, currency: 'INR', interval: 'month' },
+        enterprise: { name: 'Enterprise', price: 9999, currency: 'INR', interval: 'month' }
+      };
+      if (!defaultPlans[planId]) return res.status(404).json({ success: false, message: 'Plan not found' });
+      plan = defaultPlans[planId];
+    }
+
+    if (plan.price === 0) {
+      await Tenant.findByIdAndUpdate(req.tenant._id, {
+        plan: plan.name.toLowerCase(),
+        'billing.currentPeriodEnd': new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+      });
+      return res.json({ success: true, plan: { name: plan.name }, message: `Subscribed to ${plan.name} plan` });
+    }
 
     const invoice = await billingService.createInvoice({
       tenantId: req.tenant._id,
@@ -175,11 +196,11 @@ exports.subscribeToPlan = async (req, res) => {
       amount: plan.price,
       currency: plan.currency,
       items: [{ description: `${plan.name} Plan - ${plan.interval}ly`, quantity: 1, unitPrice: plan.price, total: plan.price }],
-      planId: plan._id
+      planId: isValidObjectId ? plan._id : null
     });
 
     if (paymentMethod === 'razorpay') {
-      const order = await billingService.createRazorpayOrder(plan.price, plan.currency, `plan_${plan._id}`);
+      const order = await billingService.createRazorpayOrder(plan.price, plan.currency, `plan_${planId}`);
       await Invoice.findByIdAndUpdate(invoice._id, { razorpayOrderId: order.id });
       return res.json({ success: true, order, invoice, plan, paymentMethod: 'razorpay' });
     }
