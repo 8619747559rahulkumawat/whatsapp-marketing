@@ -255,7 +255,7 @@ export default function Billing() {
             </h3>
             <div className="flex flex-col items-center mb-6">
               <div className="w-48 h-48 bg-white rounded-2xl p-3 flex items-center justify-center mb-3">
-                <img src="/upi-qr.png" alt="UPI QR Code" className="w-full h-full object-contain" onError={(e) => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div class=text-gray-400 text-center><div class=text-6xl mb-2>📱</div><p class=text-sm>Scan with any UPI app</p><p class=text-xs mt-1>pay@rsendix</p></div>' }} />
+                <img src="/upi-qr.jpeg" alt="UPI QR Code" className="w-full h-full object-contain" onError={(e) => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div class=text-gray-400 text-center><div class=text-6xl mb-2>📱</div><p class=text-sm>Scan with any UPI app</p><p class=text-xs mt-1>pay@rsendix</p></div>' }} />
               </div>
               <p className="text-gray-400 text-sm">Scan this QR with any UPI app (GPay, PhonePe, Paytm) and pay</p>
             </div>
