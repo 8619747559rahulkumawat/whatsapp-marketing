@@ -26,4 +26,6 @@ router.post('/stripe/confirm', billingController.confirmStripePayment);
 router.post('/subscribe', billingController.subscribeToPlan);
 router.post('/subscribe/confirm', billingController.confirmPlanSubscription);
 
+router.post('/upi/verify', billingController.verifyUpiPayment);
+
 module.exports = router;

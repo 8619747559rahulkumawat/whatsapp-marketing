@@ -243,6 +243,42 @@ exports.getCreditRate = async (req, res) => {
   }
 };
 
+exports.verifyUpiPayment = async (req, res) => {
+  try {
+    const { upiTransactionId, amount, planId } = req.body;
+    if (!upiTransactionId || !amount) {
+      return res.status(400).json({ success: false, message: 'UPI transaction ID and amount required' });
+    }
+    const rate = await billingService.getCreditRate();
+    const credits = Math.floor(amount / rate);
+    const invoice = await billingService.createInvoice({
+      tenantId: req.tenant._id,
+      userId: req.user._id,
+      amount,
+      currency: 'INR',
+      items: [{ description: `${credits} Credits via UPI QR`, quantity: 1, unitPrice: amount, total: amount }],
+      planId: planId || null
+    });
+    await Invoice.findByIdAndUpdate(invoice._id, {
+      status: 'paid',
+      paymentMethod: 'upi_qr',
+      paymentId: upiTransactionId,
+      paidAt: new Date()
+    });
+    const result = await billingService.processCreditPurchase({
+      userId: req.user._id,
+      amount,
+      credits,
+      paymentMethod: 'upi_qr',
+      paymentId: upiTransactionId,
+      invoiceId: invoice._id
+    });
+    res.json({ success: true, message: 'Payment verified! Credits added.', ...result });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 exports.getAllInvoices = async (req, res) => {
   try {
     const filter = { tenantId: req.tenant._id };

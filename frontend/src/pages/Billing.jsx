@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import API from '../utils/api';
-import { HiOutlineCreditCard, HiOutlineCash, HiOutlineDocumentText, HiOutlineCheck } from 'react-icons/hi';
-import { FaCreditCard, FaCcStripe } from 'react-icons/fa';
+import { HiOutlineCreditCard, HiOutlineCash, HiOutlineDocumentText, HiOutlineCheck, HiOutlineQrcode } from 'react-icons/hi';
+import { FaCreditCard, FaCcStripe, FaPhone } from 'react-icons/fa';
 
 export default function Billing() {
   const [activeTab, setActiveTab] = useState('plans');
@@ -95,6 +95,25 @@ export default function Billing() {
     }
   };
 
+  const handleUpiVerify = async () => {
+    if (!upiRef || !upiAmount) return alert('Enter UPI transaction ID and amount');
+    setVerifying(true);
+    try {
+      const { data } = await API.post('/billing/upi/verify', {
+        upiTransactionId: upiRef,
+        amount: parseFloat(upiAmount)
+      });
+      if (data.success) {
+        alert(`Payment verified! ${data.credits} credits added.`);
+        setUpiRef('');
+        setUpiAmount('');
+        fetchInvoices();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Verification failed');
+    } finally { setVerifying(false); }
+  };
+
   const handleRazorpayPurchase = async () => {
     if (!purchaseAmount || processing) return;
     setProcessing(true);
@@ -132,9 +151,14 @@ export default function Billing() {
     }
   };
 
+  const [upiRef, setUpiRef] = useState('');
+  const [upiAmount, setUpiAmount] = useState('');
+  const [verifying, setVerifying] = useState(false);
+
   const tabs = [
     { id: 'plans', label: 'Subscription Plans', icon: HiOutlineCreditCard },
     { id: 'purchase', label: 'Buy Credits', icon: HiOutlineCash },
+    { id: 'qr', label: 'QR Payment', icon: HiOutlineQrcode },
     { id: 'invoices', label: 'Invoices', icon: HiOutlineDocumentText }
   ];
 
@@ -218,6 +242,44 @@ export default function Billing() {
                 </button>
               </div>
               {processing && <div className="text-center text-gray-400 text-sm">Processing payment...</div>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'qr' && (
+        <div className="max-w-lg">
+          <div className="glass-card p-4 sm:p-6">
+            <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+              <FaPhone className="text-green-400" /> Pay via UPI QR
+            </h3>
+            <div className="flex flex-col items-center mb-6">
+              <div className="w-48 h-48 bg-white rounded-2xl p-3 flex items-center justify-center mb-3">
+                <img src="/upi-qr.png" alt="UPI QR Code" className="w-full h-full object-contain" onError={(e) => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div class=text-gray-400 text-center><div class=text-6xl mb-2>📱</div><p class=text-sm>Scan with any UPI app</p><p class=text-xs mt-1>pay@rsendix</p></div>' }} />
+              </div>
+              <p className="text-gray-400 text-sm">Scan this QR with any UPI app (GPay, PhonePe, Paytm) and pay</p>
+            </div>
+            <div className="border-t border-white/10 pt-4">
+              <h4 className="text-white text-sm font-medium mb-3">After payment, verify here:</h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Amount Paid (₹)</label>
+                  <input type="number" className="input-field" value={upiAmount} onChange={e => setUpiAmount(e.target.value)} placeholder="Enter amount..." min="1" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">UPI Transaction ID</label>
+                  <input className="input-field" value={upiRef} onChange={e => setUpiRef(e.target.value)} placeholder="Enter UPI reference/transaction ID" />
+                </div>
+                {upiAmount && (
+                  <div className="bg-green-500/10 rounded-xl p-3">
+                    <p className="text-green-400 text-sm">You will receive: <strong>{Math.floor(parseFloat(upiAmount) / creditRate).toLocaleString()} Credits</strong></p>
+                  </div>
+                )}
+                <button onClick={handleUpiVerify} disabled={!upiRef || !upiAmount || verifying}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-medium transition-all disabled:opacity-50">
+                  {verifying ? 'Verifying...' : 'Verify Payment'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
