@@ -1,4 +1,5 @@
 const Message = require('../models/Message');
+const Chat = require('../models/Chat');
 const Contact = require('../models/Contact');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
@@ -35,6 +36,10 @@ exports.sendMessage = async (req, res) => {
     const io = req.app.get('io');
     if (io) {
       io.to('admin_room').emit('chat:new', { message: msg.content, from: 'admin', to: phone });
+      const userChat = await Chat.findOne({ tenantId: req.tenant?._id || req.user.tenantId, waPhone: phone }).sort({ createdAt: -1 });
+      if (userChat?.senderId) {
+        io.to(`user_${userChat.senderId}`).emit('chat:new', { message: msg.content, from: 'admin', to: phone });
+      }
     }
     res.json({ success: true, message: msg });
   } catch (err) {
