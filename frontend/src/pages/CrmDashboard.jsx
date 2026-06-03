@@ -18,7 +18,7 @@ const allFeatures = [
   { path: '/webforms', label: 'Web Forms', desc: 'Embeddable forms — visitors auto-save as contacts', icon: HiOutlineTemplate, color: 'from-purple-500 to-purple-600', tag: 'Core' },
   { path: '/products', label: 'Products Catalog', desc: 'Products/services with pricing', icon: HiOutlineTag, color: 'from-pink-500 to-pink-600', tag: 'Core' },
   { path: '/quotes', label: 'Quotes', desc: 'Generate & send quotes with payment links', icon: HiOutlineCurrencyDollar, color: 'from-cyan-500 to-cyan-600', tag: 'Core' },
-  { path: '#', label: 'AI Lead Scoring', desc: 'Auto-predict kaunse lead convert honge (ML-based)', icon: HiOutlineSparkles, color: 'from-violet-500 to-violet-600', tag: 'New' },
+  { path: '/lead-scoring', label: 'AI Lead Scoring', desc: 'Auto-predict kaunse lead convert honge (ML-based)', icon: HiOutlineSparkles, color: 'from-violet-500 to-violet-600', tag: 'New' },
   { path: '/email-campaigns', label: 'Email Campaigns', desc: 'Bulk email + open/click tracking (SendGrid)', icon: HiOutlineLightningBolt, color: 'from-blue-500 to-blue-600', tag: 'New' },
   { path: '/sms-campaigns', label: 'SMS Campaigns', desc: 'Non-WA SMS via Twilio/textlocal gateways', icon: HiOutlineChatAlt2, color: 'from-teal-500 to-teal-600', tag: 'New' },
   { path: '#', label: 'Two-way Email Sync', desc: 'Gmail/Outlook se email auto-sync CRM mein', icon: HiOutlineRefresh, color: 'from-indigo-500 to-indigo-600', tag: 'New' },

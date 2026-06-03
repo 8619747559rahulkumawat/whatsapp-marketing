@@ -57,6 +57,7 @@ const Contracts = lazy(() => import('./pages/Contracts'));
 const Surveys = lazy(() => import('./pages/Surveys'));
 const Webhooks = lazy(() => import('./pages/Webhooks'));
 const Roles = lazy(() => import('./pages/Roles'));
+const LeadScoring = lazy(() => import('./pages/LeadScoring'));
 
 function PageLoader() {
   const [show, setShow] = useState(false);
@@ -147,6 +148,7 @@ export default function App() {
           <Route path="/surveys" element={<Surveys />} />
           <Route path="/webhooks" element={<Webhooks />} />
           <Route path="/roles" element={<Roles />} />
+          <Route path="/lead-scoring" element={<LeadScoring />} />
         </Route>
 
         <Route element={<AdminRoute><DashboardLayout /></AdminRoute>}>
