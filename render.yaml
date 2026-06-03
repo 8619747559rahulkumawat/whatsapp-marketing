@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: whatsapp-marketing
+    env: node
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build && cd ../backend && npm install
+    startCommand: cd backend && node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: ADMIN_EMAIL
+        value: admin@digitalsms.biz
+      - key: ADMIN_PASSWORD
+        value: Admin@123
+      - key: CORS_ORIGIN
+        value: https://whatsapp-marketing.onrender.com
+      - key: CLEANUP_ENABLED
+        value: "false"
