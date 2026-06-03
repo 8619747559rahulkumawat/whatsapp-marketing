@@ -1,0 +1,20 @@
+{
+  "name": "whatsapp-marketing-platform",
+  "version": "1.0.0",
+  "description": "RSendix.pro - SMART BULK MESSAGING PLATFORM",
+  "scripts": {
+    "install-all": "cd backend && npm install && cd ../frontend && npm install",
+    "dev-backend": "cd backend && npm run dev",
+    "dev-frontend": "cd frontend && npm run dev",
+    "dev": "concurrently -k \"npm run dev-backend\" \"wait-on http://localhost:5000/api/health && npm run dev-frontend\"",
+    "start-backend": "cd backend && npm start",
+    "build-frontend": "cd frontend && npm run build",
+    "build": "cd frontend && npm install && npm run build",
+    "postinstall": "cd backend && npm install",
+    "start": "node backend/server.js"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "wait-on": "^9.0.10"
+  }
+}

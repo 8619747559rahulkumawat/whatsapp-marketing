@@ -1,0 +1,492 @@
+
+> whatsapp-marketing-backend@1.0.0 dev
+> nodemon server.js
+
+[33m[nodemon] 3.1.14[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): server.js controllers\**\* services\**\* models\**\* routes\**\* middleware\**\* utils\**\* .env[39m
+[33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[32m[nodemon] starting `node server.js`[39m
+Serving frontend from: D:\WhatsApp Marketing\frontend\dist
+MongoDB connected successfully
+Default settings seeded
+Server running on port 5000
+API: http://localhost:5000/api
+Health: http://localhost:5000/api/health
+Found 1 sessions to restore
+Attempting restore for 1/1 sessions
+[Baileys] Connecting session session_083aa628f029d367ab54ddd2bf86db98...
+[Baileys] Socket created for session_083aa628f029d367ab54ddd2bf86db98
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 registered
+Session session_083aa628f029d367ab54ddd2bf86db98 restored successfully
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 connected!
+{"level":50,"time":1779539292109,"pid":7292,"hostname":"DESKTOP-3IMTB5Q","err":{"type":"Error","message":"Timed Out","stack":"Error: Timed Out\n    at D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\generics.js:170:32","data":{"stack":"Error\n    at promiseTimeout (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\generics.js:165:19)\n    at waitForMessage (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\socket.js:117:53)\n    at query (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\socket.js:139:22)\n    at fetchProps (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\chats.js:631:34)\n    at executeInitQueries (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\chats.js:735:13)\n    at EventEmitter.<anonymous> (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\chats.js:828:17)\n    at EventEmitter.emit (node:events:521:24)\n    at EventEmitter.<anonymous> (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\event-buffer.js:40:16)\n    at EventEmitter.emit (node:events:509:20)\n    at Object.emit (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\event-buffer.js:94:23)"},"isBoom":true,"isServer":false,"output":{"statusCode":408,"payload":{"statusCode":408,"error":"Request Time-out","message":"Timed Out"},"headers":{}}},"msg":"unexpected error in 'init queries'"}
+Socket connected: myVbNCn8td6hJCZ-AAAB
+Socket connected: DjxDWTABURLg85UPAAAD
+{"level":40,"time":1779539432554,"pid":7292,"hostname":"DESKTOP-3IMTB5Q","msgId":"3EB073CD2137B931F1358F","trace":"Error: No image processing library available\n    at getImageProcessingLibrary (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages-media.js:63:11)\n    at async extractImageThumb (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages-media.js:104:17)\n    at async generateThumbnail (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages-media.js:290:38)\n    at async D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages.js:129:68\n    at async Promise.all (index 1)\n    at async prepareWAMessageMedia (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages.js:120:40)\n    at async generateWAMessageContent (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages.js:415:13)\n    at async generateWAMessage (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages.js:507:59)\n    at async Object.sendMessage (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\messages-send.js:626:33)\n    at async Object.sendMediaMessage (D:\\WhatsApp Marketing\\backend\\services\\whatsappService.js:415:18)","msg":"failed to obtain extra info"}
+{"level":50,"time":1779539541228,"pid":7292,"hostname":"DESKTOP-3IMTB5Q","key":{"remoteJid":"160133577474181@lid","fromMe":false,"id":"A54CB587D402D2AA67D06594ABA0D99C"},"err":{"type":"SessionError","message":"No session record","stack":"SessionError: No session record\n    at 160133577474181.0 [as awaitable] (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:169:23)\n    at async _asyncQueueExecutor (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\queue_job.js:20:29)","name":"SessionError"},"msg":"failed to decrypt message"}
+{"level":50,"time":1779539546889,"pid":7292,"hostname":"DESKTOP-3IMTB5Q","key":{"remoteJid":"160133577474181@lid","fromMe":false,"id":"A54CB587D402D2AA67D06594ABA0D99C"},"err":{"type":"SessionError","message":"No session record","stack":"SessionError: No session record\n    at 160133577474181.0 [as awaitable] (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:169:23)\n    at async _asyncQueueExecutor (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\queue_job.js:20:29)","name":"SessionError"},"msg":"failed to decrypt message"}
+{"level":50,"time":1779539595113,"pid":7292,"hostname":"DESKTOP-3IMTB5Q","key":{"remoteJid":"160133577474181@lid","fromMe":true,"id":"AC31ED82DD2513F3C619B4891BAFFB89"},"err":{"type":"SessionError","message":"No session record","stack":"SessionError: No session record\n    at 236047527059701.0 [as awaitable] (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:169:23)\n    at async _asyncQueueExecutor (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\queue_job.js:20:29)","name":"SessionError"},"msg":"failed to decrypt message"}
+{"level":50,"time":1779539600921,"pid":7292,"hostname":"DESKTOP-3IMTB5Q","key":{"remoteJid":"160133577474181@lid","fromMe":true,"id":"AC31ED82DD2513F3C619B4891BAFFB89"},"err":{"type":"SessionError","message":"No session record","stack":"SessionError: No session record\n    at 236047527059701.0 [as awaitable] (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:169:23)\n    at async _asyncQueueExecutor (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\queue_job.js:20:29)","name":"SessionError"},"msg":"failed to decrypt message"}
+Socket disconnected: DjxDWTABURLg85UPAAAD
+Socket disconnected: myVbNCn8td6hJCZ-AAAB
+Socket connected: nuQAwiSd7HQjGG7JAAAF
+Socket connected: n-kQYiaHfpMP8XLwAAAH
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+Serving frontend from: D:\WhatsApp Marketing\frontend\dist
+MongoDB connected successfully
+Default settings seeded
+Server running on port 5000
+API: http://localhost:5000/api
+Health: http://localhost:5000/api/health
+Socket connected: Ji7qESDHN13sTPaGAAAB
+Socket connected: dbp_2h7YRwsFcpa_AAAD
+Found 1 sessions to restore
+Attempting restore for 1/1 sessions
+[Baileys] Connecting session session_083aa628f029d367ab54ddd2bf86db98...
+[Baileys] Socket created for session_083aa628f029d367ab54ddd2bf86db98
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 registered
+Session session_083aa628f029d367ab54ddd2bf86db98 restored successfully
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 connected!
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+Serving frontend from: D:\WhatsApp Marketing\frontend\dist
+MongoDB connected successfully
+Default settings seeded
+Server running on port 5000
+API: http://localhost:5000/api
+Health: http://localhost:5000/api/health
+Socket connected: A8LeKyPtbVn9YvquAAAB
+Socket connected: zyGp1wmV7g4CsEXjAAAD
+Found 1 sessions to restore
+Attempting restore for 1/1 sessions
+[Baileys] Connecting session session_083aa628f029d367ab54ddd2bf86db98...
+[Baileys] Socket created for session_083aa628f029d367ab54ddd2bf86db98
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 registered
+Session session_083aa628f029d367ab54ddd2bf86db98 restored successfully
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 connected!
+Failed to decrypt message with any known session...
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+{"level":50,"time":1779539749939,"pid":5708,"hostname":"DESKTOP-3IMTB5Q","key":{"remoteJid":"160133577474181@lid","fromMe":false,"id":"A547E72688C6443B77313D292EE6538B"},"err":{"type":"SessionError","message":"No matching sessions found for message","stack":"SessionError: No matching sessions found for message\n    at SessionCipher.decryptWithSessions (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:161:15)\n    at async 160133577474181.0 [as awaitable] (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:171:28)\n    at async _asyncQueueExecutor (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\queue_job.js:20:29)","name":"SessionError"},"msg":"failed to decrypt message"}
+Failed to decrypt message with any known session...
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+{"level":50,"time":1779539755626,"pid":5708,"hostname":"DESKTOP-3IMTB5Q","key":{"remoteJid":"160133577474181@lid","fromMe":false,"id":"A547E72688C6443B77313D292EE6538B"},"err":{"type":"SessionError","message":"No matching sessions found for message","stack":"SessionError: No matching sessions found for message\n    at SessionCipher.decryptWithSessions (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:161:15)\n    at async 160133577474181.0 [as awaitable] (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:171:28)\n    at async _asyncQueueExecutor (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\queue_job.js:20:29)","name":"SessionError"},"msg":"failed to decrypt message"}
+Closing open session in favor of incoming prekey bundle
+Closing session: SessionEntry {
+  _chains: {
+    'BdKCPGB/rJDAPKA+vLO+lMfJjOJTEWHliMYfBltNOWk7': { chainKey: [Object], chainType: 2, messageKeys: {} },
+    'BYskR356X5Brai/ustYmXvbgF18Wws8pKAzUUqVP85d0': { chainKey: [Object], chainType: 1, messageKeys: {} }
+  },
+  registrationId: 205347233,
+  currentRatchet: {
+    ephemeralKeyPair: {
+      pubKey: <Buffer 05 8b 24 47 7e 7a 5f 90 6b 6a 2f ee b2 d6 26 5e f6 e0 17 5f 16 c2 cf 29 28 0c d4 52 a5 4f f3 97 74>,
+      privKey: <Buffer 78 fc a5 3e ff 36 da 1c 4a 6a b6 2f 4d 75 e3 3c f3 7d 59 82 40 64 39 57 a7 97 8a 14 3a b4 22 4b>
+    },
+    lastRemoteEphemeralKey: <Buffer 05 d2 82 3c 60 7f ac 90 c0 3c a0 3e bc b3 be 94 c7 c9 8c e2 53 11 61 e5 88 c6 1f 06 5b 4d 39 69 3b>,
+    previousCounter: 0,
+    rootKey: <Buffer 48 f1 a8 85 ed 2c f6 7d 00 da 0c 87 54 bb 25 4d 1e a5 f8 0a 66 95 ae 02 dd 31 47 21 d3 9b 06 86>
+  },
+  indexInfo: {
+    baseKey: <Buffer 05 3a 27 b9 bd b6 27 6a 9d 4b db 11 71 5c d5 58 e5 11 09 65 a2 f8 ba bb d0 b1 fb 02 db 3b 71 df 1a>,
+    baseKeyType: 2,
+    closed: -1,
+    used: 1779539547745,
+    created: 1779539547745,
+    remoteIdentityKey: <Buffer 05 15 eb 80 2a 79 fb 38 e9 60 89 92 01 ee 52 c6 69 a2 8f 7a a0 c1 73 6e b0 5b f9 b5 46 6c 4b f6 73>
+  }
+}
+Socket disconnected: zyGp1wmV7g4CsEXjAAAD
+Socket disconnected: A8LeKyPtbVn9YvquAAAB
+Socket connected: QWuhdUoTwMpqKShQAAAF
+Socket connected: OCbrdFWZNYT9Iw04AAAH
+{"level":50,"time":1779539773341,"pid":5708,"hostname":"DESKTOP-3IMTB5Q","err":{"type":"Error","message":"Timed Out","stack":"Error: Timed Out\n    at D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\generics.js:170:32","data":{"stack":"Error\n    at promiseTimeout (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\generics.js:165:19)\n    at waitForMessage (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\socket.js:117:53)\n    at query (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\socket.js:139:22)\n    at fetchProps (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\chats.js:631:34)\n    at executeInitQueries (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\chats.js:735:13)\n    at EventEmitter.<anonymous> (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\chats.js:828:17)\n    at EventEmitter.emit (node:events:521:24)\n    at EventEmitter.<anonymous> (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\event-buffer.js:40:16)\n    at EventEmitter.emit (node:events:509:20)\n    at Object.emit (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\event-buffer.js:94:23)"},"isBoom":true,"isServer":false,"output":{"statusCode":408,"payload":{"statusCode":408,"error":"Request Time-out","message":"Timed Out"},"headers":{}}},"msg":"unexpected error in 'init queries'"}
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+Serving frontend from: D:\WhatsApp Marketing\frontend\dist
+MongoDB connected successfully
+Default settings seeded
+Server running on port 5000
+API: http://localhost:5000/api
+Health: http://localhost:5000/api/health
+Socket connected: Fj_g7oS3md6GUX6lAAAB
+Found 1 sessions to restore
+Attempting restore for 1/1 sessions
+[Baileys] Connecting session session_083aa628f029d367ab54ddd2bf86db98...
+[Baileys] Socket created for session_083aa628f029d367ab54ddd2bf86db98
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 registered
+Socket connected: 5T2R8tmwcfxntzZBAAAD
+Session session_083aa628f029d367ab54ddd2bf86db98 restored successfully
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 connected!
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+Serving frontend from: D:\WhatsApp Marketing\frontend\dist
+MongoDB connected successfully
+Default settings seeded
+Server running on port 5000
+API: http://localhost:5000/api
+Health: http://localhost:5000/api/health
+Found 1 sessions to restore
+Attempting restore for 1/1 sessions
+[Baileys] Connecting session session_083aa628f029d367ab54ddd2bf86db98...
+[Baileys] Socket created for session_083aa628f029d367ab54ddd2bf86db98
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 registered
+Socket connected: -xGU5TwAJuBGiWrhAAAB
+Socket connected: HeDGz8kcZVEn5HpqAAAD
+Session session_083aa628f029d367ab54ddd2bf86db98 restored successfully
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 connected!
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+Serving frontend from: D:\WhatsApp Marketing\frontend\dist
+MongoDB connected successfully
+Default settings seeded
+Server running on port 5000
+API: http://localhost:5000/api
+Health: http://localhost:5000/api/health
+Socket connected: tu0061Pya6fqbyiSAAAB
+Socket connected: HSymbmzqrgIDBMa8AAAD
+Found 1 sessions to restore
+Socket connected: lqfOhsulzRZC2VZMAAAF
+Attempting restore for 1/1 sessions
+[Baileys] Connecting session session_083aa628f029d367ab54ddd2bf86db98...
+Socket connected: XN3gA2I4BJSe4QmUAAAH
+[Baileys] Socket created for session_083aa628f029d367ab54ddd2bf86db98
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 registered
+Socket disconnected: lqfOhsulzRZC2VZMAAAF
+Socket disconnected: HSymbmzqrgIDBMa8AAAD
+Socket disconnected: tu0061Pya6fqbyiSAAAB
+Socket disconnected: XN3gA2I4BJSe4QmUAAAH
+Session session_083aa628f029d367ab54ddd2bf86db98 restored successfully
+Socket connected: RjWRoVmWM5iZpS-5AAAJ
+Socket connected: PWjYTraEy1U-G6ngAAAL
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 connected!
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+Serving frontend from: D:\WhatsApp Marketing\frontend\dist
+MongoDB connected successfully
+Default settings seeded
+Server running on port 5000
+API: http://localhost:5000/api
+Health: http://localhost:5000/api/health
+Socket connected: BDJ411DMQUmhZcJsAAAB
+Found 1 sessions to restore
+Attempting restore for 1/1 sessions
+[Baileys] Connecting session session_083aa628f029d367ab54ddd2bf86db98...
+[Baileys] Socket created for session_083aa628f029d367ab54ddd2bf86db98
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 registered
+Socket connected: JEf1olBj6MY71l43AAAD
+Session session_083aa628f029d367ab54ddd2bf86db98 restored successfully
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 connected!
+Socket disconnected: BDJ411DMQUmhZcJsAAAB
+Socket disconnected: JEf1olBj6MY71l43AAAD
+Socket connected: iOLz22XXCATRV6noAAAG
+Socket connected: 2NhoFK4ekpYSfPgaAAAH
+{"level":50,"time":1779539989774,"pid":15052,"hostname":"DESKTOP-3IMTB5Q","err":{"type":"Error","message":"Timed Out","stack":"Error: Timed Out\n    at D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\generics.js:170:32","data":{"stack":"Error\n    at promiseTimeout (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\generics.js:165:19)\n    at waitForMessage (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\socket.js:117:53)\n    at query (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\socket.js:139:22)\n    at fetchProps (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\chats.js:631:34)\n    at executeInitQueries (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\chats.js:735:13)\n    at EventEmitter.<anonymous> (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\chats.js:828:17)\n    at EventEmitter.emit (node:events:521:24)\n    at EventEmitter.<anonymous> (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\event-buffer.js:40:16)\n    at EventEmitter.emit (node:events:509:20)\n    at Object.emit (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\event-buffer.js:94:23)"},"isBoom":true,"isServer":false,"output":{"statusCode":408,"payload":{"statusCode":408,"error":"Request Time-out","message":"Timed Out"},"headers":{}}},"msg":"unexpected error in 'init queries'"}
+{"level":40,"time":1779540012424,"pid":15052,"hostname":"DESKTOP-3IMTB5Q","msgId":"3EB0A7FFE463B5159424E0","trace":"Error: No image processing library available\n    at getImageProcessingLibrary (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages-media.js:63:11)\n    at async extractImageThumb (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages-media.js:104:17)\n    at async generateThumbnail (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages-media.js:290:38)\n    at async D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages.js:129:68\n    at async Promise.all (index 1)\n    at async prepareWAMessageMedia (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages.js:120:40)\n    at async generateWAMessageContent (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages.js:415:13)\n    at async generateWAMessage (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages.js:507:59)\n    at async Object.sendMessage (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\messages-send.js:626:33)\n    at async Object.sendMediaMessage (D:\\WhatsApp Marketing\\backend\\services\\whatsappService.js:426:18)","msg":"failed to obtain extra info"}
+Failed to decrypt message with any known session...
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+{"level":50,"time":1779540061206,"pid":15052,"hostname":"DESKTOP-3IMTB5Q","key":{"remoteJid":"160133577474181@lid","fromMe":false,"id":"A563487EE4849063D77B66B4C01BFDF1"},"err":{"type":"SessionError","message":"No matching sessions found for message","stack":"SessionError: No matching sessions found for message\n    at SessionCipher.decryptWithSessions (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:161:15)\n    at async 160133577474181.0 [as awaitable] (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:171:28)\n    at async _asyncQueueExecutor (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\queue_job.js:20:29)","name":"SessionError"},"msg":"failed to decrypt message"}
+Failed to decrypt message with any known session...
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+{"level":50,"time":1779540066854,"pid":15052,"hostname":"DESKTOP-3IMTB5Q","key":{"remoteJid":"160133577474181@lid","fromMe":false,"id":"A563487EE4849063D77B66B4C01BFDF1"},"err":{"type":"SessionError","message":"No matching sessions found for message","stack":"SessionError: No matching sessions found for message\n    at SessionCipher.decryptWithSessions (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:161:15)\n    at async 160133577474181.0 [as awaitable] (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:171:28)\n    at async _asyncQueueExecutor (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\queue_job.js:20:29)","name":"SessionError"},"msg":"failed to decrypt message"}
+Closing open session in favor of incoming prekey bundle
+Closing session: SessionEntry {
+  _chains: {
+    'BaP+ivr406loYbMiWOOUAYWas1u2z1gQai5gf9xVGHw+': { chainKey: [Object], chainType: 2, messageKeys: {} },
+    'BWf3E1XBbgNGSV934UYMS5hnmXaOg+pC4nDe5w1RiZs+': { chainKey: [Object], chainType: 1, messageKeys: {} }
+  },
+  registrationId: 205347233,
+  currentRatchet: {
+    ephemeralKeyPair: {
+      pubKey: <Buffer 05 67 f7 13 55 c1 6e 03 46 49 5f 77 e1 46 0c 4b 98 67 99 76 8e 83 ea 42 e2 70 de e7 0d 51 89 9b 3e>,
+      privKey: <Buffer 70 e8 b5 6e 09 e7 6b 7f d6 8c 13 4a 30 7d b6 d8 1d 9a 5d 20 28 ac d4 25 3f f5 f6 19 e7 36 d2 5a>
+    },
+    lastRemoteEphemeralKey: <Buffer 05 a3 fe 8a fa f8 d3 a9 68 61 b3 22 58 e3 94 01 85 9a b3 5b b6 cf 58 10 6a 2e 60 7f dc 55 18 7c 3e>,
+    previousCounter: 0,
+    rootKey: <Buffer c7 11 16 b4 80 64 fe 1a b0 41 60 54 08 4c bd 10 59 26 7b ab 66 4a ba 41 6a f7 0b 01 b1 6d e1 aa>
+  },
+  indexInfo: {
+    baseKey: <Buffer 05 9b b1 48 f2 a0 1a da a8 ca d3 16 f8 1c 88 7c 56 41 87 bc 5a 44 bd 4f f6 4f 0c 8e 3f 4b c8 56 5e>,
+    baseKeyType: 2,
+    closed: -1,
+    used: 1779539756393,
+    created: 1779539756393,
+    remoteIdentityKey: <Buffer 05 15 eb 80 2a 79 fb 38 e9 60 89 92 01 ee 52 c6 69 a2 8f 7a a0 c1 73 6e b0 5b f9 b5 46 6c 4b f6 73>
+  }
+}
+Socket disconnected: iOLz22XXCATRV6noAAAG
+Socket disconnected: 2NhoFK4ekpYSfPgaAAAH
+Socket connected: 3YLt2PQBrXp1a_zuAAAJ
+Socket connected: 4OnVn1554ILjzWycAAAL
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+Serving frontend from: D:\WhatsApp Marketing\frontend\dist
+MongoDB connected successfully
+Default settings seeded
+Server running on port 5000
+API: http://localhost:5000/api
+Health: http://localhost:5000/api/health
+Socket connected: q_wceNfOrbJ35853AAAB
+Found 1 sessions to restore
+Attempting restore for 1/1 sessions
+[Baileys] Connecting session session_083aa628f029d367ab54ddd2bf86db98...
+[Baileys] Socket created for session_083aa628f029d367ab54ddd2bf86db98
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 registered
+Socket connected: 8mpMvxgotU91HEqhAAAD
+Session session_083aa628f029d367ab54ddd2bf86db98 restored successfully
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 connected!
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+Serving frontend from: D:\WhatsApp Marketing\frontend\dist
+MongoDB connected successfully
+Default settings seeded
+Server running on port 5000
+API: http://localhost:5000/api
+Health: http://localhost:5000/api/health
+Socket connected: fCa3Etee_bnF2EGnAAAB
+Found 1 sessions to restore
+Attempting restore for 1/1 sessions
+[Baileys] Connecting session session_083aa628f029d367ab54ddd2bf86db98...
+Socket connected: 7G2Q_8aAe9jVVqwhAAAD
+[Baileys] Socket created for session_083aa628f029d367ab54ddd2bf86db98
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 registered
+{"level":40,"time":1779540239411,"pid":10288,"hostname":"DESKTOP-3IMTB5Q","msgId":"3EB09076A2257E475483CF","trace":"Error: No image processing library available\n    at getImageProcessingLibrary (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages-media.js:63:11)\n    at async extractImageThumb (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages-media.js:104:17)\n    at async generateThumbnail (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages-media.js:290:38)\n    at async D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages.js:129:68\n    at async Promise.all (index 1)\n    at async prepareWAMessageMedia (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages.js:120:40)\n    at async generateWAMessageContent (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages.js:415:13)\n    at async generateWAMessage (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages.js:507:59)\n    at async Object.sendMessage (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\messages-send.js:626:33)\n    at async Object.sendMediaMessage (D:\\WhatsApp Marketing\\backend\\services\\whatsappService.js:426:18)","msg":"failed to obtain extra info"}
+Session session_083aa628f029d367ab54ddd2bf86db98 restored successfully
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 connected!
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+Serving frontend from: D:\WhatsApp Marketing\frontend\dist
+MongoDB connected successfully
+Default settings seeded
+Server running on port 5000
+API: http://localhost:5000/api
+Health: http://localhost:5000/api/health
+Found 1 sessions to restore
+Attempting restore for 1/1 sessions
+[Baileys] Connecting session session_083aa628f029d367ab54ddd2bf86db98...
+[Baileys] Socket created for session_083aa628f029d367ab54ddd2bf86db98
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 registered
+Socket connected: pHVupYyZ2ptfNX1xAAAB
+Socket connected: 1h6l5_agH3_2GosqAAAD
+Session session_083aa628f029d367ab54ddd2bf86db98 restored successfully
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 connected!
+Socket disconnected: 1h6l5_agH3_2GosqAAAD
+Socket disconnected: pHVupYyZ2ptfNX1xAAAB
+Socket connected: us89xzhL74yVj8dpAAAG
+Socket connected: _1pbUoI5kel9vLKOAAAH
+Socket disconnected: _1pbUoI5kel9vLKOAAAH
+Socket disconnected: us89xzhL74yVj8dpAAAG
+{"level":40,"time":1779540306765,"pid":3544,"hostname":"DESKTOP-3IMTB5Q","msgId":"3EB02A887013CE81449123","trace":"Error: No image processing library available\n    at getImageProcessingLibrary (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages-media.js:63:11)\n    at async extractImageThumb (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages-media.js:104:17)\n    at async generateThumbnail (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages-media.js:290:38)\n    at async D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages.js:129:68\n    at async Promise.all (index 1)\n    at async prepareWAMessageMedia (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages.js:120:40)\n    at async generateWAMessageContent (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages.js:415:13)\n    at async generateWAMessage (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\messages.js:507:59)\n    at async Object.sendMessage (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\messages-send.js:626:33)\n    at async Object.sendMediaMessage (D:\\WhatsApp Marketing\\backend\\services\\whatsappService.js:426:18)","msg":"failed to obtain extra info"}
+{"level":50,"time":1779540307656,"pid":3544,"hostname":"DESKTOP-3IMTB5Q","err":{"type":"Error","message":"Timed Out","stack":"Error: Timed Out\n    at D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\generics.js:170:32\n    at runNextTicks (node:internal/process/task_queues:65:5)\n    at process.processTimers (node:internal/timers:538:9)","data":{"stack":"Error\n    at promiseTimeout (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\generics.js:165:19)\n    at waitForMessage (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\socket.js:117:53)\n    at query (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\socket.js:139:22)\n    at fetchProps (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\chats.js:631:34)\n    at executeInitQueries (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\chats.js:735:13)\n    at EventEmitter.<anonymous> (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Socket\\chats.js:828:17)\n    at EventEmitter.emit (node:events:521:24)\n    at EventEmitter.<anonymous> (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\event-buffer.js:40:16)\n    at EventEmitter.emit (node:events:509:20)\n    at Object.emit (D:\\WhatsApp Marketing\\backend\\node_modules\\@whiskeysockets\\baileys\\lib\\Utils\\event-buffer.js:94:23)"},"isBoom":true,"isServer":false,"output":{"statusCode":408,"payload":{"statusCode":408,"error":"Request Time-out","message":"Timed Out"},"headers":{}}},"msg":"unexpected error in 'init queries'"}
+Socket connected: _660u0Dd8vsLtgWHAAAJ
+Socket connected: PPjG3VLA3NtdPrPEAAAL
+Failed to decrypt message with any known session...
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+{"level":50,"time":1779540371100,"pid":3544,"hostname":"DESKTOP-3IMTB5Q","key":{"remoteJid":"160133577474181@lid","fromMe":false,"id":"A586C264D44C3EECACA3E4BC78C476FD"},"err":{"type":"SessionError","message":"No matching sessions found for message","stack":"SessionError: No matching sessions found for message\n    at SessionCipher.decryptWithSessions (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:161:15)\n    at async 160133577474181.0 [as awaitable] (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:171:28)\n    at async _asyncQueueExecutor (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\queue_job.js:20:29)","name":"SessionError"},"msg":"failed to decrypt message"}
+Failed to decrypt message with any known session...
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+{"level":50,"time":1779540376794,"pid":3544,"hostname":"DESKTOP-3IMTB5Q","key":{"remoteJid":"160133577474181@lid","fromMe":false,"id":"A586C264D44C3EECACA3E4BC78C476FD"},"err":{"type":"SessionError","message":"No matching sessions found for message","stack":"SessionError: No matching sessions found for message\n    at SessionCipher.decryptWithSessions (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:161:15)\n    at async 160133577474181.0 [as awaitable] (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:171:28)\n    at async _asyncQueueExecutor (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\queue_job.js:20:29)","name":"SessionError"},"msg":"failed to decrypt message"}
+Closing open session in favor of incoming prekey bundle
+Closing session: SessionEntry {
+  _chains: {
+    'Be0h+N6sQsxaV+dL69lB4DOEeiMP4AJ/nEiEpRTY8VF6': { chainKey: [Object], chainType: 2, messageKeys: {} },
+    'BdipMl9Mg/xeej69kUAElgVJjx2LXGSZphFUvBqWfrxP': { chainKey: [Object], chainType: 1, messageKeys: {} }
+  },
+  registrationId: 205347233,
+  currentRatchet: {
+    ephemeralKeyPair: {
+      pubKey: <Buffer 05 d8 a9 32 5f 4c 83 fc 5e 7a 3e bd 91 40 04 96 05 49 8f 1d 8b 5c 64 99 a6 11 54 bc 1a 96 7e bc 4f>,
+      privKey: <Buffer a8 b5 82 4c 1b eb ef 3d 0c 4f 9a b9 80 22 85 86 7e 61 33 7d e8 d9 33 47 59 3c e0 fe 01 2a 51 54>
+    },
+    lastRemoteEphemeralKey: <Buffer 05 ed 21 f8 de ac 42 cc 5a 57 e7 4b eb d9 41 e0 33 84 7a 23 0f e0 02 7f 9c 48 84 a5 14 d8 f1 51 7a>,
+    previousCounter: 0,
+    rootKey: <Buffer df ee 73 6e ee 38 c7 70 21 4c d9 1b 3b 7b 52 98 d2 2e 6b f9 6d 88 68 51 86 63 d2 eb 01 e8 c2 0b>
+  },
+  indexInfo: {
+    baseKey: <Buffer 05 6e ba 67 83 0c 04 a9 c0 8f 06 d4 06 88 45 74 15 73 a8 d5 e0 c3 4c ce 70 67 90 8b 55 e8 e5 07 3e>,
+    baseKeyType: 2,
+    closed: -1,
+    used: 1779540067469,
+    created: 1779540067469,
+    remoteIdentityKey: <Buffer 05 15 eb 80 2a 79 fb 38 e9 60 89 92 01 ee 52 c6 69 a2 8f 7a a0 c1 73 6e b0 5b f9 b5 46 6c 4b f6 73>
+  }
+}
+Socket disconnected: PPjG3VLA3NtdPrPEAAAL
+Socket disconnected: _660u0Dd8vsLtgWHAAAJ
+Socket connected: 8BaaFAE9RMLfKgkiAAAN
+Socket connected: qG3hHA2jkbVxA2njAAAP
+Socket disconnected: qG3hHA2jkbVxA2njAAAP
+Socket disconnected: 8BaaFAE9RMLfKgkiAAAN
+Socket connected: NgTIPA6mtjViZJRbAAAR
+Socket connected: zbKOTfLvRqd2MJsJAAAT
+Socket disconnected: NgTIPA6mtjViZJRbAAAR
+Socket disconnected: zbKOTfLvRqd2MJsJAAAT
+Socket connected: l_QxZGSjE1EEIfcMAAAW
+Socket connected: Qo_6-WJaTY0OtuOQAAAX
+Socket disconnected: Qo_6-WJaTY0OtuOQAAAX
+Socket disconnected: l_QxZGSjE1EEIfcMAAAW
+Socket connected: c134DzXx-sW4KvxyAAAZ
+Socket connected: fyTaNHYHLXuZxPCxAAAb
+Failed to decrypt message with any known session...
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+{"level":50,"time":1779540572478,"pid":3544,"hostname":"DESKTOP-3IMTB5Q","key":{"remoteJid":"160133577474181@lid","fromMe":false,"id":"A53B33F958EADEC704A30555DA1C46A0"},"err":{"type":"SessionError","message":"No matching sessions found for message","stack":"SessionError: No matching sessions found for message\n    at SessionCipher.decryptWithSessions (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:161:15)\n    at async 160133577474181.0 [as awaitable] (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:171:28)\n    at async _asyncQueueExecutor (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\queue_job.js:20:29)","name":"SessionError"},"msg":"failed to decrypt message"}
+Failed to decrypt message with any known session...
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 160133577474181.0 [as awaitable] (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (D:\WhatsApp Marketing\backend\node_modules\libsignal\src\queue_job.js:20:29)
+{"level":50,"time":1779540578161,"pid":3544,"hostname":"DESKTOP-3IMTB5Q","key":{"remoteJid":"160133577474181@lid","fromMe":false,"id":"A53B33F958EADEC704A30555DA1C46A0"},"err":{"type":"SessionError","message":"No matching sessions found for message","stack":"SessionError: No matching sessions found for message\n    at SessionCipher.decryptWithSessions (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:161:15)\n    at async 160133577474181.0 [as awaitable] (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\session_cipher.js:171:28)\n    at async _asyncQueueExecutor (D:\\WhatsApp Marketing\\backend\\node_modules\\libsignal\\src\\queue_job.js:20:29)","name":"SessionError"},"msg":"failed to decrypt message"}
+Closing open session in favor of incoming prekey bundle
+Closing session: SessionEntry {
+  _chains: {
+    'BQOdWlKKFHVwaQaE3VqXowvCIMVqCyaqKdBlSpnI+WRK': { chainKey: [Object], chainType: 2, messageKeys: {} },
+    BcdEMh1XAP2dLDcEW0ZUo0mDNHih3HLyCcTM04ReXMxl: { chainKey: [Object], chainType: 1, messageKeys: {} }
+  },
+  registrationId: 205347233,
+  currentRatchet: {
+    ephemeralKeyPair: {
+      pubKey: <Buffer 05 c7 44 32 1d 57 00 fd 9d 2c 37 04 5b 46 54 a3 49 83 34 78 a1 dc 72 f2 09 c4 cc d3 84 5e 5c cc 65>,
+      privKey: <Buffer 38 67 07 1a 80 2e 62 6b fa a3 82 92 72 de 74 dc fd e5 15 91 62 5a da 38 43 99 b0 c0 11 f6 c9 61>
+    },
+    lastRemoteEphemeralKey: <Buffer 05 03 9d 5a 52 8a 14 75 70 69 06 84 dd 5a 97 a3 0b c2 20 c5 6a 0b 26 aa 29 d0 65 4a 99 c8 f9 64 4a>,
+    previousCounter: 0,
+    rootKey: <Buffer a8 60 6c f7 dd bd 2a cd 49 89 7a 80 98 a5 7b 29 36 73 70 8a 4c ce b6 b2 a9 47 98 5e b2 ba e3 33>
+  },
+  indexInfo: {
+    baseKey: <Buffer 05 7c 35 a3 ab bb ff 0e 98 95 20 d5 f5 03 66 c4 0b b8 e5 21 49 cd 6d 5b 2f 7b 5f ef 3e 35 97 b0 6a>,
+    baseKeyType: 2,
+    closed: -1,
+    used: 1779540377607,
+    created: 1779540377607,
+    remoteIdentityKey: <Buffer 05 15 eb 80 2a 79 fb 38 e9 60 89 92 01 ee 52 c6 69 a2 8f 7a a0 c1 73 6e b0 5b f9 b5 46 6c 4b f6 73>
+  }
+}
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+Serving frontend from: D:\WhatsApp Marketing\frontend\dist
+MongoDB connected successfully
+Default settings seeded
+Server running on port 5000
+API: http://localhost:5000/api
+Health: http://localhost:5000/api/health
+Found 1 sessions to restore
+Attempting restore for 1/1 sessions
+[Baileys] Connecting session session_083aa628f029d367ab54ddd2bf86db98...
+Socket connected: dA9pCOB15ELuZ6aiAAAB
+Socket connected: yb59olNYztwFVdHDAAAD
+[Baileys] Socket created for session_083aa628f029d367ab54ddd2bf86db98
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 registered
+Session session_083aa628f029d367ab54ddd2bf86db98 restored successfully
+[Baileys] Session session_083aa628f029d367ab54ddd2bf86db98 connected!
+Socket disconnected: dA9pCOB15ELuZ6aiAAAB
+Socket disconnected: yb59olNYztwFVdHDAAAD

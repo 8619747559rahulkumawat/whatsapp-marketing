@@ -1,0 +1,211 @@
+import { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../contexts/AuthContext';
+import { getUnreadCount, onUnreadChange } from '../stores/chatStore';
+import SubscribePopup from '../components/SubscribePopup';
+import {
+  HiOutlineHome, HiOutlineChatAlt2, HiOutlineUsers, HiOutlinePhone,
+  HiOutlineDocumentReport, HiOutlineCash, HiOutlineCog, HiOutlineCollection,
+  HiOutlineCode, HiOutlineCube, HiOutlineMenuAlt2, HiOutlineX,
+  HiOutlineLogout, HiOutlineShieldCheck, HiOutlineDocumentText,
+  HiOutlineLightningBolt, HiOutlineChartBar, HiOutlineUserGroup,
+  HiOutlineSparkles, HiOutlineCreditCard, HiOutlineCheckCircle,
+  HiOutlineClipboardList, HiOutlineLockClosed, HiOutlineClock, HiOutlineDatabase,
+  HiOutlineSwitchHorizontal, HiOutlineUpload, HiOutlineEye, HiOutlineRefresh, HiOutlineTrash,
+} from 'react-icons/hi';
+import { FaWhatsapp, FaBrain, FaRobot } from 'react-icons/fa';
+
+const ALWAYS_UNLOCKED = ['/dashboard', '/billing', '/wallet', '/reports', '/support', '/pricing'];
+
+const userNav = [
+  { path: '/dashboard', label: 'Dashboard', icon: HiOutlineHome },
+  { path: '/campaigns', label: 'Campaigns', icon: HiOutlineCollection },
+  { path: '/bulk-sms', label: 'Bulk SMS', icon: HiOutlineChatAlt2 },
+  { path: '/whatsapp', label: 'WhatsApp Sessions', icon: FaWhatsapp },
+  { path: '/contacts', label: 'Contacts', icon: HiOutlineUsers },
+  { path: '/messages', label: 'Messages', icon: HiOutlineChatAlt2 },
+  { path: '/templates', label: 'Templates', icon: HiOutlineDocumentText },
+  { path: '/automation', label: 'Automation', icon: HiOutlineLightningBolt },
+  { path: '/workflow-builder', label: 'Flow Builder', icon: HiOutlineLightningBolt },
+  { path: '/scheduled-campaigns', label: 'Scheduler', icon: HiOutlineClock },
+  { path: '/reports', label: 'Reports', icon: HiOutlineDocumentReport },
+  { path: '/analytics', label: 'Analytics', icon: HiOutlineChartBar },
+  { path: '/billing', label: 'Billing', icon: HiOutlineCreditCard },
+  { path: '/wallet', label: 'Wallet', icon: HiOutlineCash },
+  { path: '/team', label: 'Team', icon: HiOutlineUserGroup },
+  { path: '/ai-assist', label: 'AI Assist', icon: HiOutlineSparkles },
+  { path: '/knowledge-base', label: 'Knowledge Base', icon: FaBrain },
+  { path: '/group-scraper', label: 'Group Scraper', icon: HiOutlineUsers },
+  { path: '/sms-fallback', label: 'SMS Fallback', icon: FaWhatsapp },
+  { path: '/data-capture', label: 'Data Capture', icon: HiOutlineDatabase },
+  { path: '/integrations', label: 'Integrations', icon: HiOutlineCube },
+  { path: '/compliance', label: 'Compliance', icon: HiOutlineCheckCircle },
+  { path: '/api-docs', label: 'API Docs', icon: HiOutlineCode },
+  { path: '/support', label: 'Support', icon: FaWhatsapp },
+  { path: '/settings', label: 'Settings', icon: HiOutlineCog },
+  { path: '/auto-reply', label: 'Auto Reply', icon: HiOutlineSwitchHorizontal },
+  { path: '/follow-up', label: 'Follow-up', icon: HiOutlineRefresh },
+  { path: '/cleanup', label: 'Cleanup', icon: HiOutlineTrash },
+  { path: '/import-contacts', label: 'Import Contacts', icon: HiOutlineUpload },
+  { path: '/message-preview', label: 'Preview', icon: HiOutlineEye },
+];
+
+const superAdminNav = [
+  { section: 'Admin', items: [
+    { path: '/admin/dashboard', label: 'Admin Panel', icon: HiOutlineShieldCheck },
+    { path: '/admin/audit', label: 'Audit Log', icon: HiOutlineClipboardList },
+    { path: '/live-chat', label: 'Live Chat', icon: FaWhatsapp },
+  ]},
+];
+
+export default function Sidebar({ isOpen, setIsOpen, collapsed, setCollapsed }) {
+  const location = useLocation();
+  const { user, logout } = useAuth();
+  const [chatUnread, setChatUnread] = useState(getUnreadCount());
+  const [showLockPopup, setShowLockPopup] = useState(false);
+
+  useEffect(() => onUnreadChange(setChatUnread), []);
+
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const isSuperAdmin = user?.role === 'super_admin';
+  const credits = user?.credits || 0;
+  const creditsExhausted = credits <= 0 && !isAdmin;
+
+  const isActive = (path) => location.pathname === path;
+
+  const isPathLocked = (path) => {
+    if (isAdmin) return false;
+    if (!creditsExhausted) return false;
+    return !ALWAYS_UNLOCKED.includes(path);
+  };
+
+  const NavLink = ({ item, onClick }) => {
+    const Icon = item.icon;
+    const locked = isPathLocked(item.path);
+
+    if (locked) {
+      return (
+        <div
+          onClick={() => setShowLockPopup(true)}
+          className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 relative cursor-pointer opacity-50 text-gray-400 hover:bg-white/5"
+        >
+          <HiOutlineLockClosed className="text-xl flex-shrink-0 text-orange-400" />
+          {!collapsed && <span className="text-sm font-medium flex-1">{item.label}</span>}
+          {!collapsed && <span className="text-[10px] text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded-full">Locked</span>}
+        </div>
+      );
+    }
+
+    return (
+      <Link to={item.path} onClick={onClick}>
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 relative
+          ${isActive(item.path) ? 'bg-purple-600/20 text-purple-300 border border-purple-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+        >
+          <Icon className="text-xl flex-shrink-0" />
+          {!collapsed && <span className="text-sm font-medium">{item.label}</span>}
+          {item.path === '/live-chat' && chatUnread > 0 && (
+            <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{chatUnread > 99 ? '99+' : chatUnread}</span>
+          )}
+        </div>
+      </Link>
+    );
+  };
+
+  const NavSection = ({ title, items }) => (
+    <>
+      <div className="border-t border-white/10 my-4" />
+      <p className="text-xs text-gray-500 px-4 mb-2 uppercase tracking-wider">{title}</p>
+      {items.map(item => (
+        <NavLink key={item.path} item={item} onClick={() => setIsOpen(false)} />
+      ))}
+    </>
+  );
+
+  return (
+    <>
+      <button
+        className="fixed top-4 left-4 z-50 lg:hidden bg-purple-700 p-2.5 rounded-xl text-white shadow-lg hover:bg-purple-600 transition-all"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        {isOpen ? <HiOutlineX size={22} /> : <HiOutlineMenuAlt2 size={22} />}
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.5 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black lg:hidden z-30"
+            onClick={() => setIsOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      <aside
+        className={`fixed top-0 left-0 h-full z-40 bg-gradient-to-b from-[#1e0b4a] via-[#0f0326] to-[#1a0533] border-r border-white/5 overflow-y-auto transition-all duration-300 sidebar-scroll ${collapsed ? 'w-20' : 'w-64'} ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
+      >
+        <div className="p-6 border-b border-white/10">
+          <Link to="/dashboard" className="flex items-center gap-3" onClick={() => setIsOpen(false)}>
+            <div className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+              <img src="/logo.jpeg" alt="RSendix.pro" className="w-full h-full object-cover" />
+            </div>
+            {!collapsed && (
+              <div className="min-w-0">
+                <h1 className="text-white font-bold text-lg truncate">RSendix.pro</h1>
+                <p className="text-gray-400 text-xs truncate">SMART BULK MESSAGING PLATFORM</p>
+              </div>
+            )}
+          </Link>
+        </div>
+
+        <div className="px-4 pt-2">
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="hidden lg:flex items-center justify-center w-full py-2 rounded-xl text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-all text-xs"
+          >
+            {collapsed ? '→' : '← Collapse'}
+          </button>
+        </div>
+
+        <nav className="p-4 space-y-1">
+          {userNav.map(item => (
+            <NavLink key={item.path} item={item} onClick={() => setIsOpen(false)} />
+          ))}
+
+          {isSuperAdmin && superAdminNav.map(section => (
+            <NavSection key={section.section} title={section.section} items={section.items} />
+          ))}
+        </nav>
+
+        <div className="sticky bottom-0 left-0 right-0 p-4 border-t border-white/10 bg-gradient-to-b from-transparent via-[#16213e] to-[#0f3460]">
+          <div className="flex items-center gap-3 px-4 py-2 mb-2">
+            <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+              {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+            </div>
+            {!collapsed && (
+              <div className="min-w-0">
+                <p className="text-white text-sm font-medium truncate">{user?.name || 'User'}</p>
+                <p className="text-gray-500 text-xs truncate capitalize">{user?.role || 'user'}</p>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => { logout(); setIsOpen(false); }}
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all w-full"
+          >
+            <HiOutlineLogout className="text-xl flex-shrink-0" />
+            {!collapsed && <span className="text-sm font-medium">Logout</span>}
+          </button>
+        </div>
+      </aside>
+
+      <SubscribePopup
+        isOpen={showLockPopup}
+        onClose={() => setShowLockPopup(false)}
+        message="Your credits are finished. Please Subscribe to continue."
+      />
+    </>
+  );
+}
