@@ -105,7 +105,7 @@ exports.sendMessage = async (req, res) => {
     const chat = await Chat.create({
       senderId: req.user._id,
       senderName: req.user.name,
-      senderRole: req.user.role,
+      senderRole: req.user.role === 'super_admin' ? 'admin' : req.user.role,
       receiverId: targetId,
       message: displayMessage,
       mediaUrl: mediaUrl || '',
