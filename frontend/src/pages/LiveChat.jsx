@@ -289,6 +289,10 @@ export default function LiveChat() {
         if (sessions.length > 0) {
           const { data } = await API.post('/messages/send', { sessionId: sessions[0].sessionId, to: phone, messageType: 'text', message: msgText });
           if (!data.success) { alert(data.message || 'Send failed'); return; }
+          const serverMsg = data.message || data;
+          const realMsg = { _id: serverMsg._id, message: text, senderRole: 'admin', senderName: 'You', createdAt: serverMsg.sentAt || serverMsg.createdAt, mediaUrl: '' };
+          setSelectedConv(prev => ({ ...prev, messages: [...(prev.messages || []).filter(m => m._id !== optimisticMsg._id), realMsg] }));
+          setConversations(prev => prev.map(c => c.userId === selectedConv.userId ? { ...c, messages: [...(c.messages || []).filter(m => m._id !== optimisticMsg._id), realMsg], lastTime: new Date() } : c));
         } else {
           alert('No WhatsApp session connected. Please connect a session first.');
           return;

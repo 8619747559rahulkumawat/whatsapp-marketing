@@ -6,7 +6,10 @@ let reconnectCallbacks = [];
 export const connectSocket = () => {
   if (SOCKET) return SOCKET;
 
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+
   SOCKET = io({
+    auth: { token },
     autoConnect: true,
     transports: ['websocket', 'polling'],
     reconnection: true,

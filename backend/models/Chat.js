@@ -4,7 +4,7 @@ const chatSchema = new mongoose.Schema({
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: true },
   senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   senderName: { type: String, default: '' },
-  senderRole: { type: String, enum: ['admin', 'user'], default: 'user' },
+  senderRole: { type: String, enum: ['admin', 'user', 'super_admin'], default: 'user' },
   receiverId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   waPhone: { type: String, default: '' },
   message: { type: String, required: true },
