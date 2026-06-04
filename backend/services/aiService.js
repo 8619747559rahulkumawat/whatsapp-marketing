@@ -4,6 +4,7 @@ const pdfParse = require('pdf-parse');
 const fs = require('fs');
 const path = require('path');
 const KnowledgeBase = require('../models/KnowledgeBase');
+const Setting = require('../models/Setting');
 
 let openaiClient = null;
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
@@ -14,19 +15,22 @@ let aiCheckTime = 0;
 const AI_CHECK_TTL = 30000;
 
 const FAST_REPLIES = [
-  "Thank you for your message! We'll get back to you shortly.",
-  "Thanks for reaching out! Our team will assist you soon.",
-  "We received your message. Someone will respond shortly.",
-  "Thank you! We'll look into this and get back to you.",
-  "Noted! We'll respond as soon as possible.",
+  "I can help you with WhatsApp marketing! Try asking: How to create a campaign? How to import contacts? Best time to send messages?",
+  "Ask me about: campaign setup, message templates, contact management, WhatsApp sessions, or automation workflows.",
+  "I'm your AI marketing assistant. Try: 'Create a welcome campaign' or 'How to analyze campaign reports?'",
+  "Need help? Ask about: bulk messaging, contact groups, auto-reply rules, follow-up sequences, or CRM features.",
+  "I can guide you through: setting up WhatsApp sessions, creating broadcast campaigns, and tracking message delivery.",
 ];
 
 const getOpenAIClient = () => {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (apiKey && !openaiClient) {
-    openaiClient = new OpenAI({ apiKey, timeout: 5000, maxRetries: 1 });
+  if (apiKey) {
+    if (!openaiClient) {
+      openaiClient = new OpenAI({ apiKey, timeout: 10000, maxRetries: 2 });
+    }
+    return openaiClient;
   }
-  return openaiClient;
+  return null;
 };
 
 const setOpenAIKey = (apiKey) => {
@@ -34,6 +38,21 @@ const setOpenAIKey = (apiKey) => {
   openaiClient = null;
   aiAvailable = null;
   getOpenAIClient();
+};
+
+const loadOpenAIKeyFromDB = async () => {
+  try {
+    const setting = await Setting.findOne({ key: 'openai_api_key' }).sort({ createdAt: -1 });
+    if (setting && setting.value) {
+      setOpenAIKey(setting.value);
+      console.log('OpenAI API key loaded from database');
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error('Failed to load OpenAI key from DB:', err.message);
+    return false;
+  }
 };
 
 const fastCheckAI = async () => {
@@ -249,5 +268,6 @@ module.exports = {
   generateChatResponse, generateSuggestion, generateAIResponse,
   generateKnowledgeReply, setOpenAIKey, getOpenAIClient,
   generateEmbedding, searchKnowledgeBase, chunkText,
-  extractTextFromPDF, detectIntent, extractEntities, fastCheckAI
+  extractTextFromPDF, detectIntent, extractEntities, fastCheckAI,
+  loadOpenAIKeyFromDB
 };

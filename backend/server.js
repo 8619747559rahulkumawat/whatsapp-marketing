@@ -14,6 +14,7 @@ const schedulerService = require('./services/schedulerService');
 const { seedAll } = require('./utils/seeder');
 const whatsappService = require('./services/whatsappService');
 const { startCleanupSchedule } = require('./services/cleanupScheduleService');
+const aiService = require('./services/aiService');
 
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled Rejection:', err.message);
@@ -261,6 +262,7 @@ async function connectDB() {
 connectDB()
   .then(async () => {
     await seedAll();
+    await aiService.loadOpenAIKeyFromDB();
     await startServer();
     setTimeout(async () => {
       try {
