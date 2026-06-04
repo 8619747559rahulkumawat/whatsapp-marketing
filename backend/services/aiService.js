@@ -12,7 +12,7 @@ let genAI = null;
 let geminiModel = null;
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'tinyllama';
-const GEMINI_MODEL = 'gemini-1.5-flash';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 
 let aiAvailable = null;
 let aiCheckTime = 0;
