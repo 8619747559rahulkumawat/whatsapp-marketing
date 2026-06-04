@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 export default function Register() {
   const { register, token } = useAuth();
-  const [form, setForm] = useState({ name: '', email: '', phone: '', businessName: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', businessName: '', password: '', confirmPassword: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
@@ -15,9 +15,17 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (form.password !== form.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    if (form.password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
     setLoading(true);
     try {
-      const res = await register(form.name, form.email, form.phone, form.businessName);
+      const res = await register(form.name, form.email, form.phone, form.businessName, form.password);
       if (res.success) {
         setSuccess({ email: form.email });
       } else {
@@ -141,6 +149,32 @@ export default function Register() {
                 value={form.businessName}
                 onChange={(e) => setForm({ ...form, businessName: e.target.value })}
                 required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Create Password</label>
+              <input
+                type="password"
+                className="input-field"
+                placeholder="Enter password (min 6 chars)"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                required
+                minLength={6}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Confirm Password</label>
+              <input
+                type="password"
+                className="input-field"
+                placeholder="Re-enter password"
+                value={form.confirmPassword}
+                onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                required
+                minLength={6}
               />
             </div>
 

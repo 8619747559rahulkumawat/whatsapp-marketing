@@ -63,9 +63,12 @@ exports.login = async (req, res) => {
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, phone, businessName } = req.body;
+    const { name, email, phone, businessName, password } = req.body;
     if (!name || !email) {
       return res.status(400).json({ success: false, message: 'Name and email required' });
+    }
+    if (password && password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
     }
     const exists = await User.findOne({ email: email.toLowerCase() });
     if (exists) {
@@ -88,13 +91,13 @@ exports.register = async (req, res) => {
         limits: { contacts: 100, messagesPerDay: 100, users: 1 }
       }
     });
-    const autoPassword = generatePassword();
+    const userPassword = password || generatePassword();
     const user = await User.create({
       name,
       email: email.toLowerCase(),
       phone: phone || '',
       businessName: businessName || '',
-      password: autoPassword,
+      password: userPassword,
       role: 'user',
       credits: defaultCredits,
       tenantId: tenant._id,
@@ -114,9 +117,9 @@ exports.register = async (req, res) => {
             <p style="color: #d1d5db; font-size: 14px;">Your account has been created successfully. Below are your login credentials:</p>
             <div style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 12px; padding: 24px; margin: 24px 0;">
               <p style="margin: 8px 0;"><strong style="color: #a855f7;">Email:</strong> <span style="color: #fff;">${user.email}</span></p>
-              <p style="margin: 8px 0;"><strong style="color: #a855f7;">Password:</strong> <span style="color: #fff;">${autoPassword}</span></p>
+              ${!password ? `<p style="margin: 8px 0;"><strong style="color: #a855f7;">Password:</strong> <span style="color: #fff;">${userPassword}</span></p>` : ''}
             </div>
-            <p style="color: #9ca3af; font-size: 13px;">Please save this password securely. You can change it after logging in.</p>
+            ${!password ? `<p style="color: #9ca3af; font-size: 13px;">Please save this password securely. You can change it after logging in.</p>` : ''}
             <div style="text-align: center; margin-top: 32px;">
               <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" style="display: inline-block; background: linear-gradient(135deg, #a855f7, #7c3aed); color: #fff; text-decoration: none; padding: 14px 32px; border-radius: 12px; font-weight: bold;">Login to Your Account</a>
             </div>
@@ -131,7 +134,7 @@ exports.register = async (req, res) => {
       success: true,
       message: 'Registration successful',
       token,
-      generatedPassword: autoPassword,
+      generatedPassword: password ? undefined : userPassword,
       user: {
         _id: user._id,
         name: user.name,
