@@ -349,8 +349,12 @@ const loadAIKeysFromDB = async () => {
     if (geminiSetting && geminiSetting.value) {
       setGeminiKey(geminiSetting.value);
       console.log('Gemini API key loaded from database');
+    } else if (process.env.GEMINI_API_KEY) {
+      // Fallback to environment variable
+      setGeminiKey(process.env.GEMINI_API_KEY);
+      console.log('Gemini API key loaded from environment variable');
     }
-    return !!(openaiSetting?.value || geminiSetting?.value);
+    return !!(openaiSetting?.value || geminiSetting?.value || process.env.GEMINI_API_KEY);
   } catch (err) {
     console.error('Failed to load AI keys from DB:', err.message);
     return false;
