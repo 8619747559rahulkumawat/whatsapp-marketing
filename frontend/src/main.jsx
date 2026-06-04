@@ -5,6 +5,7 @@ import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider, useToast } from './contexts/ToastContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import './index.css';
 
 function ToastBridge({ children }) {
@@ -20,13 +21,15 @@ function ToastBridge({ children }) {
 ReactDOM.createRoot(document.getElementById('root')).render(
   <BrowserRouter>
     <AuthProvider>
-      <ToastProvider>
-        <ThemeProvider>
-          <ToastBridge>
-            <App />
-          </ToastBridge>
-        </ThemeProvider>
-      </ToastProvider>
+      <LanguageProvider>
+        <ToastProvider>
+          <ThemeProvider>
+            <ToastBridge>
+              <App />
+            </ToastBridge>
+          </ThemeProvider>
+        </ToastProvider>
+      </LanguageProvider>
     </AuthProvider>
   </BrowserRouter>
 );

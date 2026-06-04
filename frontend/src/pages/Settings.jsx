@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import API from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { HiOutlineUser, HiOutlineLockClosed, HiOutlineSaveAs, HiOutlineCash } from 'react-icons/hi';
 import { FaWhatsapp } from 'react-icons/fa';
 
 export default function Settings() {
   const { user, updateUser } = useAuth();
+  const { lang, toggleLang } = useLanguage();
   const [profile, setProfile] = useState({ name: user?.name || '', phone: user?.phone || '' });
   const [password, setPassword] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [creditAmount, setCreditAmount] = useState('');
@@ -91,9 +93,21 @@ export default function Settings() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-white">Settings</h1>
-        <p className="text-gray-400 text-xs sm:text-sm mt-1">Manage your account settings</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Settings</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Manage your account settings</p>
+        </div>
+        <div className="flex bg-white/5 rounded-lg p-0.5 gap-0.5">
+          <button onClick={() => lang !== 'hi' && toggleLang()}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${lang === 'hi' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}>
+            🇮🇳 हिंदी
+          </button>
+          <button onClick={() => lang !== 'en' && toggleLang()}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${lang === 'en' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}>
+            🇬🇧 English
+          </button>
+        </div>
       </div>
 
       {message.text && (
