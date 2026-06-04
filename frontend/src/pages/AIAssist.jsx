@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import API from '../utils/api';
-import { HiOutlineChat, HiOutlineSparkles, HiOutlineEmojiHappy, HiOutlinePencil, HiOutlineLightBulb, HiOutlineChip } from 'react-icons/hi';
-import { FaRobot, FaWhatsapp } from 'react-icons/fa';
+import { HiOutlineChat, HiOutlineSparkles, HiOutlineEmojiHappy, HiOutlinePencil, HiOutlineLightBulb, HiOutlineKey, HiOutlineEye, HiOutlineEyeOff } from 'react-icons/hi';
+import { FaRobot, FaWhatsapp, FaCheckCircle } from 'react-icons/fa';
 
 export default function AIAssist() {
   const [activeTab, setActiveTab] = useState('chat');
@@ -10,7 +10,14 @@ export default function AIAssist() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState('');
-  const [ollamaStatus, setOllamaStatus] = useState(null);
+  const [aiReady, setAiReady] = useState(false);
+  const [openaiConfigured, setOpenaiConfigured] = useState(false);
+  const [aiStatusMsg, setAiStatusMsg] = useState('Checking AI status...');
+  const [showKeyInput, setShowKeyInput] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [savingKey, setSavingKey] = useState(false);
+  const [keyMsg, setKeyMsg] = useState('');
   const [smartReplyInput, setSmartReplyInput] = useState('');
   const [smartReplyResult, setSmartReplyResult] = useState('');
   const [sentimentInput, setSentimentInput] = useState('');
@@ -21,24 +28,59 @@ export default function AIAssist() {
   const chatEndRef = useRef(null);
 
   useEffect(() => {
-    checkOllama();
+    checkAIStatus();
     loadChatHistory();
   }, []);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  const checkOllama = async () => {
+  const checkAIStatus = async () => {
+    try {
+      const { data } = await API.get('/ai/openai-key');
+      if (data.success && data.configured) {
+        setOpenaiConfigured(true);
+        setAiReady(true);
+        setAiStatusMsg('AI Ready (ChatGPT)');
+        return;
+      }
+    } catch {}
     try {
       const { data } = await API.get('/ai/ollama-status');
-      setOllamaStatus(data);
-    } catch (err) { console.error(err); }
+      if (data.available) {
+        setAiReady(true);
+        setAiStatusMsg(data.provider === 'openai' ? 'AI Ready (ChatGPT)' : `AI Ready (${data.provider})`);
+      } else {
+        setAiReady(false);
+        setAiStatusMsg('Configure OpenAI Key to use AI');
+      }
+    } catch {
+      setAiReady(false);
+      setAiStatusMsg('Configure OpenAI Key to use AI');
+    }
+  };
+
+  const saveApiKey = async () => {
+    if (!apiKey.trim()) return;
+    setSavingKey(true);
+    setKeyMsg('');
+    try {
+      await API.post('/ai/openai-key', { apiKey: apiKey.trim() });
+      setOpenaiConfigured(true);
+      setAiReady(true);
+      setAiStatusMsg('AI Ready (ChatGPT)');
+      setShowKeyInput(false);
+      setKeyMsg('API key saved successfully! AI is now ready.');
+      setApiKey('');
+    } catch (err) {
+      setKeyMsg('Error: ' + (err.response?.data?.message || err.message));
+    } finally { setSavingKey(false); }
   };
 
   const loadChatHistory = async () => {
     try {
       const { data } = await API.get('/ai/chat');
       if (data.success) setMessages(data.messages);
-    } catch (err) { console.error(err); }
+    } catch {}
   };
 
   const sendChat = async (e) => {
@@ -114,13 +156,40 @@ export default function AIAssist() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-white">AI Assistant</h1>
-          <p className="text-gray-400 text-xs sm:text-sm mt-1">Powered by Ollama (Local AI - Free)</p>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Powered by ChatGPT — Har sawal ka jawab paayein</p>
         </div>
-        <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${ollamaStatus?.available ? (ollamaStatus?.hasModel ? 'bg-green-500/10 text-green-400' : 'bg-yellow-500/10 text-yellow-400') : 'bg-red-500/10 text-red-400'}`}>
-          <HiOutlineChip />
-          {!ollamaStatus?.available ? 'Ollama Offline' : ollamaStatus?.hasModel ? `Ollama Ready (${ollamaStatus.models?.join(', ')})` : 'Model not downloaded - AI will auto-download on first use'}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs sm:text-sm ${aiReady ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+            {aiReady ? <FaCheckCircle /> : <HiOutlineKey />}
+            <span className="hidden sm:inline">{aiStatusMsg}</span>
+            <span className="sm:hidden">{aiReady ? 'Ready' : 'Setup'}</span>
+          </div>
+          {!openaiConfigured && (
+            <button onClick={() => setShowKeyInput(!showKeyInput)} className="px-3 py-2 rounded-xl text-xs font-medium bg-purple-600 text-white hover:bg-purple-500 transition-all">
+              Set API Key
+            </button>
+          )}
         </div>
       </div>
+
+      {showKeyInput && (
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-4 sm:p-6 max-w-xl">
+          <h3 className="text-white font-semibold text-sm mb-1">Configure OpenAI API Key</h3>
+          <p className="text-gray-400 text-xs mb-4">Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline">platform.openai.com</a>. Free credits available for new users.</p>
+          <div className="flex gap-2 items-center">
+            <div className="relative flex-1">
+              <input type={showKey ? 'text' : 'password'} value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-..." className="input-field w-full pr-10 text-sm" />
+              <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                {showKey ? <HiOutlineEyeOff size={16} /> : <HiOutlineEye size={16} />}
+              </button>
+            </div>
+            <button onClick={saveApiKey} disabled={savingKey || !apiKey.trim()} className="btn-primary px-4 py-2.5 rounded-xl text-sm whitespace-nowrap disabled:opacity-50">
+              {savingKey ? 'Saving...' : 'Save Key'}
+            </button>
+          </div>
+          {keyMsg && <p className={`text-xs mt-2 ${keyMsg.includes('Error') ? 'text-red-400' : 'text-green-400'}`}>{keyMsg}</p>}
+        </motion.div>
+      )}
 
       <div className="flex gap-2 flex-wrap">
         {tabs.map(tab => {
@@ -140,8 +209,8 @@ export default function AIAssist() {
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-gray-500">
                 <FaRobot className="text-5xl mb-4 text-purple-400" />
-                <p>Ask me anything about WhatsApp marketing!</p>
-                <p className="text-xs mt-2">I can help with campaigns, templates, best practices, and more.</p>
+                <p>Ask me anything!</p>
+                <p className="text-xs mt-2">Marketing, campaigns, templates, best practices aur aur bhi bahut kuch.</p>
               </div>
             )}
             {messages.map((msg, idx) => (

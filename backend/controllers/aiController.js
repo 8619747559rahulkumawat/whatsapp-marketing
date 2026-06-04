@@ -109,22 +109,37 @@ const getSuggestions = async (req, res) => {
 
 const checkOllamaStatus = async (req, res) => {
   try {
+    // Check if OpenAI key is saved in DB for this tenant
+    const keySetting = await Setting.findOne({
+      key: 'openai_api_key', tenantId: req.tenant?._id || req.user.tenantId
+    });
+
     const client = aiService.getOpenAIClient();
-    if (client) {
+    if (client && keySetting?.value) {
       try {
         const models = await client.models.list();
         const hasModel = models.data.some(m => m.id === (process.env.OPENAI_MODEL || 'gpt-4o-mini'));
-        res.json({ success: true, available: true, provider: 'openai', hasModel, models: models.data.map(m => m.id) });
+        res.json({ success: true, available: true, provider: 'openai', hasModel, models: models.data.map(m => m.id), openaiConfigured: true });
         return;
       } catch (err) { console.error(err); }
     }
+
+    if (keySetting?.value) {
+      res.json({ success: true, available: true, provider: 'openai', openaiConfigured: true, message: 'OpenAI key configured. Try saving again if not working.' });
+      return;
+    }
+
     const axios = require('axios');
-    const { data } = await axios.get('http://localhost:11434/api/tags', { timeout: 3000 });
-    const models = data.models?.map(m => m.name) || [];
-    const hasModel = models.some(m => m.startsWith(process.env.OLLAMA_MODEL || 'llama2'));
-    res.json({ success: true, available: true, provider: 'ollama', models, hasModel });
-  } catch {
-    res.json({ success: true, available: false, message: 'No AI provider available. Configure OpenAI API key or start Ollama.' });
+    try {
+      const { data } = await axios.get('http://localhost:11434/api/tags', { timeout: 3000 });
+      const models = data.models?.map(m => m.name) || [];
+      const hasModel = models.some(m => m.startsWith(process.env.OLLAMA_MODEL || 'llama2'));
+      res.json({ success: true, available: true, provider: 'ollama', models, hasModel, openaiConfigured: false });
+    } catch {
+      res.json({ success: true, available: false, openaiConfigured: false, message: 'No AI provider available. Configure OpenAI API key to use ChatGPT.' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
