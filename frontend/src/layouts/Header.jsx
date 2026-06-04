@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import API from '../utils/api';
 import { connectSocket } from '../utils/socket';
-import { HiOutlineBell, HiOutlineMenuAlt2, HiOutlineUser, HiOutlineLogout, HiOutlineCash, HiOutlineLockClosed, HiOutlineSun, HiOutlineMoon, HiOutlineCheckCircle, HiOutlineX } from 'react-icons/hi';
+import { HiOutlineBell, HiOutlineMenuAlt2, HiOutlineUser, HiOutlineLogout, HiOutlineCash, HiOutlineLockClosed, HiOutlineSun, HiOutlineMoon, HiOutlineCheckCircle, HiOutlineX, HiOutlinePhone } from 'react-icons/hi';
 
 const Header = memo(function Header({ setSidebarOpen, collapsed }) {
   const { user, logout, token } = useAuth();
@@ -100,6 +100,10 @@ const Header = memo(function Header({ setSidebarOpen, collapsed }) {
             <span className="text-white font-bold text-sm">RSendix.pro</span>
             <span className="text-gray-500">|</span>
             <span className="text-gray-400 text-xs">SMART CRM</span>
+            <span className="text-gray-600">|</span>
+            <a href="tel:+918617559759" className="flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition-colors font-medium">
+              <HiOutlinePhone size={14} /> +91 8619747559
+            </a>
           </div>
           {user?.plan && (
             <span className={`hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium uppercase ${planColors[user.plan] || 'bg-gray-500/20 text-gray-400'}`}>
