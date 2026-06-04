@@ -24,6 +24,7 @@ const groupScrapeSchema = new mongoose.Schema({
     sender: String,
     senderName: String,
     senderPhone: String,
+    senderJid: String,
     content: String,
     type: { type: String, default: 'text' },
     timestamp: { type: Date },

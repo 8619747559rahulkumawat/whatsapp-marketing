@@ -549,8 +549,9 @@ exports.scrapeGroupMessages = async (req, res) => {
       return {
         msgId: key.id || '',
         sender,
+        senderJid: sender,
         senderName: '',
-        senderPhone: senderPhone.slice(-10),
+        senderPhone: senderPhone,
         content,
         type,
         timestamp: new Date((m.messageTimestamp || 0) * 1000),

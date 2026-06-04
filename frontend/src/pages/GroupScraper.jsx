@@ -355,6 +355,7 @@ export default function GroupScraper() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="text-white text-xs font-medium">{msg.senderName || msg.senderPhone || 'Unknown'}</span>
+                            <span className="text-gray-500 text-[10px]">{msg.senderPhone}</span>
                             <span className="text-gray-600 text-[10px]">{new Date(msg.timestamp).toLocaleString()}</span>
                             {msg.type !== 'text' && <span className="badge text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">{msg.type}</span>}
                           </div>
