@@ -129,8 +129,8 @@ const Header = memo(function Header({ setSidebarOpen, collapsed }) {
             </Link>
           )}
 
-          <button onClick={() => setShowHelp(true)} className="p-1.5 sm:p-2 rounded-xl text-gray-400 hover:text-purple-400 hover:bg-white/5 transition-all" title="Help Guide">
-            <HiOutlineQuestionMarkCircle size={18} className="sm:size-[22px]" />
+          <button onClick={() => setShowHelp(true)} className="px-2 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm text-gray-400 hover:text-purple-400 hover:bg-white/5 transition-all font-medium border border-white/5 hover:border-purple-500/30">
+            Help Guide
           </button>
           <button onClick={toggleTheme} className="p-1.5 sm:p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all" title={dark ? 'Light mode' : 'Dark mode'}>
             {dark ? <HiOutlineSun size={18} className="sm:size-[22px]" /> : <HiOutlineMoon size={18} className="sm:size-[22px]" />}
