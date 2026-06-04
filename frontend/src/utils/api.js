@@ -2,16 +2,16 @@ import axios from 'axios';
 import axiosRetry from 'axios-retry';
 
 const API = axios.create({
-  baseURL: '/api'
+  baseURL: '/api',
+  timeout: 15000
 });
 
 axiosRetry(API, {
-  retries: 3,
-  retryDelay: (retryCount) => retryCount * 1000,
+  retries: 1,
+  retryDelay: () => 2000,
   retryCondition: (error) => {
     return !error.response || error.code === 'ECONNABORTED';
-  },
-  onRetry: () => {}
+  }
 });
 
 API.interceptors.request.use((config) => {

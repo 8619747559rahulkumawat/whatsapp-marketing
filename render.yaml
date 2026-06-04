@@ -3,6 +3,7 @@ services:
     name: whatsapp-marketing
     env: node
     plan: free
+    healthCheckPath: /api/health
     buildCommand: cd frontend && npm install --include=dev && npm run build && cd ../backend && npm install --include=dev
     startCommand: cd backend && node server.js
     envVars:
