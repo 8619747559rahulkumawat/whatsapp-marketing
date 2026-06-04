@@ -156,7 +156,7 @@ Organize contacts for targeted campaigns:
 Smart targeting = higher conversion!`
   },
   {
-    keywords: ['personalization', 'variable', '{', 'first name', 'name', 'custom field'],
+    keywords: ['personalization', 'variable', 'first name', 'name variable', 'custom field'],
     reply: `🎯 **Message Personalization**
 
 Use variables to make every message feel personal:
@@ -265,8 +265,14 @@ const generateLocalReply = (message) => {
   // Direct matches first
   for (const entry of BUILT_IN_REPLIES) {
     for (const keyword of entry.keywords) {
-      if (msg.includes(keyword.toLowerCase())) {
-        return entry.reply;
+      // Use word boundary regex for multi-word keywords, fallback to includes for special chars
+      if (keyword === '{') {
+        if (msg.includes('{')) return entry.reply;
+      } else {
+        const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (new RegExp(`\\b${escaped}\\b`, 'i').test(msg)) {
+          return entry.reply;
+        }
       }
     }
   }
