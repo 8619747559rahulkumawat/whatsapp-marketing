@@ -455,15 +455,9 @@ const generateWithOllama = async (prompt, context = '') => {
 };
 
 const generateAIResponse = async (prompt, context = '') => {
-  // Built-in local AI first (always works, no API key needed!)
-  const localReply = generateLocalReply(prompt);
-  if (localReply) return localReply;
-
   const provider = await fastCheckAI();
-  if (provider === 'local') {
-    return FALLBACK_REPLIES[Math.floor(Math.random() * FALLBACK_REPLIES.length)];
-  }
 
+  // Real AI first (Gemini or OpenAI)
   let reply = null;
   if (provider === 'openai') reply = await generateWithOpenAI(prompt, context);
   if (!reply && provider === 'gemini') reply = await generateWithGemini(prompt, context);
@@ -471,7 +465,14 @@ const generateAIResponse = async (prompt, context = '') => {
   if (!reply && provider === 'openai') reply = await generateWithGemini(prompt, context);
   if (!reply && provider === 'gemini') reply = await generateWithOpenAI(prompt, context);
 
-  return reply || FALLBACK_REPLIES[Math.floor(Math.random() * FALLBACK_REPLIES.length)];
+  // If no AI provider available or all failed, use built-in local AI
+  if (!reply) {
+    const localReply = generateLocalReply(prompt);
+    if (localReply) return localReply;
+    return FALLBACK_REPLIES[Math.floor(Math.random() * FALLBACK_REPLIES.length)];
+  }
+
+  return reply;
 };
 
 const extractTextFromPDF = async (buffer) => {
