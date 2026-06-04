@@ -255,6 +255,42 @@ export default function WhatsAppSessions() {
     setCallRoom('');
   };
 
+  const [chatSession, setChatSession] = useState(null);
+  const [chatPhone, setChatPhone] = useState('');
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatLoading, setChatLoading] = useState(false);
+
+  const loadChat = async () => {
+    if (!chatSession || !chatPhone.trim()) return;
+    setChatLoading(true);
+    try {
+      const phone = chatPhone.replace(/[^0-9]/g, '');
+      const { data } = await API.get(`/sessions/${chatSession}/chat/${phone}@s.whatsapp.net?limit=100`);
+      if (data.success) setChatMessages(data.messages || []);
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Failed to load chat');
+    } finally { setChatLoading(false); }
+  };
+
+  const exportChat = async () => {
+    if (!chatMessages.length) return;
+    try {
+      const rows = chatMessages.map(m => ({
+        'Sender': m.isMe ? 'Me' : m.senderPhone,
+        'Content': m.content,
+        'Type': m.type,
+        'Timestamp': new Date(m.timestamp).toLocaleString(),
+        'Direction': m.isMe ? 'Sent' : 'Received'
+      }));
+      const csv = ['Sender,Content,Type,Timestamp,Direction', ...rows.map(r =>
+        `"${r.Sender}","${r.Content.replace(/"/g, '""')}","${r.Type}","${r.Timestamp}","${r.Direction}"`
+      )].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `chat-${chatPhone}.csv`; a.click();
+    } catch (err) { alert('Export failed'); }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -343,6 +379,10 @@ export default function WhatsAppSessions() {
               <div className="flex items-center gap-2 mt-2">
                 {session.status === 'connected' && (
                   <>
+                    <button onClick={() => { setChatSession(session.sessionId); setChatPhone(''); setChatMessages([]); }}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 text-sm font-medium transition-all">
+                      <FaWhatsapp size={14} /> Chat
+                    </button>
                     <button onClick={() => { setCallSession(session); setCallType('audio'); setCallPhone(''); }}
                       className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 text-sm font-medium transition-all">
                       <FaPhone size={14} /> Audio
@@ -540,6 +580,49 @@ export default function WhatsAppSessions() {
             <button onClick={() => { setPairingSession(null); setPairingCode(''); }} className="px-6 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 w-full">
               Close
             </button>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Chat History Modal */}
+      {chatSession && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => { setChatSession(null); setChatMessages([]); }}>
+          <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-[#1a1a2e] rounded-2xl p-6 w-full max-w-2xl border border-white/10 max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-white">Chat History</h2>
+              <button onClick={() => { setChatSession(null); setChatMessages([]); }} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <div className="flex gap-2 mb-4">
+              <input className="input-field flex-1" placeholder="Enter phone number (with country code)" value={chatPhone}
+                onChange={e => setChatPhone(e.target.value)} onKeyDown={e => e.key === 'Enter' && loadChat()} />
+              <button onClick={loadChat} disabled={chatLoading || !chatPhone.trim()}
+                className="btn-primary px-4 py-2 rounded-xl text-white flex items-center gap-2 disabled:opacity-50">
+                {chatLoading ? <span className="animate-spin">⏳</span> : <FaWhatsapp />} Load
+              </button>
+              <button onClick={exportChat} disabled={!chatMessages.length}
+                className="px-3 py-2 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 disabled:opacity-30" title="Export Excel">
+                <HiOutlineDownload size={18} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
+              {chatMessages.length === 0 && !chatLoading && (
+                <div className="text-center py-12 text-gray-500">Enter a phone number and click Load to view chat</div>
+              )}
+              {chatLoading && <div className="text-center py-12 text-gray-400"><span className="animate-spin inline-block">⏳</span> Loading messages...</div>}
+              {chatMessages.map((m, idx) => (
+                <motion.div key={m.msgId || idx} initial={{ opacity: 0, x: m.isMe ? 20 : -20 }} animate={{ opacity: 1, x: 0 }}
+                  className={`flex ${m.isMe ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] p-3 rounded-2xl ${m.isMe ? 'bg-purple-600/20 rounded-tr-sm' : 'bg-white/5 rounded-tl-sm'}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-medium text-gray-500">{m.isMe ? 'Me' : m.senderPhone}</span>
+                      <span className="text-[9px] text-gray-600">{new Date(m.timestamp).toLocaleString()}</span>
+                      {m.type !== 'text' && <span className="badge text-[9px] px-1.5 bg-blue-500/20 text-blue-300 rounded">{m.type}</span>}
+                    </div>
+                    <p className="text-sm text-gray-200 break-words">{m.content}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </motion.div>
         </motion.div>
       )}

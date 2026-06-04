@@ -154,6 +154,49 @@ exports.pairingCode = async (req, res) => {
   }
 };
 
+exports.getContactChat = async (req, res) => {
+  try {
+    const { id, jid } = req.params;
+    const limit = parseInt(req.query.limit) || 50;
+    const sock = await whatsappService.getReadySocket(id);
+    if (!sock || !sock.user) {
+      return res.status(400).json({ success: false, message: 'WhatsApp session not connected' });
+    }
+    const contactJid = jid.includes('@') ? jid : `${jid}@s.whatsapp.net`;
+    const rawMessages = await sock.loadMessages(contactJid, Math.min(limit, 200));
+    const messages = (rawMessages || []).map(m => {
+      const key = m.key;
+      const msg = m.message;
+      let content = '';
+      let type = 'text';
+      if (msg) {
+        if (msg.conversation) { content = msg.conversation; }
+        else if (msg.extendedTextMessage?.text) { content = msg.extendedTextMessage.text; }
+        else if (msg.imageMessage) { content = '[Image]'; type = 'image'; }
+        else if (msg.videoMessage) { content = '[Video]'; type = 'video'; }
+        else if (msg.audioMessage) { content = '[Audio]'; type = 'audio'; }
+        else if (msg.documentMessage) { content = `[Document: ${msg.documentMessage.fileName || ''}]`; type = 'document'; }
+        else if (msg.stickerMessage) { content = '[Sticker]'; type = 'sticker'; }
+        else { content = '[Message]'; type = 'other'; }
+      }
+      const sender = key.participant || key.remoteJid || '';
+      const senderPhone = sender.split('@')[0] || '';
+      const isMe = key.fromMe;
+      return {
+        msgId: key.id || '',
+        sender, senderPhone,
+        content, type,
+        isMe: !!isMe,
+        timestamp: new Date((m.messageTimestamp || 0) * 1000)
+      };
+    });
+    messages.sort((a, b) => a.timestamp - b.timestamp);
+    res.json({ success: true, messages, total: messages.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 exports.exportContacts = async (req, res) => {
   try {
     const contacts = await whatsappService.getAllContacts(req.params.id);
