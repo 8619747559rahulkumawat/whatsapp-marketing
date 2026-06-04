@@ -517,3 +517,66 @@ exports.deleteGroupScrape = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+exports.scrapeGroupMessages = async (req, res) => {
+  try {
+    const { groupJid, sessionId, limit: msgLimit = 50 } = req.body;
+    if (!groupJid || !sessionId) {
+      return res.status(400).json({ success: false, message: 'Group JID and session ID required' });
+    }
+    const sock = await whatsappService.getReadySocket(sessionId);
+    if (!sock || !sock.user) {
+      return res.status(400).json({ success: false, message: 'WhatsApp session not connected' });
+    }
+    const messages = await sock.loadMessages(groupJid, Math.min(msgLimit, 200));
+    const parsed = (messages || []).map(m => {
+      const key = m.key;
+      const msg = m.message;
+      let content = '';
+      let type = 'text';
+      if (msg) {
+        if (msg.conversation) { content = msg.conversation; }
+        else if (msg.extendedTextMessage?.text) { content = msg.extendedTextMessage.text; }
+        else if (msg.imageMessage) { content = '[Image]'; type = 'image'; }
+        else if (msg.videoMessage) { content = '[Video]'; type = 'video'; }
+        else if (msg.audioMessage) { content = '[Audio]'; type = 'audio'; }
+        else if (msg.documentMessage) { content = `[Document: ${msg.documentMessage.fileName || ''}]`; type = 'document'; }
+        else if (msg.stickerMessage) { content = '[Sticker]'; type = 'sticker'; }
+        else { content = '[Message]'; type = 'other'; }
+      }
+      const sender = key.participant || key.remoteJid || '';
+      const senderPhone = sender.split('@')[0] || '';
+      return {
+        msgId: key.id || '',
+        sender,
+        senderName: '',
+        senderPhone: senderPhone.slice(-10),
+        content,
+        type,
+        timestamp: new Date((m.messageTimestamp || 0) * 1000),
+        quotedMsg: ''
+      };
+    });
+    parsed.sort((a, b) => a.timestamp - b.timestamp);
+    const filter = { groupJid, sessionId, tenantId: req.tenant?._id || req.user?.tenantId };
+    const existing = await GroupScrape.findOne(filter);
+    if (existing) {
+      existing.messages = parsed;
+      existing.totalMessages = parsed.length;
+      await existing.save();
+    }
+    res.json({ success: true, messages: parsed, total: parsed.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.getScrapedMessages = async (req, res) => {
+  try {
+    const scrape = await GroupScrape.findOne({ _id: req.params.id, tenantId: req.tenant?._id || req.user?.tenantId });
+    if (!scrape) return res.status(404).json({ success: false, message: 'Scrape not found' });
+    res.json({ success: true, messages: scrape.messages || [], total: scrape.totalMessages || 0 });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

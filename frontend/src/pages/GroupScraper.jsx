@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import API from '../utils/api';
-import { HiOutlineUsers, HiOutlineDownload, HiOutlineSearch, HiOutlineTag, HiOutlineRefresh, HiOutlineTrash, HiOutlineEye, HiOutlineFilter, HiOutlineUserAdd } from 'react-icons/hi';
-import { FaWhatsapp, FaUserPlus } from 'react-icons/fa';
+import { HiOutlineUsers, HiOutlineDownload, HiOutlineSearch, HiOutlineTag, HiOutlineRefresh, HiOutlineTrash, HiOutlineEye, HiOutlineFilter, HiOutlineUserAdd, HiOutlineChat, HiOutlineChatAlt2 } from 'react-icons/hi';
+import { FaWhatsapp, FaUserPlus, FaCommentDots } from 'react-icons/fa';
 
 export default function GroupScraper() {
   const [scrapes, setScrapes] = useState([]);
@@ -18,6 +18,12 @@ export default function GroupScraper() {
   const [scrapingAll, setScrapingAll] = useState(false);
   const [exportingContacts, setExportingContacts] = useState(false);
   const [exportSessionId, setExportSessionId] = useState('');
+  const [showMsgModal, setShowMsgModal] = useState(false);
+  const [msgForm, setMsgForm] = useState({ groupJid: '', groupName: '', sessionId: '', limit: 50 });
+  const [scrapingMessages, setScrapingMessages] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [msgSearch, setMsgSearch] = useState('');
+  const [showMessages, setShowMessages] = useState(false);
 
   useEffect(() => { fetchScrapes(); fetchSessions(); const si = setInterval(fetchSessions, 5000); return () => clearInterval(si); }, []);
 
@@ -144,9 +150,46 @@ export default function GroupScraper() {
     } finally { setScrapingAll(false); }
   };
 
+  const scrapeMessages = async () => {
+    if (!msgForm.groupJid || !msgForm.sessionId) return alert('Select a group and session first');
+    setScrapingMessages(true);
+    setMessages([]);
+    try {
+      const { data } = await API.post('/contacts/groups/scrape-messages', {
+        groupJid: msgForm.groupJid,
+        sessionId: msgForm.sessionId,
+        limit: msgForm.limit
+      });
+      if (data.success) {
+        setMessages(data.messages || []);
+        if (!data.messages?.length) alert('No messages found in this group');
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Failed to scrape messages');
+    } finally {
+      setScrapingMessages(false);
+    }
+  };
+
+  const viewMessages = async (scrape) => {
+    try {
+      const { data } = await API.get(`/contacts/groups/scrape/${scrape._id}/messages`);
+      if (data.success) {
+        setMessages(data.messages || []);
+        setShowMessages(true);
+        setMsgForm({ ...msgForm, groupJid: scrape.groupJid, groupName: scrape.groupName });
+      }
+    } catch { console.error('Operation failed'); }
+  };
+
   const filteredMembers = members.filter(m =>
     (m.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (m.phone || m.number || '').includes(searchTerm)
+  );
+
+  const filteredMessages = messages.filter(m =>
+    (m.content || '').toLowerCase().includes(msgSearch.toLowerCase()) ||
+    (m.senderPhone || '').includes(msgSearch)
   );
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500" /></div>;
@@ -213,13 +256,20 @@ export default function GroupScraper() {
                     <p className="text-gray-400 text-xs">{scrape.totalMembers || scrape.participants?.length || 0} members</p>
                   </div>
                 </div>
-                <span className={`badge text-xs ${scrape.status === 'completed' ? 'badge-success' : scrape.status === 'scraping' ? 'badge-warning' : 'badge-info'}`}>
-                  {scrape.status || 'completed'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`badge text-xs ${scrape.status === 'completed' ? 'badge-success' : scrape.status === 'scraping' ? 'badge-warning' : 'badge-info'}`}>
+                    {scrape.status || 'completed'}
+                  </span>
+                  <button onClick={e => { e.stopPropagation(); setMsgForm({ groupJid: scrape.groupJid, groupName: scrape.groupName || scrape.groupJid, sessionId: scrape.sessionId || '', limit: 50 }); setShowMsgModal(true); }}
+                    className="p-1.5 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20" title="Scrape Messages">
+                    <HiOutlineChatAlt2 size={14} />
+                  </button>
+                </div>
               </div>
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <span>{new Date(scrape.createdAt).toLocaleDateString()}</span>
                 {scrape.imported && <span className="badge badge-success text-[10px]">Imported</span>}
+                {scrape.totalMessages > 0 && <span className="badge badge-info text-[10px]">{scrape.totalMessages} msgs</span>}
               </div>
             </motion.div>
           ))}
@@ -229,10 +279,13 @@ export default function GroupScraper() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-white font-semibold">
-              {selectedScrape ? `Members of ${selectedScrape.groupName || selectedScrape.groupJid}` : 'Select a scrape to view members'}
+              {showMessages ? `Messages from ${msgForm.groupName}` : selectedScrape ? `Members of ${selectedScrape.groupName || selectedScrape.groupJid}` : 'Select a scrape to view'}
             </h2>
-            {selectedScrape && (
+            {selectedScrape && !showMessages && (
               <div className="flex gap-2">
+                <button onClick={() => viewMessages(selectedScrape)} className="p-2 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20" title="View Messages">
+                  <HiOutlineChatAlt2 size={14} />
+                </button>
                 <button onClick={() => exportExcel(selectedScrape._id)} className="p-2 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20" title="Export Excel">
                   <HiOutlineDownload size={14} />
                 </button>
@@ -244,9 +297,14 @@ export default function GroupScraper() {
                 </button>
               </div>
             )}
+            {showMessages && (
+              <button onClick={() => { setShowMessages(false); setMessages([]); }} className="text-xs text-purple-400 hover:text-purple-300">
+                Back to Members
+              </button>
+            )}
           </div>
 
-          {selectedScrape && (
+          {!showMessages && selectedScrape && (
             <>
               <div className="glass-card p-3">
                 <div className="flex gap-3">
@@ -275,8 +333,80 @@ export default function GroupScraper() {
               </div>
             </>
           )}
+
+          {showMessages && (
+            <>
+              <div className="glass-card p-3">
+                <div className="flex gap-3">
+                  <HiOutlineSearch className="text-gray-400 mt-2.5" />
+                  <input className="input-field flex-1" value={msgSearch} onChange={e => setMsgSearch(e.target.value)} placeholder="Search messages..." />
+                </div>
+              </div>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {filteredMessages.length === 0 && <div className="text-center py-8 text-gray-500">No messages found</div>}
+                {filteredMessages.map((msg, idx) => (
+                  <motion.div key={msg.msgId || idx} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.01 }}
+                    className="glass-card p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="w-7 h-7 rounded-full bg-purple-500/20 flex items-center justify-center text-[10px] text-purple-400 font-bold flex-shrink-0">
+                          {msg.senderPhone?.slice(-2) || '??'}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-white text-xs font-medium">{msg.senderName || msg.senderPhone || 'Unknown'}</span>
+                            <span className="text-gray-600 text-[10px]">{new Date(msg.timestamp).toLocaleString()}</span>
+                            {msg.type !== 'text' && <span className="badge text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">{msg.type}</span>}
+                          </div>
+                          <p className="text-gray-300 text-sm mt-1 break-words">{msg.content}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Message Scrape Modal */}
+      {showMsgModal && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => { setShowMsgModal(false); }}>
+          <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-[#1a1a2e] rounded-2xl p-6 w-full max-w-md border border-white/10" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold text-white mb-4">Scrape Group Messages</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">WhatsApp Session</label>
+                <select className="input-field" value={msgForm.sessionId} onChange={e => setMsgForm({ ...msgForm, sessionId: e.target.value })} required>
+                  <option value="">Select session</option>
+                  {sessions.map(s => <option key={s._id} value={s.sessionId}>{s.name || s.sessionId} {s.status === 'connected' ? '✅' : '❌'}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Group JID</label>
+                <input className="input-field" value={msgForm.groupJid} onChange={e => setMsgForm({ ...msgForm, groupJid: e.target.value })} required placeholder="123456789-123456@g.us" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Group Name</label>
+                <input className="input-field" value={msgForm.groupName} onChange={e => setMsgForm({ ...msgForm, groupName: e.target.value })} placeholder="My Group" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Messages Limit (max 200)</label>
+                <input className="input-field" type="number" min="1" max="200" value={msgForm.limit} onChange={e => setMsgForm({ ...msgForm, limit: parseInt(e.target.value) || 50 })} />
+              </div>
+              <div className="flex gap-3 justify-end pt-4">
+                <button onClick={() => setShowMsgModal(false)} className="px-6 py-2 rounded-xl border border-white/10 text-gray-300">Cancel</button>
+                <button onClick={scrapeMessages} disabled={scrapingMessages}
+                  className="btn-primary px-6 py-2 rounded-xl text-white flex items-center gap-2">
+                  {scrapingMessages ? <span className="animate-spin">⏳</span> : <FaCommentDots />}
+                  {scrapingMessages ? 'Scraping...' : 'Scrape Messages'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
 
       {showScrapeModal && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => { setShowScrapeModal(false); setAvailableGroups([]); }}>

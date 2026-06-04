@@ -19,6 +19,17 @@ const groupScrapeSchema = new mongoose.Schema({
   duplicateCount: { type: Number, default: 0 },
   status: { type: String, enum: ['pending', 'scraping', 'completed', 'failed'], default: 'pending' },
   tags: [{ type: String }],
+  messages: [{
+    msgId: String,
+    sender: String,
+    senderName: String,
+    senderPhone: String,
+    content: String,
+    type: { type: String, default: 'text' },
+    timestamp: { type: Date },
+    quotedMsg: String
+  }],
+  totalMessages: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
