@@ -5,18 +5,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import API from '../utils/api';
 import { connectSocket } from '../utils/socket';
-import HelpGuide from '../components/HelpGuide';
-import { useLanguage } from '../contexts/LanguageContext';
 import { HiOutlineBell, HiOutlineMenuAlt2, HiOutlineUser, HiOutlineLogout, HiOutlineCash, HiOutlineLockClosed, HiOutlineSun, HiOutlineMoon, HiOutlineCheckCircle, HiOutlineX, HiOutlinePhone } from 'react-icons/hi';
 
 const Header = memo(function Header({ setSidebarOpen, collapsed }) {
   const { user, logout, token } = useAuth();
   const { dark, toggleTheme } = useTheme();
-  const { lang, toggleLang } = useLanguage();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [showHelp, setShowHelp] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
@@ -131,12 +127,6 @@ const Header = memo(function Header({ setSidebarOpen, collapsed }) {
             </Link>
           )}
 
-          <button onClick={() => setShowHelp(true)} className="px-2 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm text-gray-400 hover:text-purple-400 hover:bg-white/5 transition-all font-medium border border-white/5 hover:border-purple-500/30">
-            Help Guide
-          </button>
-          <button onClick={toggleLang} className="px-2 py-1.5 rounded-xl text-xs sm:text-sm text-gray-400 hover:text-purple-400 hover:bg-white/5 transition-all font-medium border border-white/5 hover:border-purple-500/30">
-            {lang === 'en' ? '🇮🇳 हिंदी' : '🇬🇧 English'}
-          </button>
           <button onClick={toggleTheme} className="p-1.5 sm:p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all" title={dark ? 'Light mode' : 'Dark mode'}>
             {dark ? <HiOutlineSun size={18} className="sm:size-[22px]" /> : <HiOutlineMoon size={18} className="sm:size-[22px]" />}
           </button>
@@ -224,7 +214,6 @@ const Header = memo(function Header({ setSidebarOpen, collapsed }) {
           </div>
         </div>
       </div>
-      {showHelp && <HelpGuide onClose={() => setShowHelp(false)} />}
     </header>
   );
 });
