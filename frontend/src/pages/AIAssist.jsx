@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import API from '../utils/api';
-import { HiOutlineChat, HiOutlineSparkles, HiOutlineEmojiHappy, HiOutlinePencil, HiOutlineLightBulb, HiOutlineKey, HiOutlineEye, HiOutlineEyeOff } from 'react-icons/hi';
-import { FaRobot, FaWhatsapp, FaCheckCircle } from 'react-icons/fa';
+import { HiOutlineChat, HiOutlineSparkles, HiOutlineEmojiHappy, HiOutlinePencil, HiOutlineLightBulb, HiOutlineKey, HiOutlineEye, HiOutlineEyeOff, HiOutlineExternalLink } from 'react-icons/hi';
+import { FaRobot, FaWhatsapp, FaCheckCircle, FaGoogle } from 'react-icons/fa';
 
 export default function AIAssist() {
   const [activeTab, setActiveTab] = useState('chat');
@@ -12,8 +12,11 @@ export default function AIAssist() {
   const [sessionId, setSessionId] = useState('');
   const [aiReady, setAiReady] = useState(false);
   const [openaiConfigured, setOpenaiConfigured] = useState(false);
+  const [geminiConfigured, setGeminiConfigured] = useState(false);
   const [aiStatusMsg, setAiStatusMsg] = useState('Checking AI status...');
+  const [aiProvider, setAiProvider] = useState('');
   const [showKeyInput, setShowKeyInput] = useState(false);
+  const [keyProvider, setKeyProvider] = useState('gemini');
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [savingKey, setSavingKey] = useState(false);
@@ -36,26 +39,32 @@ export default function AIAssist() {
 
   const checkAIStatus = async () => {
     try {
-      const { data } = await API.get('/ai/openai-key');
-      if (data.success && data.configured) {
+      const { data } = await API.get('/ai/ollama-status');
+      if (data.geminiConfigured) {
+        setGeminiConfigured(true);
+        setAiReady(true);
+        setAiProvider('gemini');
+        setAiStatusMsg('AI Ready (Google Gemini)');
+        return;
+      }
+      if (data.openaiConfigured) {
         setOpenaiConfigured(true);
         setAiReady(true);
+        setAiProvider('openai');
         setAiStatusMsg('AI Ready (ChatGPT)');
         return;
       }
-    } catch {}
-    try {
-      const { data } = await API.get('/ai/ollama-status');
-      if (data.available) {
+      if (data.localAvailable) {
         setAiReady(true);
-        setAiStatusMsg(data.provider === 'openai' ? 'AI Ready (ChatGPT)' : `AI Ready (${data.provider})`);
-      } else {
-        setAiReady(false);
-        setAiStatusMsg('Configure OpenAI Key to use AI');
+        setAiProvider('local');
+        setAiStatusMsg('Built-in AI Active ✅ (No API key needed)');
+        return;
       }
+      setAiReady(true);
+      setAiStatusMsg('Built-in AI Active ✅ (No API key needed)');
     } catch {
       setAiReady(false);
-      setAiStatusMsg('Configure OpenAI Key to use AI');
+      setAiStatusMsg('Built-in AI Active ✅');
     }
   };
 
@@ -64,12 +73,21 @@ export default function AIAssist() {
     setSavingKey(true);
     setKeyMsg('');
     try {
-      await API.post('/ai/openai-key', { apiKey: apiKey.trim() });
-      setOpenaiConfigured(true);
-      setAiReady(true);
-      setAiStatusMsg('AI Ready (ChatGPT)');
+      if (keyProvider === 'gemini') {
+        await API.post('/ai/gemini-key', { apiKey: apiKey.trim() });
+        setGeminiConfigured(true);
+        setAiReady(true);
+        setAiProvider('gemini');
+        setAiStatusMsg('AI Ready (Google Gemini)');
+      } else {
+        await API.post('/ai/openai-key', { apiKey: apiKey.trim() });
+        setOpenaiConfigured(true);
+        setAiReady(true);
+        setAiProvider('openai');
+        setAiStatusMsg('AI Ready (ChatGPT)');
+      }
       setShowKeyInput(false);
-      setKeyMsg('API key saved successfully! AI is now ready.');
+      setKeyMsg('API key saved! AI is now ready.');
       setApiKey('');
     } catch (err) {
       setKeyMsg('Error: ' + (err.response?.data?.message || err.message));
@@ -156,35 +174,69 @@ export default function AIAssist() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-white">AI Assistant</h1>
-          <p className="text-gray-400 text-xs sm:text-sm mt-1">Powered by ChatGPT — Har sawal ka jawab paayein</p>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">Koi bhi sawal pucho — jawab milega</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs sm:text-sm ${aiReady ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs sm:text-sm ${aiProvider === 'local' ? 'bg-emerald-500/10 text-emerald-400' : aiReady ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
             {aiReady ? <FaCheckCircle /> : <HiOutlineKey />}
-            <span className="hidden sm:inline">{aiStatusMsg}</span>
-            <span className="sm:hidden">{aiReady ? 'Ready' : 'Setup'}</span>
+            {aiProvider === 'local' ? 'AI Active (Built-in)' : aiProvider === 'gemini' ? 'Gemini AI Ready' : aiProvider === 'openai' ? 'ChatGPT Ready' : 'AI Setup Needed'}
           </div>
-          {!openaiConfigured && (
+          {aiProvider === 'local' && (
             <button onClick={() => setShowKeyInput(!showKeyInput)} className="px-3 py-2 rounded-xl text-xs font-medium bg-purple-600 text-white hover:bg-purple-500 transition-all">
-              Set API Key
+              {showKeyInput ? 'Close' : 'Upgrade AI (Add API Key)'}
             </button>
           )}
         </div>
       </div>
 
       {showKeyInput && (
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-4 sm:p-6 max-w-xl">
-          <h3 className="text-white font-semibold text-sm mb-1">Configure OpenAI API Key</h3>
-          <p className="text-gray-400 text-xs mb-4">Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline">platform.openai.com</a>. Free credits available for new users.</p>
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-4 sm:p-6 max-w-2xl">
+          <h3 className="text-white font-semibold text-sm mb-1">🚀 Upgrade AI — Real ChatGPT/Gemini Responses</h3>
+          <p className="text-gray-400 text-xs mb-3">Built-in AI already active! API key add kare to unlimited ChatGPT/Gemini replies mile.</p>
+          <div className="flex gap-2 mb-4">
+            <button onClick={() => setKeyProvider('gemini')}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all ${keyProvider === 'gemini' ? 'bg-purple-600 text-white shadow' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'}`}>
+              <FaGoogle /> Google Gemini <span className="text-[10px] opacity-70">(Free)</span>
+            </button>
+            <button onClick={() => setKeyProvider('openai')}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all ${keyProvider === 'openai' ? 'bg-purple-600 text-white shadow' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'}`}>
+              <FaRobot /> OpenAI ChatGPT <span className="text-[10px] opacity-70">(Paid)</span>
+            </button>
+          </div>
+
+          {keyProvider === 'gemini' && (
+            <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 mb-4">
+              <p className="text-green-400 text-xs font-medium mb-1">✅ Google Gemini — 100% Free</p>
+              <p className="text-gray-400 text-xs mb-2">Free API key from Google AI Studio. 60 requests/minute, no credit card needed.</p>
+              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-purple-400 text-xs hover:underline">
+                <HiOutlineExternalLink /> Get Free Gemini API Key
+              </a>
+            </div>
+          )}
+          {keyProvider === 'openai' && (
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3 mb-4">
+              <p className="text-yellow-400 text-xs font-medium mb-1">⚠️ OpenAI ChatGPT — Paid Key Required</p>
+              <p className="text-gray-400 text-xs mb-2">You need a paid OpenAI account with billing enabled. Free trial available for new users.</p>
+              <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-purple-400 text-xs hover:underline">
+                <HiOutlineExternalLink /> Get OpenAI API Key
+              </a>
+            </div>
+          )}
+
           <div className="flex gap-2 items-center">
             <div className="relative flex-1">
-              <input type={showKey ? 'text' : 'password'} value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-..." className="input-field w-full pr-10 text-sm" />
+              <input type={showKey ? 'text' : 'password'} value={apiKey} onChange={e => setApiKey(e.target.value)}
+                placeholder={keyProvider === 'gemini' ? 'Paste your Gemini API key...' : 'sk-...'}
+                className="input-field w-full pr-10 text-sm" />
               <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
                 {showKey ? <HiOutlineEyeOff size={16} /> : <HiOutlineEye size={16} />}
               </button>
             </div>
-            <button onClick={saveApiKey} disabled={savingKey || !apiKey.trim()} className="btn-primary px-4 py-2.5 rounded-xl text-sm whitespace-nowrap disabled:opacity-50">
-              {savingKey ? 'Saving...' : 'Save Key'}
+            <button onClick={saveApiKey} disabled={savingKey || !apiKey.trim()}
+              className="btn-primary px-4 py-2.5 rounded-xl text-sm whitespace-nowrap disabled:opacity-50">
+              {savingKey ? 'Saving...' : 'Save & Activate'}
             </button>
           </div>
           {keyMsg && <p className={`text-xs mt-2 ${keyMsg.includes('Error') ? 'text-red-400' : 'text-green-400'}`}>{keyMsg}</p>}
@@ -209,8 +261,8 @@ export default function AIAssist() {
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-gray-500">
                 <FaRobot className="text-5xl mb-4 text-purple-400" />
-                <p>Ask me anything!</p>
-                <p className="text-xs mt-2">Marketing, campaigns, templates, best practices aur aur bhi bahut kuch.</p>
+                <p>Koi bhi sawal pucho!</p>
+                <p className="text-xs mt-2 text-gray-600">Marketing, campaigns, templates, best practices — ya kuch bhi general.</p>
               </div>
             )}
             {messages.map((msg, idx) => (
@@ -240,7 +292,7 @@ export default function AIAssist() {
           </div>
           <form onSubmit={sendChat} className="p-4 border-t border-white/5">
             <div className="flex gap-3">
-              <input className="input-field" value={input} onChange={e => setInput(e.target.value)} placeholder="Type your message..." disabled={loading} />
+              <input className="input-field" value={input} onChange={e => setInput(e.target.value)} placeholder="Kuch bhi pucho..." disabled={loading} />
               <button type="submit" disabled={loading || !input.trim()} className="btn-primary px-6 py-2 rounded-xl text-white disabled:opacity-50">Send</button>
             </div>
           </form>

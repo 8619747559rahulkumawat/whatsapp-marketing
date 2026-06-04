@@ -262,7 +262,7 @@ async function connectDB() {
 connectDB()
   .then(async () => {
     await seedAll();
-    await aiService.loadOpenAIKeyFromDB();
+    await aiService.loadAIKeysFromDB();
     await startServer();
     setTimeout(async () => {
       try {

@@ -109,35 +109,28 @@ const getSuggestions = async (req, res) => {
 
 const checkOllamaStatus = async (req, res) => {
   try {
-    // Check if OpenAI key is saved in DB for this tenant
-    const keySetting = await Setting.findOne({
-      key: 'openai_api_key', tenantId: req.tenant?._id || req.user.tenantId
-    });
+    const tenantId = req.tenant?._id || req.user.tenantId;
+    const openaiSetting = await Setting.findOne({ key: 'openai_api_key', tenantId });
+    const geminiSetting = await Setting.findOne({ key: 'gemini_api_key', tenantId });
 
-    const client = aiService.getOpenAIClient();
-    if (client && keySetting?.value) {
+    const openaiClient = aiService.getOpenAIClient();
+    if (openaiClient && openaiSetting?.value) {
       try {
-        const models = await client.models.list();
+        const models = await openaiClient.models.list();
         const hasModel = models.data.some(m => m.id === (process.env.OPENAI_MODEL || 'gpt-4o-mini'));
-        res.json({ success: true, available: true, provider: 'openai', hasModel, models: models.data.map(m => m.id), openaiConfigured: true });
+        res.json({ success: true, available: true, provider: 'openai', hasModel, models: models.data.map(m => m.id), openaiConfigured: true, geminiConfigured: !!geminiSetting?.value, localAvailable: true });
         return;
-      } catch (err) { console.error(err); }
+      } catch {}
     }
-
-    if (keySetting?.value) {
-      res.json({ success: true, available: true, provider: 'openai', openaiConfigured: true, message: 'OpenAI key configured. Try saving again if not working.' });
+    if (openaiSetting?.value) {
+      res.json({ success: true, available: true, provider: 'openai', openaiConfigured: true, geminiConfigured: !!geminiSetting?.value, localAvailable: true, message: 'OpenAI key configured. Try saving again if not working.' });
       return;
     }
-
-    const axios = require('axios');
-    try {
-      const { data } = await axios.get('http://localhost:11434/api/tags', { timeout: 3000 });
-      const models = data.models?.map(m => m.name) || [];
-      const hasModel = models.some(m => m.startsWith(process.env.OLLAMA_MODEL || 'llama2'));
-      res.json({ success: true, available: true, provider: 'ollama', models, hasModel, openaiConfigured: false });
-    } catch {
-      res.json({ success: true, available: false, openaiConfigured: false, message: 'No AI provider available. Configure OpenAI API key to use ChatGPT.' });
+    if (geminiSetting?.value) {
+      res.json({ success: true, available: true, provider: 'gemini', openaiConfigured: false, geminiConfigured: true, localAvailable: true, message: 'Google Gemini configured. Ask anything!' });
+      return;
     }
+    res.json({ success: true, available: true, provider: 'local', openaiConfigured: false, geminiConfigured: false, localAvailable: true, message: 'Built-in AI active! No API key needed. Ask me anything about WhatsApp marketing.' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -173,11 +166,34 @@ const getOpenAIKey = async (req, res) => {
     const setting = await Setting.findOne({
       key: 'openai_api_key', tenantId: req.tenant?._id || req.user.tenantId
     });
-    res.json({
-      success: true,
-      configured: !!setting,
-      model: process.env.OPENAI_MODEL || 'gpt-4o-mini'
+    res.json({ success: true, configured: !!setting, model: process.env.OPENAI_MODEL || 'gpt-4o-mini' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const setGeminiKey = async (req, res) => {
+  try {
+    const { apiKey } = req.body;
+    if (!apiKey) return res.status(400).json({ success: false, message: 'API key is required' });
+    aiService.setGeminiKey(apiKey);
+    await Setting.findOneAndUpdate(
+      { key: 'gemini_api_key', tenantId: req.tenant?._id || req.user.tenantId },
+      { key: 'gemini_api_key', value: apiKey, tenantId: req.tenant?._id || req.user.tenantId },
+      { upsert: true, new: true }
+    );
+    res.json({ success: true, message: 'Google Gemini API key configured successfully! AI is now ready.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const getGeminiKey = async (req, res) => {
+  try {
+    const setting = await Setting.findOne({
+      key: 'gemini_api_key', tenantId: req.tenant?._id || req.user.tenantId
     });
+    res.json({ success: true, configured: !!setting });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -305,6 +321,7 @@ const trainFromWebsite = async (req, res) => {
 module.exports = {
   getChatHistory, chat, smartReply, analyzeSentiment, optimizeMessage,
   getSuggestions, checkOllamaStatus, setOpenAIKey, getOpenAIKey,
+  setGeminiKey, getGeminiKey,
   getKnowledgeBases, uploadKnowledgeBase, deleteKnowledgeBase,
   searchKnowledgeBase, trainFromWebsite, getAIAnalytics
 };

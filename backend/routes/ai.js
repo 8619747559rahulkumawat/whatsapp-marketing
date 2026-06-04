@@ -22,6 +22,10 @@ router.get('/ollama-status', aiController.checkOllamaStatus);
 router.post('/openai-key', aiController.setOpenAIKey);
 router.get('/openai-key', aiController.getOpenAIKey);
 
+// Gemini Key Management
+router.post('/gemini-key', aiController.setGeminiKey);
+router.get('/gemini-key', aiController.getGeminiKey);
+
 // Knowledge Base
 router.get('/knowledge-base', aiController.getKnowledgeBases);
 router.post('/knowledge-base/upload', upload.single('file'), aiController.uploadKnowledgeBase);
