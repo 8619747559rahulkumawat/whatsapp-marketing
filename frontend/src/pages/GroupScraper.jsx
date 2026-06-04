@@ -150,6 +150,17 @@ export default function GroupScraper() {
     } finally { setScrapingAll(false); }
   };
 
+  const exportMessagesExcel = async (id) => {
+    try {
+      const { data } = await API.get(`/contacts/groups/scrape/${id}/export-messages`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([data]));
+      const a = document.createElement('a');
+      a.href = url; a.download = `group-messages-${id}.xlsx`; a.click();
+    } catch (err) {
+      alert('Export failed');
+    }
+  };
+
   const scrapeMessages = async () => {
     if (!msgForm.groupJid || !msgForm.sessionId) return alert('Select a group and session first');
     setScrapingMessages(true);
@@ -298,9 +309,14 @@ export default function GroupScraper() {
               </div>
             )}
             {showMessages && (
-              <button onClick={() => { setShowMessages(false); setMessages([]); }} className="text-xs text-purple-400 hover:text-purple-300">
-                Back to Members
-              </button>
+              <div className="flex gap-2">
+                <button onClick={() => exportMessagesExcel(selectedScrape?._id)} className="p-2 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20" title="Export Messages to Excel">
+                  <HiOutlineDownload size={14} />
+                </button>
+                <button onClick={() => { setShowMessages(false); setMessages([]); }} className="text-xs text-purple-400 hover:text-purple-300">
+                  Back to Members
+                </button>
+              </div>
             )}
           </div>
 

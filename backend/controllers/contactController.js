@@ -581,3 +581,30 @@ exports.getScrapedMessages = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+exports.exportGroupMessages = async (req, res) => {
+  try {
+    const scrape = await GroupScrape.findOne({ _id: req.params.id, tenantId: req.tenant?._id || req.user?.tenantId });
+    if (!scrape) return res.status(404).json({ success: false, message: 'Scrape not found' });
+    const msgs = scrape.messages || [];
+    if (!msgs.length) return res.status(400).json({ success: false, message: 'No messages to export' });
+    const XLSX = require('xlsx');
+    const data = msgs.map(m => ({
+      'Sender Number': m.senderPhone || '',
+      'Sender JID': m.senderJid || m.sender || '',
+      'Content': m.content || '',
+      'Type': m.type || 'text',
+      'Timestamp': m.timestamp ? new Date(m.timestamp).toISOString() : '',
+      'Message ID': m.msgId || ''
+    }));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(data);
+    XLSX.utils.book_append_sheet(wb, ws, 'Messages');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=group-messages-${scrape._id}.xlsx`);
+    res.send(buf);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
