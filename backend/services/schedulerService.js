@@ -3,6 +3,7 @@ const { Queue, Worker } = require('bullmq');
 const IORedis = require('ioredis');
 const ScheduledCampaign = require('../models/ScheduledCampaign');
 const campaignService = require('./campaignService');
+const { getIoInstance, setIoInstance } = require('../socket');
 
 const redisOptions = {
   host: process.env.REDIS_HOST || 'localhost',
@@ -19,7 +20,7 @@ const connection = new IORedis(redisOptions);
 connection.on('error', (err) => console.warn('[Scheduler] Redis connection error:', err.message));
 let scheduledQueue = null;
 
-;(async () => {
+const queueReady = (async () => {
   try {
     await connection.connect();
     scheduledQueue = new Queue('scheduled-campaigns', {
@@ -31,8 +32,10 @@ let scheduledQueue = null;
         removeOnFail: 50
       }
     });
+    return scheduledQueue;
   } catch (err) {
     console.warn('Redis unavailable - scheduler disabled');
+    return null;
   }
 })();
 
@@ -40,7 +43,10 @@ const CHECK_INTERVAL = 60000;
 let checkTimer = null;
 let cronJobs = new Map();
 
-const startScheduler = () => {
+const startScheduler = async (io) => {
+  if (io) setIoInstance(io);
+  await queueReady;
+
   if (checkTimer) return;
   if (!scheduledQueue) {
     console.log('Redis unavailable - scheduler disabled');
@@ -93,7 +99,7 @@ const setupWorker = () => {
     const { campaignId, scheduledCampaignId } = job.data;
     if (!campaignId) throw new Error('No campaignId in job');
 
-    const io = require('../server').getIo ? require('../server').getIo() : null;
+    const io = getIoInstance();
     await campaignService.processCampaign(campaignId, io);
 
     const sc = await ScheduledCampaign.findById(scheduledCampaignId);
@@ -215,6 +221,7 @@ const stopScheduler = async () => {
 };
 
 const scheduleCampaign = async (campaignId, scheduledAt, scheduleType = 'once', timezone = 'Asia/Kolkata', repeatConfig = {}) => {
+  await queueReady;
   if (!scheduledQueue) throw new Error('Redis not available - scheduling unavailable');
   const campaign = await require('../models/Campaign').findById(campaignId);
   if (!campaign) throw new Error('Campaign not found');
@@ -234,4 +241,12 @@ const scheduleCampaign = async (campaignId, scheduledAt, scheduleType = 'once', 
   return sc;
 };
 
-module.exports = { startScheduler, stopScheduler, scheduleCampaign, calculateNextRun, scheduledQueue };
+module.exports = {
+  startScheduler,
+  stopScheduler,
+  scheduleCampaign,
+  calculateNextRun,
+  get scheduledQueue() {
+    return scheduledQueue;
+  }
+};

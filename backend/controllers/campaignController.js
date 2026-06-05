@@ -80,7 +80,12 @@ exports.getCampaign = async (req, res) => {
 
 exports.createCampaign = async (req, res) => {
   try {
-    const { name, type, sessionId, messageType, message, mediaUrl, delay, isPersonalized, contactIds, groupIds, buttons, scheduledAt } = req.body;
+    const {
+      name, type, sessionId, messageType, message, mediaUrl, delay,
+      minDelaySeconds, maxDelaySeconds, dailyLimit, requireOptIn,
+      appendOptOut, stopOnHighFailureRate, isPersonalized,
+      contactIds, groupIds, buttons, scheduledAt
+    } = req.body;
     const campaign = await Campaign.create({
       userId: req.user._id,
       tenantId: req.tenant?._id || req.user.tenantId,
@@ -91,6 +96,12 @@ exports.createCampaign = async (req, res) => {
       message,
       mediaUrl: mediaUrl || '',
       delay: delay || 2000,
+      minDelaySeconds: Math.max(5, parseInt(minDelaySeconds || 20, 10)),
+      maxDelaySeconds: Math.max(parseInt(minDelaySeconds || 20, 10), parseInt(maxDelaySeconds || 45, 10)),
+      dailyLimit: Math.max(1, parseInt(dailyLimit || 200, 10)),
+      requireOptIn: requireOptIn !== false,
+      appendOptOut: appendOptOut !== false,
+      stopOnHighFailureRate: stopOnHighFailureRate !== false,
       isPersonalized: isPersonalized || false,
       contacts: contactIds || [],
       groups: groupIds || [],

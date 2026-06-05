@@ -24,6 +24,5 @@ const templateSchema = new mongoose.Schema({
 templateSchema.index({ tenantId: 1, status: 1 });
 templateSchema.index({ userId: 1 });
 templateSchema.index({ category: 1 });
-templateSchema.index({ whatsappTemplateId: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('Template', templateSchema);

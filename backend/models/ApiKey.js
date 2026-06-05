@@ -15,6 +15,5 @@ const apiKeySchema = new mongoose.Schema({
 
 // Indexes for better query performance
 apiKeySchema.index({ tenantId: 1, userId: 1 });
-apiKeySchema.index({ key: 1 }, { unique: true });
 
 module.exports = mongoose.model('ApiKey', apiKeySchema);

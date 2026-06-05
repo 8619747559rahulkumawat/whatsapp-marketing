@@ -16,7 +16,9 @@ export default function Campaigns() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
     name: '', type: 'bulk', sessionId: '', messageType: 'text',
-    message: '', delay: 2000, isPersonalized: false, contactIds: [], groupIds: [], buttons: []
+    message: '', delay: 2000, minDelaySeconds: 20, maxDelaySeconds: 45, dailyLimit: 200,
+    requireOptIn: true, appendOptOut: true, stopOnHighFailureRate: true,
+    isPersonalized: false, contactIds: [], groupIds: [], buttons: []
   });
   const [contacts, setContacts] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -91,7 +93,12 @@ export default function Campaigns() {
       await API.post('/campaigns', form);
       clearDraft();
       setShowModal(false);
-      setForm({ name: '', type: 'bulk', sessionId: '', messageType: 'text', message: '', delay: 2000, isPersonalized: false, contactIds: [], groupIds: [], buttons: [] });
+      setForm({
+        name: '', type: 'bulk', sessionId: '', messageType: 'text',
+        message: '', delay: 2000, minDelaySeconds: 20, maxDelaySeconds: 45, dailyLimit: 200,
+        requireOptIn: true, appendOptOut: true, stopOnHighFailureRate: true,
+        isPersonalized: false, contactIds: [], groupIds: [], buttons: []
+      });
       fetchData();
     } catch (err) { console.error(err); }
   };
@@ -124,6 +131,7 @@ export default function Campaigns() {
                 <th className="p-2 sm:p-4 text-left whitespace-nowrap">Sent</th>
                 <th className="p-2 sm:p-4 text-left whitespace-nowrap">Delivered</th>
                 <th className="p-2 sm:p-4 text-left whitespace-nowrap">Failed</th>
+                <th className="p-2 sm:p-4 text-left whitespace-nowrap">Skipped</th>
                 <th className="p-2 sm:p-4 text-left whitespace-nowrap">Created</th>
                 <th className="p-2 sm:p-4 text-left whitespace-nowrap">Actions</th>
               </tr>
@@ -145,6 +153,7 @@ export default function Campaigns() {
                   <td className="p-2 sm:p-4 text-gray-300 whitespace-nowrap">{camp.sentCount}</td>
                   <td className="p-2 sm:p-4 text-gray-300 whitespace-nowrap">{camp.deliveredCount}</td>
                   <td className="p-2 sm:p-4 text-gray-300 whitespace-nowrap">{camp.failedCount}</td>
+                  <td className="p-2 sm:p-4 text-gray-300 whitespace-nowrap">{camp.skippedCount || 0}</td>
                   <td className="p-2 sm:p-4 text-gray-400 text-sm whitespace-nowrap">{new Date(camp.createdAt).toLocaleDateString()}</td>
                   <td className="p-2 sm:p-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
@@ -165,7 +174,7 @@ export default function Campaigns() {
                 </motion.tr>
               ))}
               {campaigns.length === 0 && (
-                <tr><td colSpan={8} className="p-8 text-center text-gray-500">No campaigns yet. Create your first campaign!</td></tr>
+                <tr><td colSpan={9} className="p-8 text-center text-gray-500">No campaigns yet. Create your first campaign!</td></tr>
               )}
             </tbody>
           </table>
@@ -212,14 +221,25 @@ export default function Campaigns() {
                       ))}
                     </select>
                   </FormField>
-                  <FormField label="Delay (ms)" name="delay" type="number" value={form.delay} onChange={handleChange} />
+                  <FormField label="Daily Limit" name="dailyLimit" type="number" value={form.dailyLimit} onChange={handleChange} />
+                  <FormField label="Min Delay (sec)" name="minDelaySeconds" type="number" value={form.minDelaySeconds} onChange={handleChange} />
+                  <FormField label="Max Delay (sec)" name="maxDelaySeconds" type="number" value={form.maxDelaySeconds} onChange={handleChange} />
                 </div>
                 <FormField label="Message Content" name="message">
                   <textarea className="input-field h-24" value={form.message} onChange={e => handleChange('message', e.target.value)} placeholder="Use {name}, {phone}, {email} for personalization" required />
                 </FormField>
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" checked={form.isPersonalized} onChange={e => handleChange('isPersonalized', e.target.checked)} className="rounded" />
-                  <label className="text-sm text-gray-300">Enable Personalization</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    ['isPersonalized', 'Enable Personalization'],
+                    ['requireOptIn', 'Send Only Opted-In Contacts'],
+                    ['appendOptOut', 'Add STOP Opt-Out Text'],
+                    ['stopOnHighFailureRate', 'Pause On High Failure Rate']
+                  ].map(([key, label]) => (
+                    <label key={key} className="flex items-center gap-2 text-sm text-gray-300 bg-white/5 rounded-xl px-3 py-2">
+                      <input type="checkbox" checked={!!form[key]} onChange={e => handleChange(key, e.target.checked)} className="rounded" />
+                      {label}
+                    </label>
+                  ))}
                 </div>
                 <div className="flex gap-3 justify-end pt-4">
                   <button type="button" onClick={() => setShowModal(false)} className="px-6 py-2 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5">Cancel</button>

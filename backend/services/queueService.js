@@ -20,7 +20,7 @@ let campaignQueue = null;
 let queueEvents = null;
 let campaignQueueEvents = null;
 
-;(async () => {
+const queueReady = (async () => {
   try {
     await connection.connect();
     messageQueue = new Queue('whatsapp-messages', {
@@ -44,14 +44,17 @@ let campaignQueueEvents = null;
     queueEvents = new QueueEvents('whatsapp-messages', { connection });
     campaignQueueEvents = new QueueEvents('campaign-processing', { connection });
     setupWorkers();
+    return { messageQueue, campaignQueue };
   } catch (err) {
     console.warn('Redis unavailable - queue features disabled');
+    return null;
   }
 })();
 
 // Job processors
 const processMessageJob = async (job) => {
-  const { to, messageType, content, mediaUrl, buttons, sessionId } = job.data;
+  const data = job.data?.data || job.data;
+  const { to, messageType, content, mediaUrl, buttons, sessionId } = data;
   
   // Import whatsappService here to avoid circular dependencies
   const whatsappService = require('./whatsappService');
@@ -75,7 +78,8 @@ const processMessageJob = async (job) => {
 };
 
 const processCampaignJob = async (job) => {
-  const { campaignId } = job.data;
+  const data = job.data?.data || job.data;
+  const { campaignId } = data;
   
   // Import services here to avoid circular dependencies
   const campaignService = require('./campaignService');
@@ -133,24 +137,28 @@ const setupWorkers = () => {
 };
 
 // Utility functions to add jobs to queues
-const addMessageJob = (data) => {
+const addMessageJob = async (data) => {
+  await queueReady;
   if (!messageQueue) throw new Error('Redis unavailable - cannot queue message');
-  return messageQueue.add('send-message', { data });
+  return messageQueue.add('send-message', data);
 };
 
-const addCampaignJob = (data) => {
+const addCampaignJob = async (data) => {
+  await queueReady;
   if (!campaignQueue) throw new Error('Redis unavailable - cannot queue campaign');
-  return campaignQueue.add('process-campaign', { data });
+  return campaignQueue.add('process-campaign', data);
 };
 
 // Schedule a job for future processing
-const scheduleMessageJob = (data, delayMs) => {
+const scheduleMessageJob = async (data, delayMs) => {
+  await queueReady;
   if (!messageQueue) throw new Error('Redis unavailable - cannot schedule message');
-  return messageQueue.add('send-message', { data, delay: delayMs });
+  return messageQueue.add('send-message', data, { delay: delayMs });
 };
 
 // Get queue status
 const getQueueStatus = async () => {
+  await queueReady;
   if (!messageQueue) return { waiting: 0, active: 0, completed: 0, failed: 0 };
   const [waiting, active, completed, failed] = await Promise.all([
     messageQueue.getWaitCount(),
@@ -171,12 +179,24 @@ const shutdown = async () => {
 };
 
 module.exports = {
-  messageQueue,
-  campaignQueue,
-  messageWorker,
-  campaignWorker,
-  queueEvents,
-  campaignQueueEvents,
+  get messageQueue() {
+    return messageQueue;
+  },
+  get campaignQueue() {
+    return campaignQueue;
+  },
+  get messageWorker() {
+    return messageWorker;
+  },
+  get campaignWorker() {
+    return campaignWorker;
+  },
+  get queueEvents() {
+    return queueEvents;
+  },
+  get campaignQueueEvents() {
+    return campaignQueueEvents;
+  },
   addMessageJob,
   addCampaignJob,
   scheduleMessageJob,

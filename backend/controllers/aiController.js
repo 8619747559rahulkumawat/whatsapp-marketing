@@ -111,7 +111,11 @@ const checkOllamaStatus = async (req, res) => {
   try {
     const tenantId = req.tenant?._id || req.user.tenantId;
     const openaiSetting = await Setting.findOne({ key: 'openai_api_key', tenantId });
-    const geminiSetting = await Setting.findOne({ key: 'gemini_api_key', tenantId });
+    let geminiSetting = await Setting.findOne({ key: 'gemini_api_key', tenantId });
+    // Fallback to global key (no tenantId)
+    if (!geminiSetting?.value) {
+      geminiSetting = await Setting.findOne({ key: 'gemini_api_key', tenantId: { $exists: false } });
+    }
 
     const openaiClient = aiService.getOpenAIClient();
     if (openaiClient && openaiSetting?.value) {
@@ -126,7 +130,7 @@ const checkOllamaStatus = async (req, res) => {
       res.json({ success: true, available: true, provider: 'openai', openaiConfigured: true, geminiConfigured: !!geminiSetting?.value, localAvailable: true, message: 'OpenAI key configured. Try saving again if not working.' });
       return;
     }
-    if (geminiSetting?.value) {
+    if (geminiSetting?.value || process.env.GEMINI_API_KEY) {
       res.json({ success: true, available: true, provider: 'gemini', openaiConfigured: false, geminiConfigured: true, localAvailable: true, message: 'Google Gemini configured. Ask anything!' });
       return;
     }

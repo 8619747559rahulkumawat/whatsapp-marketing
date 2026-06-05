@@ -2,18 +2,178 @@ const Campaign = require('../models/Campaign');
 const Contact = require('../models/Contact');
 const Message = require('../models/Message');
 const Session = require('../models/Session');
+const Compliance = require('../models/Compliance');
 const whatsappService = require('./whatsappService');
 const automationService = require('./automationService');
 const intentService = require('./intentService');
 const { formatPhoneNumber } = require('../utils/helpers');
-const { messageQueue } = require('./queueService');
 
 const runningCampaigns = new Map();
-const CAMPAIGN_MESSAGE_DELAY_MIN = 15;  // seconds
-const CAMPAIGN_MESSAGE_DELAY_MAX = 30;  // seconds
+const DEFAULT_MIN_DELAY_SECONDS = parseInt(process.env.CAMPAIGN_MIN_DELAY_SECONDS || '20', 10);
+const DEFAULT_MAX_DELAY_SECONDS = parseInt(process.env.CAMPAIGN_MAX_DELAY_SECONDS || '45', 10);
+const DEFAULT_DAILY_LIMIT = parseInt(process.env.CAMPAIGN_DAILY_LIMIT || '200', 10);
+const HIGH_FAILURE_RATE_THRESHOLD = 0.3;
+const HIGH_FAILURE_RATE_MIN_ATTEMPTS = 20;
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const getDelayWindow = (campaign) => {
+  const min = Math.max(5, parseInt(campaign.minDelaySeconds || DEFAULT_MIN_DELAY_SECONDS, 10));
+  const max = Math.max(min, parseInt(campaign.maxDelaySeconds || DEFAULT_MAX_DELAY_SECONDS, 10));
+  return { min, max };
+};
+
+const controlledDelay = async (campaign) => {
+  const { min, max } = getDelayWindow(campaign);
+  const seconds = Math.floor(Math.random() * (max - min + 1) + min);
+  console.log(`[CampaignSafety] Waiting ${seconds}s before next eligible message...`);
+  await sleep(seconds * 1000);
+};
+
+const shouldPauseForFailureRate = (campaign, sentCount, failedCount) => {
+  if (campaign.stopOnHighFailureRate === false) return false;
+  const attempts = sentCount + failedCount;
+  return attempts >= HIGH_FAILURE_RATE_MIN_ATTEMPTS && failedCount / attempts >= HIGH_FAILURE_RATE_THRESHOLD;
+};
+
+const appendOptOutInstruction = (campaign, message) => {
+  if (campaign.appendOptOut === false) return message;
+  if (/\b(stop|unsubscribe|opt[-\s]?out)\b/i.test(message)) return message;
+  return `${message}\n\nReply STOP to unsubscribe.`;
+};
+
+const withSafetyNote = (campaign, note, updates = {}) => {
+  const current = campaign.safetySummary?.toObject
+    ? campaign.safetySummary.toObject()
+    : { ...(campaign.safetySummary || {}) };
+  return {
+    ...current,
+    ...updates,
+    notes: [...(current.notes || []), note]
+  };
+};
+
+const personalizeMessage = (campaign, contact, phone) => {
+  let message = campaign.message || '';
+  if (campaign.isPersonalized) {
+    message = message.replace(/{name}/g, contact.name || '')
+      .replace(/{phone}/g, phone)
+      .replace(/{email}/g, contact.email || '');
+  }
+  return appendOptOutInstruction(campaign, message);
+};
+
+const getLatestConsentByPhone = async (tenantId, phones) => {
+  if (!phones.length) return new Map();
+  const logs = await Compliance.find({
+    tenantId,
+    phone: { $in: phones },
+    type: { $in: ['opt_in', 'opt_out', 'consent_given', 'consent_withdrawn'] }
+  }).sort({ timestamp: -1 }).lean();
+
+  const latest = new Map();
+  for (const log of logs) {
+    if (!latest.has(log.phone)) latest.set(log.phone, log);
+  }
+  return latest;
+};
+
+const prepareCampaignAudience = async (campaign, contacts) => {
+  const summary = {
+    duplicates: 0,
+    blacklisted: 0,
+    optedOut: 0,
+    missingOptIn: 0,
+    alreadySent: 0,
+    invalidPhone: 0,
+    capped: false,
+    notes: []
+  };
+  const seen = new Set();
+  const eligible = [];
+  const candidates = [];
+
+  const sentMessages = await Message.find({
+    campaignId: campaign._id,
+    status: { $in: ['sent', 'delivered', 'read'] }
+  }).select('to').lean();
+  const alreadySentPhones = new Set(sentMessages.map(m => formatPhoneNumber(m.to)));
+
+  for (const contact of contacts) {
+    const rawPhone = contact?.phone || contact;
+    const phone = formatPhoneNumber(String(rawPhone || ''));
+    if (!phone || phone.length < 10) {
+      summary.invalidPhone++;
+      continue;
+    }
+    if (seen.has(phone)) {
+      summary.duplicates++;
+      continue;
+    }
+    seen.add(phone);
+    if (alreadySentPhones.has(phone)) {
+      summary.alreadySent++;
+      continue;
+    }
+    if (contact?.isBlacklisted) {
+      summary.blacklisted++;
+      continue;
+    }
+    candidates.push({ contact, phone });
+  }
+
+  const latestConsent = await getLatestConsentByPhone(campaign.tenantId, candidates.map(c => c.phone));
+  for (const candidate of candidates) {
+    const consent = latestConsent.get(candidate.phone);
+    if (consent?.type === 'opt_out' || consent?.type === 'consent_withdrawn') {
+      summary.optedOut++;
+      continue;
+    }
+    if (campaign.requireOptIn !== false && consent?.type !== 'opt_in' && consent?.type !== 'consent_given') {
+      summary.missingOptIn++;
+      continue;
+    }
+    eligible.push(candidate);
+  }
+
+  if (campaign.requireOptIn !== false) {
+    summary.notes.push('Only contacts with opt-in/consent logs are eligible.');
+  }
+  summary.notes.push('Duplicates, blacklisted contacts, opted-out contacts, and already-sent contacts are skipped.');
+
+  return {
+    eligible,
+    summary,
+    existingSentCount: alreadySentPhones.size,
+    skippedCount: Object.entries(summary)
+      .filter(([, value]) => typeof value === 'number')
+      .reduce((total, [, value]) => total + value, 0)
+  };
+};
+
+const getRemainingDailySlots = async (campaign, session) => {
+  const dailyLimit = Math.max(1, parseInt(campaign.dailyLimit || DEFAULT_DAILY_LIMIT, 10));
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const sentInWindow = await Message.countDocuments({
+    userId: campaign.userId,
+    sessionId: session.sessionId,
+    sentAt: { $gte: since },
+    status: { $in: ['sent', 'delivered', 'read'] }
+  });
+  return Math.max(0, dailyLimit - sentInWindow);
+};
+
+const checkCampaignStillRunning = async (campaignId) => {
+  if (!runningCampaigns.has(campaignId.toString())) return 'paused';
+  const latest = await Campaign.findById(campaignId).select('status').lean();
+  if (!latest || latest.status === 'cancelled') return 'cancelled';
+  if (latest.status === 'paused') return 'paused';
+  return 'running';
+};
 
 const processCampaign = async (campaignId, io) => {
-  if (runningCampaigns.has(campaignId)) {
+  const campaignKey = campaignId.toString();
+  if (runningCampaigns.has(campaignKey)) {
     console.log(`Campaign ${campaignId} already running`);
     return;
   }
@@ -23,9 +183,9 @@ const processCampaign = async (campaignId, io) => {
 
   if (campaign.status === 'cancelled') return;
 
-  runningCampaigns.set(campaignId, true);
+  runningCampaigns.set(campaignKey, true);
   campaign.status = 'running';
-  campaign.startedAt = new Date();
+  if (!campaign.startedAt) campaign.startedAt = new Date();
   await campaign.save();
 
   try {
@@ -41,12 +201,25 @@ const processCampaign = async (campaignId, io) => {
       }
     }
 
+    let result;
     if (campaign.type === 'bulk') {
-      await sendBulkMessages(campaign, contacts, io);
+      result = await sendBulkMessages(campaign, contacts, io);
     } else if (campaign.type === 'dp') {
-      await sendDpMessages(campaign, contacts, io);
+      result = await sendDpMessages(campaign, contacts, io);
     } else {
-      await sendBulkMessages(campaign, contacts, io);
+      result = await sendBulkMessages(campaign, contacts, io);
+    }
+
+    if (result?.status === 'paused' || result?.status === 'cancelled') {
+      campaign.status = result.status;
+      await campaign.save();
+      if (io) {
+        io.to(`campaign_${campaignId}`).emit(`campaign:${result.status}`, {
+          campaignId,
+          reason: result.reason || ''
+        });
+      }
+      return;
     }
 
     campaign.status = 'completed';
@@ -69,7 +242,7 @@ const processCampaign = async (campaignId, io) => {
     }
     throw err;
   } finally {
-    runningCampaigns.delete(campaignId);
+    runningCampaigns.delete(campaignKey);
   }
 };
 
@@ -77,25 +250,51 @@ const sendBulkMessages = async (campaign, contacts, io) => {
   const session = campaign.sessionId || (await Session.findById(campaign.sessionId));
   if (!session) throw new Error('WhatsApp session not found');
 
-  let sentCount = 0, failedCount = 0;
-  const total = contacts.length;
+  const audience = await prepareCampaignAudience(campaign, contacts);
+  const total = audience.eligible.length + audience.existingSentCount;
+  let sentCount = audience.existingSentCount;
+  let failedCount = campaign.failedCount || 0;
+  let sentThisRun = 0;
+  let remainingDailySlots = await getRemainingDailySlots(campaign, session);
 
   campaign.totalContacts = total;
-  campaign.pendingCount = total;
-  campaign.sentCount = 0;
-  campaign.failedCount = 0;
+  campaign.pendingCount = audience.eligible.length;
+  campaign.sentCount = sentCount;
+  campaign.failedCount = failedCount;
+  campaign.skippedCount = audience.skippedCount;
+  campaign.safetySummary = audience.summary;
   await campaign.save();
 
-  for (let i = 0; i < contacts.length; i++) {
-    const contact = contacts[i];
+  if (remainingDailySlots <= 0 && audience.eligible.length > 0) {
+    campaign.status = 'paused';
+    campaign.safetySummary = withSafetyNote(
+      campaign,
+      'Daily campaign safety limit reached. Resume after the 24-hour window clears.',
+      { capped: true }
+    );
+    await campaign.save();
+    return { status: 'paused', reason: 'daily_limit_reached' };
+  }
+
+  for (let i = 0; i < audience.eligible.length; i++) {
+    const state = await checkCampaignStillRunning(campaign._id);
+    if (state !== 'running') return { status: state, reason: 'user_action' };
+
+    if (sentThisRun >= remainingDailySlots) {
+      campaign.status = 'paused';
+      campaign.pendingCount = audience.eligible.length - i;
+      campaign.safetySummary = withSafetyNote(
+        campaign,
+        'Daily campaign safety limit reached. Resume after the 24-hour window clears.',
+        { capped: true }
+      );
+      await campaign.save();
+      return { status: 'paused', reason: 'daily_limit_reached' };
+    }
+
+    const { contact, phone } = audience.eligible[i];
     try {
-      const phone = formatPhoneNumber(contact.phone || contact);
-      let message = campaign.message;
-      if (campaign.isPersonalized) {
-        message = message.replace(/{name}/g, contact.name || '')
-          .replace(/{phone}/g, phone)
-          .replace(/{email}/g, contact.email || '');
-      }
+      const message = personalizeMessage(campaign, contact, phone);
 
       console.log(`[Campaign] Sending to ${phone} (${i + 1}/${total})`);
 
@@ -128,26 +327,26 @@ const sendBulkMessages = async (campaign, contacts, io) => {
       }
 
       sentCount++;
+      sentThisRun++;
       campaign.sentCount = sentCount;
-      campaign.pendingCount = total - sentCount - failedCount;
+      campaign.pendingCount = Math.max(0, audience.eligible.length - i - 1);
       await campaign.save();
 
       if (io) {
         io.to(`campaign_${campaign._id}`).emit('campaign:progress', {
           campaignId: campaign._id, sent: sentCount, failed: failedCount,
-          total, pending: campaign.pendingCount
+          skipped: campaign.skippedCount, total, pending: campaign.pendingCount
         });
       }
 
-      // Anti-ban: random delay between messages (15-30s)
-      if (i < contacts.length - 1) {
-        await whatsappService.randomDelay(CAMPAIGN_MESSAGE_DELAY_MIN, CAMPAIGN_MESSAGE_DELAY_MAX);
+      if (i < audience.eligible.length - 1) {
+        await controlledDelay(campaign);
       }
     } catch (err) {
       console.error(`[Campaign] Failed for ${contact.phone || contact}: ${err.message}`);
       failedCount++;
       campaign.failedCount = failedCount;
-      campaign.pendingCount = total - sentCount - failedCount;
+      campaign.pendingCount = Math.max(0, audience.eligible.length - i - 1);
       await campaign.save();
 
       await Message.create({
@@ -158,62 +357,31 @@ const sendBulkMessages = async (campaign, contacts, io) => {
         statusReason: err.message, sentAt: new Date()
       });
 
-      // Still wait before next attempt
-      if (i < contacts.length - 1) {
-        await whatsappService.randomDelay(CAMPAIGN_MESSAGE_DELAY_MIN, CAMPAIGN_MESSAGE_DELAY_MAX);
+      if (shouldPauseForFailureRate(campaign, sentCount, failedCount)) {
+        campaign.status = 'paused';
+        campaign.safetySummary = withSafetyNote(
+          campaign,
+          'Paused because the failure rate crossed the safety threshold. Review the contact list and session health before resuming.'
+        );
+        await campaign.save();
+        return { status: 'paused', reason: 'high_failure_rate' };
+      }
+
+      if (i < audience.eligible.length - 1) {
+        await controlledDelay(campaign);
       }
     }
   }
+  return { status: 'completed' };
 };
 
 const sendDpMessages = async (campaign, contacts, io) => {
-  if (!contacts.length) return;
-  const session = campaign.sessionId || (await Session.findById(campaign.sessionId));
-  if (!session) throw new Error('WhatsApp session not found');
-
-  let sentCount = 0, failedCount = 0;
-  campaign.totalContacts = contacts.length;
-  await campaign.save();
-
-  for (let i = 0; i < contacts.length; i++) {
-    const contact = contacts[i];
-    try {
-      const phone = formatPhoneNumber(contact.phone || contact);
-      const message = campaign.isPersonalized
-        ? campaign.message.replace(/{name}/g, contact.name || '').replace(/{phone}/g, phone)
-        : campaign.message;
-
-      console.log(`[DP Campaign] Sending to ${phone} (${i + 1}/${contacts.length})`);
-      await whatsappService.sendTextMessage(session.sessionId, phone, message);
-      sentCount++;
-      campaign.sentCount = sentCount;
-      await campaign.save();
-
-      if (i < contacts.length - 1) {
-        await whatsappService.randomDelay(CAMPAIGN_MESSAGE_DELAY_MIN, CAMPAIGN_MESSAGE_DELAY_MAX);
-      }
-    } catch (err) {
-      console.error(`[DP Campaign] Failed for ${contact.phone || contact}: ${err.message}`);
-      failedCount++;
-      campaign.failedCount = failedCount;
-      await campaign.save();
-      if (i < contacts.length - 1) {
-        await whatsappService.randomDelay(CAMPAIGN_MESSAGE_DELAY_MIN, CAMPAIGN_MESSAGE_DELAY_MAX);
-      }
-    }
-
-    if (io && (sentCount + failedCount) % 10 === 0) {
-      io.to(`campaign_${campaign._id}`).emit('campaign:progress', {
-        campaignId: campaign._id, sent: sentCount, failed: failedCount,
-        total: contacts.length
-      });
-    }
-  }
+  return sendBulkMessages(campaign, contacts, io);
 };
 
 const pauseCampaign = async (campaignId) => {
   const campaign = await Campaign.findByIdAndUpdate(campaignId, { status: 'paused' });
-  if (campaign) runningCampaigns.delete(campaignId);
+  if (campaign) runningCampaigns.delete(campaignId.toString());
   return campaign;
 };
 
@@ -226,12 +394,12 @@ const resumeCampaign = async (campaignId, io) => {
 };
 
 const cancelCampaign = async (campaignId) => {
-  runningCampaigns.delete(campaignId);
+  runningCampaigns.delete(campaignId.toString());
   return Campaign.findByIdAndUpdate(campaignId, { status: 'cancelled' });
 };
 
 const getCampaignStatus = async (campaignId) => {
-  const campaign = await Campaign.findById(campaignId).select('status sentCount deliveredCount failedCount pendingCount totalContacts');
+  const campaign = await Campaign.findById(campaignId).select('status sentCount deliveredCount failedCount pendingCount skippedCount totalContacts safetySummary');
   return campaign;
 };
 

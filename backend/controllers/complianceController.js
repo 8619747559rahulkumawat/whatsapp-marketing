@@ -57,6 +57,16 @@ exports.logComplianceEvent = async (req, res) => {
         processed: true,
         processedAt: new Date()
       });
+    } else if (type === 'opt_in' || type === 'consent_given' || (keyword && ['START', 'YES', 'UNSTOP', 'SUBSCRIBE'].includes(keyword.toUpperCase()))) {
+      await Contact.findByIdAndUpdate(contactId, {
+        isBlacklisted: false,
+        blacklistReason: ''
+      });
+
+      await Compliance.findByIdAndUpdate(complianceRecord._id, {
+        processed: true,
+        processedAt: new Date()
+      });
     }
     
     res.status(201).json({ 
@@ -122,15 +132,15 @@ exports.checkDND = async (req, res) => {
     // Format the phone number for consistent checking
     const formattedPhone = formatPhoneNumber(phone);
     
-    // Check if there's an opt-out record for this phone number in this tenant
+    // Check latest consent state for this phone number in this tenant.
     const dndRecord = await Compliance.findOne({
       tenantId: req.tenant._id,
       phone: formattedPhone,
-      type: 'opt_out',
+      type: { $in: ['opt_in', 'opt_out', 'consent_given', 'consent_withdrawn'] },
       processed: true
     }).sort({ timestamp: -1 });
     
-    const isDND = !!dndRecord;
+    const isDND = dndRecord?.type === 'opt_out' || dndRecord?.type === 'consent_withdrawn';
     
     res.json({
       success: true,
@@ -207,19 +217,22 @@ exports.processKeywordMessage = async (req, res) => {
       
       const complianceRecord = await Compliance.create(complianceData);
       
-      // If it's an opt-out, blacklist the contact
       if (keywordType === 'opt_out') {
         await Contact.findByIdAndUpdate(contact._id, {
           isBlacklisted: true,
           blacklistReason: `Opted out via keyword: ${keyword}`
         });
-        
-        // Mark compliance as processed
-        await Compliance.findByIdAndUpdate(complianceRecord._id, {
-          processed: true,
-          processedAt: new Date()
+      } else if (keywordType === 'opt_in') {
+        await Contact.findByIdAndUpdate(contact._id, {
+          isBlacklisted: false,
+          blacklistReason: ''
         });
       }
+
+      await Compliance.findByIdAndUpdate(complianceRecord._id, {
+        processed: true,
+        processedAt: new Date()
+      });
       
       return res.json({
         success: true,

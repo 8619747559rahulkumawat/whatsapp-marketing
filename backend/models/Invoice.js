@@ -36,7 +36,6 @@ const invoiceSchema = new mongoose.Schema({
 });
 
 invoiceSchema.index({ tenantId: 1, userId: 1 });
-invoiceSchema.index({ invoiceNumber: 1 }, { unique: true });
 invoiceSchema.index({ status: 1 });
 
 module.exports = mongoose.model('Invoice', invoiceSchema);

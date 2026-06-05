@@ -15,6 +15,7 @@ const { seedAll } = require('./utils/seeder');
 const whatsappService = require('./services/whatsappService');
 const { startCleanupSchedule } = require('./services/cleanupScheduleService');
 const aiService = require('./services/aiService');
+const { setIoInstance } = require('./socket');
 
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled Rejection:', err.message);
@@ -41,6 +42,7 @@ const io = new Server(server, {
 });
 
 app.set('io', io);
+setIoInstance(io);
 
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 900000,
@@ -120,14 +122,25 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'RSendix.pro API is running', timestamp: new Date().toISOString() });
 });
 
+const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, (char) => ({
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;'
+}[char]));
+
 // Public QR page (no auth) — shareable link that displays QR code
 const Session = require('./models/Session');
 app.get('/qr/:id', async (req, res) => {
   try {
     const session = await Session.findOne({ sessionId: req.params.id });
     if (!session) return res.status(404).send('Session not found');
-    const qrData = session.qr || session.qrCode || '';
-    res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Connect WhatsApp — ${session.name}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f0f1a;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}.card{background:#1a1a2e;border-radius:24px;padding:40px;max-width:420px;width:100%;text-align:center;border:1px solid rgba(255,255,255,.08);box-shadow:0 20px 60px rgba(0,0,0,.5)}h1{font-size:22px;margin-bottom:8px}h2{color:#9ca3af;font-size:14px;font-weight:400;margin-bottom:24px}.qr-box{background:#fff;border-radius:16px;padding:16px;margin-bottom:20px;display:${qrData ? 'block' : 'none'}}.qr-box img{width:100%;max-width:280px;height:auto;display:block;margin:0 auto}.status{display:inline-block;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:500;margin-bottom:20px}.status-connecting{background:rgba(234,179,8,.15);color:#eab308}.status-connected{background:rgba(34,197,94,.15);color:#22c55e}.status-disconnected{background:rgba(107,114,128,.15);color:#6b7280}.steps{text-align:left;background:rgba(255,255,255,.05);border-radius:12px;padding:16px;margin-top:16px}.steps ol{margin:0;padding-left:20px}.steps li{color:#9ca3af;font-size:13px;line-height:1.8}.icon{font-size:48px;margin-bottom:16px}@media(max-width:480px){.card{padding:24px}}</style></head><body><div class="card"><div class="icon">📱</div><h1>${session.name}</h1><h2>WhatsApp Connection</h2><div class="status status-${session.status || 'disconnected'}">${session.status === 'connected' ? 'Connected' : session.status === 'connecting' ? 'Awaiting Scan' : 'Disconnected'}</div>${qrData ? `<div class="qr-box"><img src="${qrData}" alt="QR Code"/></div>` : '<p style="color:#6b7280;padding:20px">No QR code available. Please refresh the QR from the dashboard.</p>'}${session.status !== 'connected' ? `<div class="steps"><ol><li>Open <strong>WhatsApp</strong> on your phone</li><li>Tap <strong>Menu</strong> (3 dots) or <strong>Settings</strong></li><li>Go to <strong>Linked Devices</strong></li><li>Tap <strong>Link a Device</strong></li><li>Scan this <strong>QR code</strong></li></ol></div>` : '<p style="color:#22c55e;font-weight:500">✅ This device is already connected</p>'}</div></body></html>`);
+    const rawQrData = String(session.qr || session.qrCode || '');
+    const qrData = rawQrData.startsWith('data:image/') ? escapeHtml(rawQrData) : '';
+    const sessionName = escapeHtml(session.name || 'WhatsApp Session');
+    const status = ['connecting', 'connected', 'disconnected'].includes(session.status) ? session.status : 'disconnected';
+    res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Connect WhatsApp — ${sessionName}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f0f1a;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}.card{background:#1a1a2e;border-radius:24px;padding:40px;max-width:420px;width:100%;text-align:center;border:1px solid rgba(255,255,255,.08);box-shadow:0 20px 60px rgba(0,0,0,.5)}h1{font-size:22px;margin-bottom:8px}h2{color:#9ca3af;font-size:14px;font-weight:400;margin-bottom:24px}.qr-box{background:#fff;border-radius:16px;padding:16px;margin-bottom:20px;display:${qrData ? 'block' : 'none'}}.qr-box img{width:100%;max-width:280px;height:auto;display:block;margin:0 auto}.status{display:inline-block;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:500;margin-bottom:20px}.status-connecting{background:rgba(234,179,8,.15);color:#eab308}.status-connected{background:rgba(34,197,94,.15);color:#22c55e}.status-disconnected{background:rgba(107,114,128,.15);color:#6b7280}.steps{text-align:left;background:rgba(255,255,255,.05);border-radius:12px;padding:16px;margin-top:16px}.steps ol{margin:0;padding-left:20px}.steps li{color:#9ca3af;font-size:13px;line-height:1.8}.icon{font-size:48px;margin-bottom:16px}@media(max-width:480px){.card{padding:24px}}</style></head><body><div class="card"><div class="icon">📱</div><h1>${sessionName}</h1><h2>WhatsApp Connection</h2><div class="status status-${status}">${status === 'connected' ? 'Connected' : status === 'connecting' ? 'Awaiting Scan' : 'Disconnected'}</div>${qrData ? `<div class="qr-box"><img src="${qrData}" alt="QR Code"/></div>` : '<p style="color:#6b7280;padding:20px">No QR code available. Please refresh the QR from the dashboard.</p>'}${status !== 'connected' ? `<div class="steps"><ol><li>Open <strong>WhatsApp</strong> on your phone</li><li>Tap <strong>Menu</strong> (3 dots) or <strong>Settings</strong></li><li>Go to <strong>Linked Devices</strong></li><li>Tap <strong>Link a Device</strong></li><li>Scan this <strong>QR code</strong></li></ol></div>` : '<p style="color:#22c55e;font-weight:500">✅ This device is already connected</p>'}</div></body></html>`);
   } catch (err) {
     res.status(500).send('Server error');
   }
@@ -178,7 +191,8 @@ io.on('connection', (socket) => {
     if (token) {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        if (decoded._id === userId || decoded.role === 'admin' || decoded.role === 'super_admin') {
+        const decodedUserId = decoded.id || decoded._id;
+        if (decodedUserId === userId || decoded.role === 'admin' || decoded.role === 'super_admin') {
           socket.join(`user_${userId}`);
         }
       } catch {
@@ -242,7 +256,7 @@ function startServer() {
       console.log(`API: http://localhost:${PORT}/api`);
       console.log(`Health: http://localhost:${PORT}/api/health`);
 
-      try { schedulerService.startScheduler(); } catch (err) { console.error('Scheduler start error:', err); }
+      schedulerService.startScheduler(io).catch((err) => console.error('Scheduler start error:', err));
       if (process.env.CLEANUP_ENABLED === 'true') {
         try { startCleanupSchedule(); } catch (err) { console.error('Cleanup schedule error:', err); }
       }

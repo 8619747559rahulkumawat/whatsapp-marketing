@@ -56,7 +56,10 @@ exports.createApiKey = async (req, res) => {
 
 exports.deleteApiKey = async (req, res) => {
   try {
-    await ApiKey.findByIdAndDelete(req.params.id);
+    const deleted = await ApiKey.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'API key not found' });
+    }
     res.json({ success: true, message: 'API key deleted' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

@@ -6,6 +6,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const Session = require('../models/Session');
 const pino = require('pino');
+const { formatPhoneNumber } = require('../utils/helpers');
 
 const sessions = new Map();
 const sessionsContactMap = new Map();
@@ -22,6 +23,64 @@ const RECONNECT_POLL_TIMEOUT = 60000;
 const RECONNECT_POLL_INTERVAL = 1000;
 let cachedBaileysVersion = null;
 let globalIo = null;
+
+const STOP_KEYWORDS = ['STOP', 'UNSUBSCRIBE', 'CANCEL', 'QUIT', 'END'];
+const START_KEYWORDS = ['START', 'YES', 'UNSTOP', 'SUBSCRIBE'];
+
+const processInboundConsentKeyword = async ({ tenantId, userId, phone, message }) => {
+  const keyword = (message || '').trim().toUpperCase();
+  if (!keyword) return null;
+
+  let type = null;
+  if (STOP_KEYWORDS.includes(keyword)) type = 'opt_out';
+  if (START_KEYWORDS.includes(keyword)) type = 'opt_in';
+  if (!type) return null;
+
+  try {
+    const Contact = require('../models/Contact');
+    const Compliance = require('../models/Compliance');
+    const formattedPhone = formatPhoneNumber(phone);
+    const contact = await Contact.findOne({ tenantId, phone: formattedPhone });
+    if (!contact) {
+      console.log(`[Compliance] ${keyword} received from ${formattedPhone}, but no matching contact was found.`);
+      return null;
+    }
+
+    const record = await Compliance.create({
+      tenantId,
+      userId: contact.userId || userId,
+      contactId: contact._id,
+      type,
+      phone: formattedPhone,
+      method: 'keyword',
+      keyword,
+      details: {
+        originalMessage: message,
+        processedFrom: 'whatsapp_inbound'
+      },
+      processed: true,
+      processedAt: new Date()
+    });
+
+    if (type === 'opt_out') {
+      await Contact.findByIdAndUpdate(contact._id, {
+        isBlacklisted: true,
+        blacklistReason: `Opted out via keyword: ${keyword}`
+      });
+    } else {
+      await Contact.findByIdAndUpdate(contact._id, {
+        isBlacklisted: false,
+        blacklistReason: ''
+      });
+    }
+
+    console.log(`[Compliance] Processed ${type} keyword ${keyword} for ${formattedPhone}`);
+    return record;
+  } catch (err) {
+    console.error('[Compliance] Keyword processing failed:', err.message);
+    return null;
+  }
+};
 
 // ==========================================
 // ANTI-BAN HELPERS
@@ -432,6 +491,14 @@ const connectSession = async (sessionId, io) => {
               body = msgContent.documentMessage.caption || `📄 ${msgContent.documentMessage.fileName || 'Document'}`;
             } else if (contentType === 'audioMessage' && msgContent.audioMessage) {
               body = '🎵 Audio';
+            }
+            if (body?.trim()) {
+              await processInboundConsentKeyword({
+                tenantId: sess.tenantId,
+                userId: sess.userId,
+                phone,
+                message: body
+              });
             }
             if (body) {
               const Chat = require('../models/Chat');

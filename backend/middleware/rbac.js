@@ -4,8 +4,8 @@ const rolePermissions = {
   super_admin: ['*'],
   admin: ['manage_team', 'manage_templates', 'manage_campaigns', 'manage_contacts', 'view_reports', 'manage_billing', 'manage_settings', 'manage_compliance', 'manage_api', 'manage_automation', 'manage_ai', 'manage_integrations', 'manage_sessions'],
   agent: ['manage_billing', 'manage_campaigns', 'manage_contacts', 'send_messages', 'view_reports', 'manage_chat'],
-  viewer: ['manage_billing', 'view_reports', 'view_dashboard', 'view_campaigns', 'view_contacts'],
-  user: ['manage_billing'],
+  viewer: ['view_reports', 'view_dashboard', 'view_campaigns', 'view_contacts'],
+  user: [],
   reseller: ['manage_billing']
 };
 
