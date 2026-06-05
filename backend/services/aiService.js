@@ -440,6 +440,10 @@ const generateWithGemini = async (prompt, context = '') => {
     const result = await model.generateContent(fullPrompt);
     return result.response?.text()?.trim() || null;
   } catch (err) {
+    if (err.message?.includes('429') || err.message?.includes('quota') || err?.status === 429) {
+      console.log('Gemini quota exceeded, using fallback');
+      return null;
+    }
     console.error('Gemini error:', err.message);
     return null;
   }
