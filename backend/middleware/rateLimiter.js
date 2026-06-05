@@ -16,7 +16,10 @@ const messageLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 900000,
-  max: 10,
+  max: parseInt(process.env.AUTH_RATE_LIMIT_MAX || '50', 10),
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
   message: { success: false, message: 'Too many login attempts, try again later' }
 });
 

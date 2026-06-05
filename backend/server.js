@@ -29,6 +29,7 @@ process.on('uncaughtException', (err) => {
 
 const app = express();
 const server = http.createServer(app);
+app.set('trust proxy', 1);
 
 const corsOrigin = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true;
 const io = new Server(server, {
@@ -46,7 +47,14 @@ setIoInstance(io);
 
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 900000,
-  max: parseInt(process.env.RATE_LIMIT_MAX) || 100,
+  max: parseInt(process.env.RATE_LIMIT_MAX) || 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => (
+    req.path === '/api/health' ||
+    req.path === '/api/auth/login' ||
+    req.path === '/api/auth/register'
+  ),
   message: { success: false, message: 'Too many requests, please try again later' }
 });
 

@@ -3,10 +3,11 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 const { auth } = require('../middleware/auth');
 const { tenantMiddleware } = require('../middleware/tenant');
+const { authLimiter } = require('../middleware/rateLimiter');
 
 // Public routes (no auth required)
-router.post('/login', authController.login);
-router.post('/register', authController.register);
+router.post('/login', authLimiter, authController.login);
+router.post('/register', authLimiter, authController.register);
 
 // Protected routes
 router.use(auth);
