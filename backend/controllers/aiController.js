@@ -142,14 +142,15 @@ const checkOllamaStatus = async (req, res) => {
 
 const setOpenAIKey = async (req, res) => {
   try {
-    const { apiKey, model } = req.body;
-    if (!apiKey) return res.status(400).json({ success: false, message: 'API key is required' });
-    process.env.OPENAI_API_KEY = apiKey;
+    const { apiKey, key, model } = req.body;
+    const openaiKey = apiKey || key;
+    if (!openaiKey) return res.status(400).json({ success: false, message: 'API key is required' });
+    process.env.OPENAI_API_KEY = openaiKey;
     if (model) process.env.OPENAI_MODEL = model;
-    aiService.setOpenAIKey(apiKey);
+    aiService.setOpenAIKey(openaiKey);
     await Setting.findOneAndUpdate(
       { key: 'openai_api_key', tenantId: req.tenant?._id || req.user.tenantId },
-      { key: 'openai_api_key', value: apiKey, tenantId: req.tenant?._id || req.user.tenantId },
+      { key: 'openai_api_key', value: openaiKey, tenantId: req.tenant?._id || req.user.tenantId },
       { upsert: true, new: true }
     );
     if (model) {

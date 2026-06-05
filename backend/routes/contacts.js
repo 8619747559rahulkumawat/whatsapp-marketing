@@ -11,8 +11,12 @@ router.get('/', contactController.getContacts);
 router.post('/', contactController.createContact);
 router.get('/tags/stats', contactController.getTagStats);
 router.get('/variables', contactController.getContactVariables);
+router.get('/export', contactController.exportContacts);
 router.get('/export/:format', contactController.exportContacts);
 router.post('/import', contactController.importContacts);
+router.post('/bulk-delete', contactController.bulkDelete);
+router.get('/groups', contactController.getGroups);
+router.post('/groups', contactController.createGroup);
 
 // Group scraping routes
 router.get('/groups/scrapes', contactController.getGroupScrapes);
@@ -25,6 +29,9 @@ router.delete('/groups/scrape/:id', contactController.deleteGroupScrape);
 router.post('/groups/scrape-messages', contactController.scrapeGroupMessages);
 router.get('/groups/scrape/:id/messages', contactController.getScrapedMessages);
 router.get('/groups/scrape/:id/export-messages', contactController.exportGroupMessages);
+router.post('/groups/:id/contacts', contactController.addContactsToGroup);
+router.put('/groups/:id', contactController.updateGroup);
+router.delete('/groups/:id', contactController.deleteGroup);
 
 router.get('/:id', contactController.getContact);
 router.put('/:id', contactController.updateContact);

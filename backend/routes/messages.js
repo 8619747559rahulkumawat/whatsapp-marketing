@@ -13,6 +13,7 @@ router.use(tenantMiddleware);
 router.get('/', messageController.getMessages);
 router.get('/stats/daily', messageController.getDailyStats);
 router.get('/stats/user/:userId', messageController.getUserStats);
+router.post('/send', messageController.sendMessage);
 router.post('/', messageController.sendMessage);
 router.post('/bulk', messageController.sendBulkMessage);
 router.post('/bulk-with-image', upload.single('file'), messageController.sendBulkWithImage);

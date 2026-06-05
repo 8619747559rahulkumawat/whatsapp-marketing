@@ -17,5 +17,6 @@ router.use('/change-password', tenantMiddleware);
 router.get('/me', authController.getMe);
 router.put('/profile', authController.updateProfile);
 router.post('/change-password', authController.changePassword);
+router.put('/change-password', authController.changePassword);
 
 module.exports = router;
