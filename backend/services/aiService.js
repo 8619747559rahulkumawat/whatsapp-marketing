@@ -371,18 +371,7 @@ const fastCheckAI = async () => {
   const now = Date.now();
   if (aiAvailable !== null && now - aiCheckTime < AI_CHECK_TTL) return aiAvailable;
 
-  // OpenAI check
-  const client = getOpenAIClient();
-  if (client) {
-    try {
-      await client.models.list({ timeout: 3000 });
-      aiAvailable = 'openai';
-      aiCheckTime = now;
-      return aiAvailable;
-    } catch { aiAvailable = null; }
-  }
-
-  // Gemini check
+  // Gemini check first (free, reliable)
   const gemini = getGeminiModel();
   if (gemini) {
     try {
@@ -392,6 +381,17 @@ const fastCheckAI = async () => {
         aiCheckTime = now;
         return aiAvailable;
       }
+    } catch { aiAvailable = null; }
+  }
+
+  // OpenAI check
+  const client = getOpenAIClient();
+  if (client) {
+    try {
+      await client.models.list({ timeout: 3000 });
+      aiAvailable = 'openai';
+      aiCheckTime = now;
+      return aiAvailable;
     } catch { aiAvailable = null; }
   }
 
@@ -457,13 +457,27 @@ const generateWithOllama = async (prompt, context = '') => {
 const generateAIResponse = async (prompt, context = '') => {
   const provider = await fastCheckAI();
 
-  // Real AI first (Gemini or OpenAI)
+  // Try Gemini first if available (most reliable free option)
   let reply = null;
-  if (provider === 'openai') reply = await generateWithOpenAI(prompt, context);
-  if (!reply && provider === 'gemini') reply = await generateWithGemini(prompt, context);
-  if (!reply && (provider === 'ollama' || process.env.FALLBACK_TO_OLLAMA === 'true')) reply = await generateWithOllama(prompt, context);
-  if (!reply && provider === 'openai') reply = await generateWithGemini(prompt, context);
-  if (!reply && provider === 'gemini') reply = await generateWithOpenAI(prompt, context);
+  if (provider === 'gemini' || process.env.GEMINI_API_KEY) {
+    reply = await generateWithGemini(prompt, context);
+  }
+  // Try OpenAI next
+  if (!reply && (provider === 'openai' || process.env.OPENAI_API_KEY)) {
+    reply = await generateWithOpenAI(prompt, context);
+  }
+  // Try OpenAI even if provider was gemini
+  if (!reply && provider === 'gemini') {
+    reply = await generateWithOpenAI(prompt, context);
+  }
+  // Try Gemini even if provider was openai
+  if (!reply && provider === 'openai') {
+    reply = await generateWithGemini(prompt, context);
+  }
+  // Try Ollama
+  if (!reply && (provider === 'ollama' || process.env.FALLBACK_TO_OLLAMA === 'true')) {
+    reply = await generateWithOllama(prompt, context);
+  }
 
   // If no AI provider available or all failed, use built-in local AI
   if (!reply) {
