@@ -9,7 +9,9 @@ const smsCampaignSchema = new mongoose.Schema({
   status: { type: String, enum: ['draft', 'scheduled', 'sending', 'sent', 'failed'], default: 'draft' },
   recipients: [{ phone: String, name: String, contactId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact' } }],
   stats: { sent: { type: Number, default: 0 }, delivered: { type: Number, default: 0 }, failed: { type: Number, default: 0 } },
+  error: { type: String, default: '' },
   scheduledAt: { type: Date },
+  startedAt: { type: Date },
   sentAt: { type: Date },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
