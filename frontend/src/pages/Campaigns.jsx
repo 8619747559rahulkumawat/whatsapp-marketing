@@ -30,6 +30,17 @@ export default function Campaigns() {
     setForm(prev => ({ ...prev, [name]: value }));
   }, []);
 
+  const toggleSelection = useCallback((field, id) => {
+    setForm(prev => {
+      const current = prev[field] || [];
+      const exists = current.includes(id);
+      return {
+        ...prev,
+        [field]: exists ? current.filter(item => item !== id) : [...current, id]
+      };
+    });
+  }, []);
+
   useEffect(() => {
     if (hasDraft()) {
       const saved = restore();
@@ -228,6 +239,54 @@ export default function Campaigns() {
                 <FormField label="Message Content" name="message">
                   <textarea className="input-field h-24" value={form.message} onChange={e => handleChange('message', e.target.value)} placeholder="Use {name}, {phone}, {email} for personalization" required />
                 </FormField>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <h3 className="text-sm font-semibold text-white">Select Groups</h3>
+                      <span className="text-xs text-gray-500">{form.groupIds.length} selected</span>
+                    </div>
+                    <div className="max-h-44 overflow-y-auto space-y-2">
+                      {groups.map(group => (
+                        <label key={group._id} className="flex items-center justify-between gap-3 rounded-lg bg-black/10 px-3 py-2 text-sm text-gray-300">
+                          <span className="truncate">{group.name}</span>
+                          <span className="flex items-center gap-2 text-xs text-gray-500">
+                            {group.contactCount || 0}
+                            <input
+                              type="checkbox"
+                              checked={form.groupIds.includes(group._id)}
+                              onChange={() => toggleSelection('groupIds', group._id)}
+                              className="rounded"
+                            />
+                          </span>
+                        </label>
+                      ))}
+                      {groups.length === 0 && <p className="text-sm text-gray-500">No groups found. Create a group from Contacts first.</p>}
+                    </div>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <h3 className="text-sm font-semibold text-white">Select Contacts</h3>
+                      <span className="text-xs text-gray-500">{form.contactIds.length} selected</span>
+                    </div>
+                    <div className="max-h-44 overflow-y-auto space-y-2">
+                      {contacts.map(contact => (
+                        <label key={contact._id} className="flex items-center justify-between gap-3 rounded-lg bg-black/10 px-3 py-2 text-sm text-gray-300">
+                          <span className="min-w-0">
+                            <span className="block truncate">{contact.name || contact.phone}</span>
+                            <span className="block truncate text-xs text-gray-500">{contact.phone}</span>
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={form.contactIds.includes(contact._id)}
+                            onChange={() => toggleSelection('contactIds', contact._id)}
+                            className="rounded flex-shrink-0"
+                          />
+                        </label>
+                      ))}
+                      {contacts.length === 0 && <p className="text-sm text-gray-500">No contacts found. Add/import contacts first.</p>}
+                    </div>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[
                     ['isPersonalized', 'Enable Personalization'],
