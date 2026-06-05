@@ -255,12 +255,13 @@ Just type your question naturally! 🚀`
   }
 ];
 
-const FALLBACK_REPLIES = BUILT_IN_REPLIES.map(r => r.reply).concat([
-  "I'm your WhatsApp marketing assistant. Ask me anything about campaigns, contacts, templates, sessions, or automation!",
-  "Need help growing your business on WhatsApp? Just ask! Try: 'How to create a campaign' or 'Import contacts'",
-  "I can help you master WhatsApp marketing. What would you like to know?",
-  "Ask me anything about WhatsApp marketing — campaigns, sequences, analytics, and more!"
-]);
+const FALLBACK_REPLIES = [
+  "I specialize in WhatsApp marketing! Ask me about campaigns, contacts, sessions, templates, analytics, or automation. For general questions, I'll answer once my AI provider is connected.",
+  "I'm your WhatsApp marketing expert. Try asking: 'How to create a campaign?' or 'Best time to send messages?'",
+  "I can help with all WhatsApp marketing needs. Campaigns, automation, templates, contacts — just ask!",
+  "Need help growing your business on WhatsApp? I'm here to help! Ask about campaigns, imports, sessions, and more.",
+  "I can guide you through WhatsApp marketing features. What would you like to know about?"
+];
 
 // ─── Keyword-based local AI (no API key needed) ───
 const generateLocalReply = (message) => {
