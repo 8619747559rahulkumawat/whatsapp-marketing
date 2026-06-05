@@ -55,13 +55,51 @@ app.use(require('helmet')({ crossOriginResourcePolicy: false }));
 app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use('/api/', limiter);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const uploadDir = path.join(__dirname, process.env.UPLOAD_DIR || 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 const sessionsDir = path.join(__dirname, process.env.SESSIONS_DIR || 'sessions');
 if (!fs.existsSync(sessionsDir)) fs.mkdirSync(sessionsDir, { recursive: true });
+
+const dbState = {
+  status: 'starting',
+  connected: false,
+  attempts: 0,
+  lastConnectedAt: null,
+  lastError: null
+};
+
+const getMongoStatus = () => {
+  const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+  return states[mongoose.connection.readyState] || 'unknown';
+};
+
+app.get('/api/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'RSendix.pro API is running',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    database: {
+      status: getMongoStatus(),
+      connected: mongoose.connection.readyState === 1,
+      lastConnectedAt: dbState.lastConnectedAt,
+      lastError: dbState.lastError
+    }
+  });
+});
+
+app.use('/api/', limiter);
+
+app.use('/api', (req, res, next) => {
+  if (mongoose.connection.readyState === 1) return next();
+  return res.status(503).json({
+    success: false,
+    message: 'Database is starting. Please retry in a moment.',
+    database: { status: getMongoStatus() }
+  });
+});
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/sessions', require('./routes/sessions'));
@@ -118,10 +156,6 @@ app.use('/api/roles', require('./routes/roles'));
 app.use('/api/email-sync', require('./routes/emailSync'));
 app.use('/s', require('./routes/surveys').publicRouter);
 
-app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'RSendix.pro API is running', timestamp: new Date().toISOString() });
-});
-
 const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, (char) => ({
   '&': '&amp;',
   '<': '&lt;',
@@ -134,6 +168,9 @@ const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, (char) => (
 const Session = require('./models/Session');
 app.get('/qr/:id', async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).send('Database is starting. Please retry in a moment.');
+    }
     const session = await Session.findOne({ sessionId: req.params.id });
     if (!session) return res.status(404).send('Session not found');
     const rawQrData = String(session.qr || session.qrCode || '');
@@ -255,8 +292,6 @@ function startServer() {
       console.log(`Server running on port ${PORT}`);
       console.log(`API: http://localhost:${PORT}/api`);
       console.log(`Health: http://localhost:${PORT}/api/health`);
-
-      schedulerService.startScheduler(io).catch((err) => console.error('Scheduler start error:', err));
       if (process.env.CLEANUP_ENABLED === 'true') {
         try { startCleanupSchedule(); } catch (err) { console.error('Cleanup schedule error:', err); }
       }
@@ -273,21 +308,53 @@ async function connectDB() {
   console.log('MongoDB connected successfully');
 }
 
-connectDB()
-  .then(async () => {
-    await seedAll();
-    await aiService.loadAIKeysFromDB();
-    await startServer();
-    setTimeout(async () => {
-      try {
-        if (process.env.RESTORE_WHATSAPP_SESSIONS !== 'false') {
-          await whatsappService.restoreSessions(io);
+async function bootstrapDatabase() {
+  const retryMs = parseInt(process.env.DB_RETRY_MS || '10000', 10);
+
+  while (true) {
+    dbState.attempts += 1;
+    dbState.status = 'connecting';
+    dbState.lastError = null;
+
+    try {
+      await connectDB();
+      dbState.status = 'connected';
+      dbState.connected = true;
+      dbState.lastConnectedAt = new Date().toISOString();
+
+      await seedAll();
+      await aiService.loadAIKeysFromDB();
+      schedulerService.startScheduler(io).catch((err) => console.error('Scheduler start error:', err));
+
+      setTimeout(async () => {
+        try {
+          if (process.env.RESTORE_WHATSAPP_SESSIONS !== 'false') {
+            await whatsappService.restoreSessions(io);
+          }
+        } catch (err) {
+          console.error('Session restoration error:', err.message);
         }
-      } catch (err) {
-        console.error('Session restoration error:', err.message);
-      }
-    }, 1000);
-  })
+      }, 1000);
+
+      return;
+    } catch (err) {
+      dbState.status = 'disconnected';
+      dbState.connected = false;
+      dbState.lastError = err.message;
+      console.error(`MongoDB connection failed (attempt ${dbState.attempts}):`, err.message);
+      console.error(`Retrying MongoDB connection in ${retryMs / 1000}s`);
+      await new Promise((resolve) => setTimeout(resolve, retryMs));
+    }
+  }
+}
+
+mongoose.connection.on('disconnected', () => {
+  dbState.status = 'disconnected';
+  dbState.connected = false;
+});
+
+startServer()
+  .then(() => bootstrapDatabase())
   .catch((err) => {
     console.error('FATAL:', err.message);
     process.exit(1);
