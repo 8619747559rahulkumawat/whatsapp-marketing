@@ -325,6 +325,7 @@ const connectSession = async (sessionId, io) => {
         }
 
         if (connection === 'open') {
+          connectingSessions.delete(sessionId);
           reconnectAttempts.delete(sessionId);
           session.status = 'connected';
           session.qrCode = ''; session.qr = '';
@@ -376,6 +377,9 @@ const connectSession = async (sessionId, io) => {
         }
 
         if (connection === 'close') {
+          // Clear connecting state so reconnect or waitForSessionQr can attempt a fresh connection
+          connectingSessions.delete(sessionId);
+
           const statusCode = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.data?.reason || lastDisconnect?.error?.message;
           const reason = typeof statusCode === 'number' ? statusCode : DisconnectReason.connectionClosed;
 
