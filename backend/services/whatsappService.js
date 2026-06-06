@@ -781,6 +781,16 @@ const waitForSessionQr = async (sessionId, io, timeoutMs = 30000) => {
       const status = session.status === 'connected' ? 'connected' : 'connecting';
       return { qr: session.qr || '', status };
     }
+    // Check if connection attempt has died and needs a fresh connect
+    const currentSock = sessions.get(sessionId);
+    const stillConnecting = connectingSessions.has(sessionId);
+    if (!currentSock?.user && !stillConnecting) {
+      console.log(`[Baileys] ${sessionId} connection dead, re-triggering connect during QR poll`);
+      await Session.findOneAndUpdate({ sessionId }, { status: 'connecting' }).catch(() => {});
+      connectSession(sessionId, eventIo).catch(err => {
+        console.error(`[Baileys] ${sessionId} poll reconnect error:`, err.message);
+      });
+    }
   }
 
   session = await Session.findOne({ sessionId }).select('qr status');
