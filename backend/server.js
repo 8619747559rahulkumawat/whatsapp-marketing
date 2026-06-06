@@ -9,6 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const dns = require('dns');
 const https = require('https');
+const WebSocket = require('ws');
 
 const jwt = require('jsonwebtoken');
 const errorHandler = require('./middleware/errorHandler');
@@ -115,11 +116,46 @@ app.get('/api/debug/connectivity', async (req, res) => {
       req.on('timeout', () => { req.destroy(); results.push({ target: name, dns: 'OK', https: 'TIMEOUT', time: Date.now() - start }); resolve(); });
     });
   });
+  // Direct WebSocket test to wss://web.whatsapp.com/ws/chat
+  const checkWs = () => new Promise((resolve) => {
+    const start = Date.now();
+    try {
+      const ws = new WebSocket('wss://web.whatsapp.com/ws/chat', {
+        origin: 'https://web.whatsapp.com',
+        handshakeTimeout: 10000,
+        headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' }
+      });
+      ws.on('open', () => {
+        results.push({ target: 'wss://web.whatsapp.com/ws/chat', type: 'WebSocket', status: 'OPEN', time: Date.now() - start });
+        ws.close();
+        resolve();
+      });
+      ws.on('error', (e) => {
+        results.push({ target: 'wss://web.whatsapp.com/ws/chat', type: 'WebSocket', status: 'FAIL', error: e.message, time: Date.now() - start });
+        resolve();
+      });
+      ws.on('unexpected-response', (req2, res2) => {
+        results.push({ target: 'wss://web.whatsapp.com/ws/chat', type: 'WebSocket', status: 'UNEXPECTED_RESPONSE', httpStatus: res2.statusCode, time: Date.now() - start });
+        resolve();
+      });
+      setTimeout(() => {
+        if (ws.readyState !== ws.OPEN && ws.readyState !== ws.CLOSED) {
+          ws.close();
+          results.push({ target: 'wss://web.whatsapp.com/ws/chat', type: 'WebSocket', status: 'TIMEOUT', time: Date.now() - start });
+          resolve();
+        }
+      }, 12000);
+    } catch (e) {
+      results.push({ target: 'wss://web.whatsapp.com/ws/chat', type: 'WebSocket', status: 'EXCEPTION', error: e.message, time: Date.now() - start });
+      resolve();
+    }
+  });
   await Promise.all([
     check('web.whatsapp.com'),
     check('raw.githubusercontent.com'),
     check('ws.whatsapp.net'),
-    check('google.com')
+    check('google.com'),
+    checkWs()
   ]);
   res.json({ success: true, timestamp: new Date().toISOString(), results });
 });
