@@ -673,7 +673,7 @@ const waitForSessionQr = async (sessionId, io, timeoutMs = 12000) => {
   }
 
   if (session.qr) {
-    return { qr: session.qr, status: session.status || 'connecting' };
+    return { qr: session.qr, status: session.status === 'connected' ? 'connected' : 'connecting' };
   }
 
   const sock = sessions.get(sessionId);
@@ -690,13 +690,17 @@ const waitForSessionQr = async (sessionId, io, timeoutMs = 12000) => {
     session = await Session.findOne({ sessionId }).select('qr status');
     if (!session) return null;
     if (session.qr || session.status === 'connected') {
-      return { qr: session.qr || '', status: session.status || 'connecting' };
+      const status = session.status === 'connected' ? 'connected' : 'connecting';
+      return { qr: session.qr || '', status };
     }
   }
 
   session = await Session.findOne({ sessionId }).select('qr status');
   if (!session) return null;
-  return { qr: session.qr || '', status: session.status || 'connecting' };
+  return {
+    qr: session.qr || '',
+    status: session.qr && session.status !== 'connected' ? 'connecting' : (session.status || 'connecting')
+  };
 };
 
 const removeSession = async (sessionId) => {

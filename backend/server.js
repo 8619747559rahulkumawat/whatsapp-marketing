@@ -231,7 +231,8 @@ io.on('connection', (socket) => {
         socket.emit('qr:generated', { sessionId, qr: session.qr });
       }
       if (session?.status) {
-        socket.emit('session:update', { sessionId, status: session.status, phone: session.phone || '' });
+        const status = session.qr && session.status !== 'connected' ? 'connecting' : session.status;
+        socket.emit('session:update', { sessionId, status, phone: session.phone || '' });
       }
     } catch (err) {
       console.error(`join:session ${sessionId} error:`, err.message);

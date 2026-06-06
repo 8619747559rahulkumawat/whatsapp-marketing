@@ -21,6 +21,8 @@ exports.getSessions = async (req, res) => {
         session.status = 'connected';
       } else if (sock) {
         session.status = 'connecting';
+      } else if (session.qr && session.status !== 'connected') {
+        session.status = 'connecting';
       }
       // else keep DB status as-is (disconnected, connecting, etc.)
     }
