@@ -222,15 +222,16 @@ const connectSession = async (sessionId, io) => {
       auth: state,
       browser: Browsers.macOS('Chrome'),
       logger: pino({ level: 'warn' }),
+      printQRInTerminal: true,
       markOnlineOnConnect: false,
       syncFullHistory: false,
       generateHighQualityLinkPreview: false,
       mobile: false,
       version,
       keepAliveIntervalMs: 10000,
-      connectTimeoutMs: 120000,
-      defaultQueryTimeoutMs: 300000,
-      maxRetries: 0,
+      connectTimeoutMs: 60000,
+      defaultQueryTimeoutMs: 120000,
+      maxRetries: 2,
       emitOwnEvents: true
     });
 
@@ -1106,15 +1107,16 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
       auth: state,
       browser: Browsers.macOS('Chrome'),
       logger: pino({ level: 'warn' }),
+      printQRInTerminal: true,
       markOnlineOnConnect: false,
       syncFullHistory: false,
       generateHighQualityLinkPreview: false,
       mobile: false,
       version,
       keepAliveIntervalMs: 10000,
-      connectTimeoutMs: 120000,
-      defaultQueryTimeoutMs: 300000,
-      maxRetries: 0,
+      connectTimeoutMs: 60000,
+      defaultQueryTimeoutMs: 120000,
+      maxRetries: 2,
       emitOwnEvents: true
     });
 

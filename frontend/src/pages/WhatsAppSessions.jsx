@@ -18,6 +18,7 @@ export default function WhatsAppSessions() {
   const [pairingCode, setPairingCode] = useState('');
   const [pairingLoading, setPairingLoading] = useState(false);
   
+  const [qrError, setQrError] = useState(null);
   // Sockets aur timers ke liye Refs (Anti-leak)
   const socketRef = useRef(null);
   const qrTimerRef = useRef(null);
@@ -105,6 +106,7 @@ export default function WhatsAppSessions() {
         connecting.forEach(s => {
           API.get(`/sessions/${s.sessionId}/qr`).then(({ data }) => {
             if (data.qr) {
+              setQrError(null);
               setSessions(inner => inner.map(x =>
                 x.sessionId === s.sessionId ? { ...x, qrCode: data.qr, qr: data.qr, status: data.status } : x
               ));
@@ -137,11 +139,15 @@ export default function WhatsAppSessions() {
   };
 
   const fetchQrWithRetry = async (id, attempts = 3) => {
+    setQrError(null);
     for (let attempt = 0; attempt < attempts; attempt++) {
       try {
         const { data } = await API.get(`/sessions/${id}/qr`);
         applyQrState(id, data);
-        if (data.qr || data.status === 'connected') return data;
+        if (data.qr || data.status === 'connected') {
+          setQrError(null);
+          return data;
+        }
       } catch (error) {
         console.error('Error fetching QR:', error);
       }
@@ -149,6 +155,7 @@ export default function WhatsAppSessions() {
         await new Promise(resolve => setTimeout(resolve, 3000));
       }
     }
+    setQrError(id);
     return null;
   };
 
@@ -375,6 +382,13 @@ export default function WhatsAppSessions() {
                   {session.status === 'connecting' ? 'Connecting...' : session.status}
                 </span>
               </div>
+
+              {qrError === session.sessionId && !session.qrCode && !session.qr && session.status !== 'connected' && (
+                <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-300">
+                  <p className="font-medium mb-1">QR not received</p>
+                  <p className="text-xs text-red-400/80">Server could not connect to WhatsApp servers. Make sure the server can reach WhatsApp Web (wss://web.whatsapp.com). If on Render/VPS, check firewall settings.</p>
+                </div>
+              )}
 
               {(session.status === 'connecting' && (session.qrCode || session.qr)) && (
                 <div className="mb-4">

@@ -3,7 +3,7 @@ import axiosRetry from 'axios-retry';
 
 const API = axios.create({
   baseURL: '/api',
-  timeout: 15000
+  timeout: 35000
 });
 
 axiosRetry(API, {
