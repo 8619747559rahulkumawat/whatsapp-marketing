@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { default: makeWASocket, DisconnectReason, useMultiFileAuthState, Browsers, fetchLatestBaileysVersion, downloadMediaMessage, extractMessageContent, getContentType, makeInMemoryStore } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, DisconnectReason, useMultiFileAuthState, Browsers, fetchLatestBaileysVersion, fetchLatestWaWebVersion, downloadMediaMessage, extractMessageContent, getContentType, makeInMemoryStore } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
@@ -7,6 +7,47 @@ const crypto = require('crypto');
 const Session = require('../models/Session');
 const pino = require('pino');
 const { formatPhoneNumber } = require('../utils/helpers');
+
+// Connectivity check on load
+const https = require('https');
+const dns = require('dns');
+const checkConnectivity = () => {
+  const targets = [
+    { name: 'web.whatsapp.com', type: 'https' },
+    { name: 'raw.githubusercontent.com', type: 'https' },
+    { name: 'ws.whatsapp.net', type: 'https' },
+  ];
+  targets.forEach(({ name }) => {
+    dns.resolve(name, (err) => {
+      if (err) console.warn(`[Connectivity] DNS FAILED for ${name}:`, err.code);
+      else {
+        const req = https.get(`https://${name}/`, { timeout: 8000 }, (res) => {
+          console.log(`[Connectivity] ${name} reachable (status ${res.statusCode})`);
+          res.destroy();
+        });
+        req.on('error', (e) => console.warn(`[Connectivity] ${name} HTTPS FAILED:`, e.message));
+        req.on('timeout', () => { req.destroy(); console.warn(`[Connectivity] ${name} HTTPS TIMEOUT`); });
+      }
+    });
+  });
+  // Check WhatsApp Web service worker (used for version detection)
+  dns.resolve('web.whatsapp.com', (err) => {
+    if (!err) {
+      const req = https.get('https://web.whatsapp.com/sw.js', { timeout: 8000 }, (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          const match = data.match(/client_revision["']?\s*:\s*(\d+)/);
+          if (match) console.log(`[Connectivity] WA Web sw.js client_revision: ${match[1]}`);
+          else console.warn(`[Connectivity] Could not extract client_revision from sw.js`);
+        });
+      });
+      req.on('error', (e) => console.warn(`[Connectivity] sw.js fetch FAILED:`, e.message));
+      req.on('timeout', () => { req.destroy(); console.warn(`[Connectivity] sw.js fetch TIMEOUT`); });
+    }
+  });
+};
+checkConnectivity();
 
 const sessions = new Map();
 const sessionsContactMap = new Map();
@@ -129,13 +170,26 @@ const getBaileysVersion = async () => {
   try {
     const { version } = await fetchLatestBaileysVersion();
     cachedBaileysVersion = version;
+    console.log(`[Baileys] Using version from fetchLatestBaileysVersion:`, version);
     return version;
   } catch (err) {
-    console.error('[Baileys] Failed to fetch latest version:', err.message);
-    const fallback = [2, 3000, 1035194821];
-    cachedBaileysVersion = fallback;
-    return fallback;
+    console.error('[Baileys] fetchLatestBaileysVersion failed:', err.message);
   }
+  try {
+    const { version, isLatest } = await fetchLatestWaWebVersion();
+    if (isLatest) {
+      cachedBaileysVersion = version;
+      console.log(`[Baileys] Using version from fetchLatestWaWebVersion:`, version);
+      return version;
+    }
+    console.error('[Baileys] fetchLatestWaWebVersion returned stale version');
+  } catch (err) {
+    console.error('[Baileys] fetchLatestWaWebVersion failed:', err.message);
+  }
+  const fallback = [2, 3000, 1035194821];
+  cachedBaileysVersion = fallback;
+  console.warn(`[Baileys] Using fallback version:`, fallback);
+  return fallback;
 };
 
 const getSessionDir = (sessionId) => {

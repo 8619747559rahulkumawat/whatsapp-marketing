@@ -7,6 +7,8 @@ const { Server } = require('socket.io');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
+const dns = require('dns');
+const https = require('https');
 
 const jwt = require('jsonwebtoken');
 const errorHandler = require('./middleware/errorHandler');
@@ -96,6 +98,30 @@ app.get('/api/health', (req, res) => {
       lastError: dbState.lastError
     }
   });
+});
+
+app.get('/api/debug/connectivity', async (req, res) => {
+  const results = [];
+  const check = (name) => new Promise((resolve) => {
+    const start = Date.now();
+    dns.resolve(name, (dnsErr) => {
+      if (dnsErr) { results.push({ target: name, dns: 'FAIL', dnsError: dnsErr.code, time: Date.now() - start }); resolve(); return; }
+      const req = https.get(`https://${name}/`, { timeout: 10000 }, (r) => {
+        results.push({ target: name, dns: 'OK', https: r.statusCode, time: Date.now() - start });
+        r.destroy();
+        resolve();
+      });
+      req.on('error', (e) => { results.push({ target: name, dns: 'OK', https: 'FAIL', httpsError: e.message, time: Date.now() - start }); resolve(); });
+      req.on('timeout', () => { req.destroy(); results.push({ target: name, dns: 'OK', https: 'TIMEOUT', time: Date.now() - start }); resolve(); });
+    });
+  });
+  await Promise.all([
+    check('web.whatsapp.com'),
+    check('raw.githubusercontent.com'),
+    check('ws.whatsapp.net'),
+    check('google.com')
+  ]);
+  res.json({ success: true, timestamp: new Date().toISOString(), results });
 });
 
 app.use('/api/', limiter);
