@@ -243,7 +243,7 @@ app.get('/qr/:id', async (req, res) => {
     }
     const session = await Session.findOne({ sessionId: req.params.id });
     if (!session) return res.status(404).send('Session not found');
-    const qrState = await whatsappService.waitForSessionQr(req.params.id, io, 30000);
+    const qrState = await whatsappService.waitForSessionQr(req.params.id, io);
     const rawQrData = String(qrState?.qr || session.qr || '');
     const qrData = rawQrData.startsWith('data:image/') ? escapeHtml(rawQrData) : '';
     const sessionName = escapeHtml(session.name || 'WhatsApp Session');

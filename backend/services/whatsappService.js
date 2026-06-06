@@ -283,7 +283,7 @@ const connectSession = async (sessionId, io) => {
       mobile: false,
       version,
       keepAliveIntervalMs: 10000,
-      connectTimeoutMs: 60000,
+      connectTimeoutMs: 20000,
       defaultQueryTimeoutMs: 120000,
       maxRetries: 2,
       emitOwnEvents: true
@@ -745,7 +745,7 @@ const disconnectSession = async (sessionId) => {
   await Session.findOneAndUpdate({ sessionId }, { status: 'disconnected', qrCode: '', qr: '' });
 };
 
-const waitForSessionQr = async (sessionId, io, timeoutMs = 30000) => {
+const waitForSessionQr = async (sessionId, io, timeoutMs = 15000) => {
   const eventIo = io || globalIo;
   let session = await Session.findOne({ sessionId });
   if (!session) return null;
@@ -1182,7 +1182,7 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
       mobile: false,
       version,
       keepAliveIntervalMs: 10000,
-      connectTimeoutMs: 60000,
+      connectTimeoutMs: 20000,
       defaultQueryTimeoutMs: 120000,
       maxRetries: 2,
       emitOwnEvents: true
