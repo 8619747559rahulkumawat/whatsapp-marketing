@@ -15,12 +15,13 @@ const reconnectTimers = new Map();
 const reconnectAttempts = new Map();
 const healthCheckers = new Map();
 const healthFailures = new Map();
-const connectingSessions = new Set();
+const connectingSessions = new Map(); // sessionId -> startTime (Date.now())
 const reconnectPromises = new Map();
 const MAX_RECONNECT_DELAY = 60000;
 const MAX_RECONNECT_ATTEMPTS = 30;
 const RECONNECT_POLL_TIMEOUT = 60000;
 const RECONNECT_POLL_INTERVAL = 1000;
+const CONNECTION_STALE_TIMEOUT = 45000; // 45s max for a connection attempt
 let cachedBaileysVersion = null;
 let globalIo = null;
 
@@ -129,8 +130,11 @@ const getBaileysVersion = async () => {
     const { version } = await fetchLatestBaileysVersion();
     cachedBaileysVersion = version;
     return version;
-  } catch {
-    return [2, 3000, 1035194821];
+  } catch (err) {
+    console.error('[Baileys] Failed to fetch latest version:', err.message);
+    const fallback = [2, 3000, 1035194821];
+    cachedBaileysVersion = fallback;
+    return fallback;
   }
 };
 
@@ -184,8 +188,14 @@ const cleanupSession = (sessionId) => {
 };
 
 const connectSession = async (sessionId, io) => {
-  if (connectingSessions.has(sessionId)) return;
-  connectingSessions.add(sessionId);
+  // Check for stale connection attempts
+  if (connectingSessions.has(sessionId)) {
+    const startedAt = connectingSessions.get(sessionId);
+    if (Date.now() - startedAt < CONNECTION_STALE_TIMEOUT) return;
+    console.log(`[Baileys] Session ${sessionId} connection attempt stale (${Date.now() - startedAt}ms), restarting...`);
+    connectingSessions.delete(sessionId);
+  }
+  connectingSessions.set(sessionId, Date.now());
   if (io) globalIo = io;
   try {
     cleanupSession(sessionId);
@@ -288,7 +298,7 @@ const connectSession = async (sessionId, io) => {
           if (c.id) existing[c.id] = existing[c.id] ? { ...existing[c.id], ...c } : c;
         }
         fs.writeFileSync(contactFile, JSON.stringify(existing));
-      } catch (e) { /* ignore */ }
+      } catch (e) { console.error('[Baileys] contacts.update persist error:', e.message); }
     });
 
     const session = await Session.findOne({ sessionId });
@@ -356,7 +366,7 @@ const connectSession = async (sessionId, io) => {
                 fs.writeFileSync(cFile, JSON.stringify(existing));
                 console.log(`[Baileys] Populated ${entries.length} contacts for ${sessionId} from sock.contacts`);
               }
-            } catch (e) { /* ignore */ }
+            } catch (e) { console.error('[Baileys] Contact population error:', e.message); }
           }, 5000);
 
           if (!healthCheckers.has(sessionId)) {
@@ -657,13 +667,24 @@ const connectSession = async (sessionId, io) => {
   }
 };
 
+// Clean stale connection locks periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [sessionId, startedAt] of connectingSessions) {
+    if (now - startedAt > CONNECTION_STALE_TIMEOUT) {
+      console.log(`[Baileys] Cleaning stale connection lock for ${sessionId} (${now - startedAt}ms old)`);
+      connectingSessions.delete(sessionId);
+    }
+  }
+}, 30000);
+
 const disconnectSession = async (sessionId) => {
   cleanupSession(sessionId);
   reconnectAttempts.delete(sessionId);
   await Session.findOneAndUpdate({ sessionId }, { status: 'disconnected', qrCode: '', qr: '' });
 };
 
-const waitForSessionQr = async (sessionId, io, timeoutMs = 12000) => {
+const waitForSessionQr = async (sessionId, io, timeoutMs = 30000) => {
   const eventIo = io || globalIo;
   let session = await Session.findOne({ sessionId });
   if (!session) return null;
@@ -677,7 +698,13 @@ const waitForSessionQr = async (sessionId, io, timeoutMs = 12000) => {
   }
 
   const sock = sessions.get(sessionId);
-  if (!sock?.user && !connectingSessions.has(sessionId)) {
+  const isConnecting = connectingSessions.has(sessionId);
+  const isStale = isConnecting && (Date.now() - connectingSessions.get(sessionId) > CONNECTION_STALE_TIMEOUT);
+  if (!sock?.user && (!isConnecting || isStale)) {
+    if (isStale) {
+      console.log(`[Baileys] ${sessionId} connection attempt stale, restarting...`);
+      connectingSessions.delete(sessionId);
+    }
     await Session.findOneAndUpdate({ sessionId }, { status: 'connecting' }).catch(() => {});
     connectSession(sessionId, eventIo).catch(err => {
       console.error(`[Baileys] ${sessionId} QR connect error:`, err.message);
@@ -1020,11 +1047,10 @@ const getAllContacts = async (sessionId) => {
           const loadedMap = new Map(Object.entries(persisted));
           if (loadedMap.size > 0) cmap = loadedMap;
         }
-      } catch (e) { /* ignore */ }
+      } catch (e) { console.error('[Baileys] Contact file load error:', e.message); }
     }
 
     if (!cmap || cmap.size === 0) {
-      // Fallback: try in-memory store (survives reconnects, loaded from disk)
       try {
         const store = sessionsStore.get(sessionId);
         if (store && store.contacts) {
@@ -1039,7 +1065,7 @@ const getAllContacts = async (sessionId) => {
           }
           if (entries.length > 0) cmap = new Map(entries);
         }
-      } catch (e) { /* ignore store fallback error */ }
+      } catch (e) { console.error('[Baileys] Store contact fallback error:', e.message); }
     }
 
     if (!cmap || cmap.size === 0) return [];
@@ -1145,7 +1171,7 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
         const existing = fs.existsSync(contactFile) ? JSON.parse(fs.readFileSync(contactFile, 'utf8')) : {};
         for (const c of contacts) { if (c.id) existing[c.id] = existing[c.id] ? { ...existing[c.id], ...c } : c; }
         fs.writeFileSync(contactFile, JSON.stringify(existing));
-      } catch (e) { /* ignore */ }
+      } catch (e) { console.error('[Baileys] Pairing contacts.update persist error:', e.message); }
     });
 
     const sessionDoc = await Session.findOne({ sessionId });

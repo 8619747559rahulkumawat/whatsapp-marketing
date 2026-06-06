@@ -136,7 +136,7 @@ export default function WhatsAppSessions() {
     ));
   };
 
-  const fetchQrWithRetry = async (id, attempts = 4) => {
+  const fetchQrWithRetry = async (id, attempts = 3) => {
     for (let attempt = 0; attempt < attempts; attempt++) {
       try {
         const { data } = await API.get(`/sessions/${id}/qr`);
@@ -146,7 +146,7 @@ export default function WhatsAppSessions() {
         console.error('Error fetching QR:', error);
       }
       if (attempt < attempts - 1) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
     }
     return null;

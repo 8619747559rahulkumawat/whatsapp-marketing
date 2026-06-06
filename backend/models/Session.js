@@ -14,6 +14,7 @@ const sessionSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true },
   lastSeen: { type: Date },
   qr: { type: String, default: '' },
+  qrCode: { type: String, default: '' },
   me: { type: mongoose.Schema.Types.Mixed, default: null },
   phone: { type: String, default: '' },
   battery: { type: String, default: '' },
