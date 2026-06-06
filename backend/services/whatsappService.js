@@ -198,6 +198,12 @@ const connectSession = async (sessionId, io) => {
   connectingSessions.set(sessionId, Date.now());
   if (io) globalIo = io;
   try {
+    // Fetch session FIRST so it's available for event handlers (before any awaits after makeWASocket)
+    const session = await Session.findOne({ sessionId });
+    if (!session) {
+      throw new Error('Session not found in database');
+    }
+
     cleanupSession(sessionId);
 
     const sessionDir = getSessionDir(sessionId);
@@ -241,72 +247,8 @@ const connectSession = async (sessionId, io) => {
     store.bind(sock.ev);
     sessionsStore.set(sessionId, store);
 
-    sock.ev.on('messaging-history.set', ({ contacts }) => {
-      if (contacts && contacts.length > 0) {
-        console.log(`[Baileys] History set for ${sessionId}: ${contacts.length} contacts`);
-        const cmap = sessionsContactMap.get(sessionId);
-        if (cmap) {
-          for (const c of contacts) {
-            if (c.id) cmap.set(c.id, c);
-          }
-        }
-        try {
-          const contactFile = path.join(getSessionDir(sessionId), 'contacts.json');
-          const existing = fs.existsSync(contactFile) ? JSON.parse(fs.readFileSync(contactFile, 'utf8')) : {};
-          for (const c of contacts) {
-            if (c.id) existing[c.id] = { ...existing[c.id], ...c };
-          }
-          fs.writeFileSync(contactFile, JSON.stringify(existing));
-          try { store.writeToFile(storePath); } catch (err) { console.error("WhatsApp Error:", err); }
-        } catch (e) { console.error('[Baileys] History contacts persist error:', e.message); }
-      }
-    });
-
-    sock.ev.on('contacts.upsert', (contacts) => {
-      console.log(`[Baileys] Contacts upsert for ${sessionId}: ${contacts?.length} contacts`);
-      const cmap = sessionsContactMap.get(sessionId);
-      if (cmap) {
-        for (const c of contacts) {
-          if (c.id) cmap.set(c.id, c);
-        }
-      }
-      try {
-        const contactFile = path.join(getSessionDir(sessionId), 'contacts.json');
-        const existing = fs.existsSync(contactFile) ? JSON.parse(fs.readFileSync(contactFile, 'utf8')) : {};
-        for (const c of contacts) {
-          if (c.id) existing[c.id] = c;
-        }
-        fs.writeFileSync(contactFile, JSON.stringify(existing));
-        console.log(`[Baileys] Saved ${Object.keys(existing).length} contacts to ${contactFile}`);
-        try { store.writeToFile(storePath); } catch (e) { console.error('[Baileys] Store write error:', e.message); }
-      } catch (e) { console.error('[Baileys] Contact persist error:', e.message); }
-    });
-
-    sock.ev.on('contacts.update', (contacts) => {
-      const cmap = sessionsContactMap.get(sessionId);
-      if (cmap) {
-        for (const c of contacts) {
-          if (c.id) {
-            cmap.set(c.id, cmap.has(c.id) ? { ...cmap.get(c.id), ...c } : c);
-          }
-        }
-      }
-      try {
-        const contactFile = path.join(getSessionDir(sessionId), 'contacts.json');
-        const existing = fs.existsSync(contactFile) ? JSON.parse(fs.readFileSync(contactFile, 'utf8')) : {};
-        for (const c of contacts) {
-          if (c.id) existing[c.id] = existing[c.id] ? { ...existing[c.id], ...c } : c;
-        }
-        fs.writeFileSync(contactFile, JSON.stringify(existing));
-      } catch (e) { console.error('[Baileys] contacts.update persist error:', e.message); }
-    });
-
-    const session = await Session.findOne({ sessionId });
-    if (!session) {
-      cleanupSession(sessionId);
-      throw new Error('Session not found in database');
-    }
-
+    // Register connection.update handler IMMEDIATELY after makeWASocket, before any await
+    // This prevents missing QR events that fire during async operations
     sock.ev.on('connection.update', async (update) => {
       try {
         const { connection, lastDisconnect, qr } = update;
@@ -451,6 +393,66 @@ const connectSession = async (sessionId, io) => {
       } catch (err) {
         console.error(`[Baileys] ${sessionId} connection.update error:`, err);
       }
+    });
+
+    sock.ev.on('messaging-history.set', ({ contacts }) => {
+      if (contacts && contacts.length > 0) {
+        console.log(`[Baileys] History set for ${sessionId}: ${contacts.length} contacts`);
+        const cmap = sessionsContactMap.get(sessionId);
+        if (cmap) {
+          for (const c of contacts) {
+            if (c.id) cmap.set(c.id, c);
+          }
+        }
+        try {
+          const contactFile = path.join(getSessionDir(sessionId), 'contacts.json');
+          const existing = fs.existsSync(contactFile) ? JSON.parse(fs.readFileSync(contactFile, 'utf8')) : {};
+          for (const c of contacts) {
+            if (c.id) existing[c.id] = { ...existing[c.id], ...c };
+          }
+          fs.writeFileSync(contactFile, JSON.stringify(existing));
+          try { store.writeToFile(storePath); } catch (err) { console.error("WhatsApp Error:", err); }
+        } catch (e) { console.error('[Baileys] History contacts persist error:', e.message); }
+      }
+    });
+
+    sock.ev.on('contacts.upsert', (contacts) => {
+      console.log(`[Baileys] Contacts upsert for ${sessionId}: ${contacts?.length} contacts`);
+      const cmap = sessionsContactMap.get(sessionId);
+      if (cmap) {
+        for (const c of contacts) {
+          if (c.id) cmap.set(c.id, c);
+        }
+      }
+      try {
+        const contactFile = path.join(getSessionDir(sessionId), 'contacts.json');
+        const existing = fs.existsSync(contactFile) ? JSON.parse(fs.readFileSync(contactFile, 'utf8')) : {};
+        for (const c of contacts) {
+          if (c.id) existing[c.id] = c;
+        }
+        fs.writeFileSync(contactFile, JSON.stringify(existing));
+        console.log(`[Baileys] Saved ${Object.keys(existing).length} contacts to ${contactFile}`);
+        try { store.writeToFile(storePath); } catch (e) { console.error('[Baileys] Store write error:', e.message); }
+      } catch (e) { console.error('[Baileys] Contact persist error:', e.message); }
+    });
+
+    sock.ev.on('contacts.update', (contacts) => {
+      const cmap = sessionsContactMap.get(sessionId);
+      if (cmap) {
+        for (const c of contacts) {
+          if (c.id) {
+            cmap.set(c.id, cmap.has(c.id) ? { ...cmap.get(c.id), ...c } : c);
+          }
+        }
+      }
+      try {
+        const contactFile = path.join(getSessionDir(sessionId), 'contacts.json');
+        const existing = fs.existsSync(contactFile) ? JSON.parse(fs.readFileSync(contactFile, 'utf8')) : {};
+        for (const c of contacts) {
+          if (c.id) existing[c.id] = existing[c.id] ? { ...existing[c.id], ...c } : c;
+        }
+        fs.writeFileSync(contactFile, JSON.stringify(existing));
+      } catch (e) { console.error('[Baileys] contacts.update persist error:', e.message); }
     });
 
     sock.ev.on('messages.upsert', async (m) => {
