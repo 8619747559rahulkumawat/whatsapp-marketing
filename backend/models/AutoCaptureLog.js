@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { addRetentionIndex, truncateText } = require('../utils/dataRetention');
 
 const autoCaptureLogSchema = new mongoose.Schema({
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: true },
@@ -15,5 +16,11 @@ const autoCaptureLogSchema = new mongoose.Schema({
 
 autoCaptureLogSchema.index({ tenantId: 1, contactId: 1 });
 autoCaptureLogSchema.index({ field: 1 });
+addRetentionIndex(autoCaptureLogSchema, 'createdAt', 'AUTO_CAPTURE_LOG', 30);
+
+autoCaptureLogSchema.pre('validate', function trimAutoCapturePayload(next) {
+  this.value = truncateText(this.value, 500);
+  next();
+});
 
 module.exports = mongoose.model('AutoCaptureLog', autoCaptureLogSchema);

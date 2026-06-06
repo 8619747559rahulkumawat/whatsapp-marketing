@@ -4,6 +4,7 @@ const Contact = require('../models/Contact');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const whatsappService = require('../services/whatsappService');
+const whatsappCloudService = require('../services/whatsappCloudService');
 const { formatPhoneNumber } = require('../utils/helpers');
 
 exports.sendMessage = async (req, res) => {
@@ -230,6 +231,80 @@ exports.sendBulkMessage = async (req, res) => {
     const { sessionId, contacts, messageType, message, mediaUrl, delay, buttons } = req.body;
     req.body.contacts = contacts;
     return exports.sendBulk(req, res);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.sendCloudTemplateBatch = async (req, res) => {
+  try {
+    const {
+      contacts,
+      templateName,
+      languageCode,
+      components,
+      batchSize,
+      batchDelayMs,
+      dailyLimit,
+      confirmOptIn
+    } = req.body;
+
+    if (confirmOptIn !== true) {
+      return res.status(400).json({
+        success: false,
+        message: 'confirmOptIn=true is required. Send only to users who gave WhatsApp opt-in permission.'
+      });
+    }
+
+    if (!Array.isArray(contacts) || contacts.length === 0) {
+      return res.status(400).json({ success: false, message: 'contacts array is required' });
+    }
+
+    if (!templateName || typeof templateName !== 'string') {
+      return res.status(400).json({ success: false, message: 'templateName is required' });
+    }
+
+    const job = whatsappCloudService.startTemplateBatch({
+      user: req.user,
+      tenantId: req.tenant?._id || req.user.tenantId,
+      contacts,
+      templateName,
+      languageCode,
+      components,
+      batchSize,
+      batchDelayMs,
+      dailyLimit
+    });
+
+    res.status(202).json({
+      success: true,
+      message: 'WhatsApp Cloud API batch job started',
+      job
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.getCloudBatchStatus = async (req, res) => {
+  try {
+    const job = whatsappCloudService.getJob(req.params.jobId);
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Batch job not found or expired' });
+    }
+    res.json({ success: true, job });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.cancelCloudBatch = async (req, res) => {
+  try {
+    const job = whatsappCloudService.cancelJob(req.params.jobId);
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Batch job not found or expired' });
+    }
+    res.json({ success: true, job });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

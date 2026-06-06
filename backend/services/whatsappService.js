@@ -308,9 +308,10 @@ const connectSession = async (sessionId, io) => {
           session.qr = qrDataUrl;
           session.status = 'connecting';
           await session.save();
-          if (io) {
-            io.to(`session_${sessionId}`).emit('qr:generated', { sessionId, qr: qrDataUrl });
-            io.emit('session:update', { sessionId, status: 'connecting' });
+          const eventIo = io || globalIo;
+          if (eventIo) {
+            eventIo.to(`session_${sessionId}`).emit('qr:generated', { sessionId, qr: qrDataUrl });
+            eventIo.emit('session:update', { sessionId, status: 'connecting' });
           }
         } else if (update.hasQR === false && !update.connection) {
           console.log(`[Baileys] Session ${sessionId} update (no QR yet):`, JSON.stringify(update));
@@ -325,9 +326,10 @@ const connectSession = async (sessionId, io) => {
           await session.save();
           // Defer store persistence to give time for contacts to sync
           setTimeout(() => { try { store.writeToFile(storePath); } catch (err) { console.error("WhatsApp Error:", err); } }, 10000);
-          if (io) {
-            io.to(`session_${sessionId}`).emit('session:connected', { sessionId });
-            io.emit('session:update', { sessionId, status: 'connected', phone: session.phone });
+          const eventIo = io || globalIo;
+          if (eventIo) {
+            eventIo.to(`session_${sessionId}`).emit('session:connected', { sessionId });
+            eventIo.emit('session:update', { sessionId, status: 'connected', phone: session.phone });
           }
           console.log(`[Baileys] Session ${sessionId} connected!`);
 
@@ -382,9 +384,10 @@ const connectSession = async (sessionId, io) => {
             session.qrCode = ''; session.qr = '';
             await session.save();
             reconnectAttempts.delete(sessionId);
-            if (io) {
-              io.to(`session_${sessionId}`).emit('session:disconnected', { sessionId, reason, needsQR: false });
-              io.emit('session:update', { sessionId, status: 'disconnected' });
+            const eventIo = io || globalIo;
+            if (eventIo) {
+              eventIo.to(`session_${sessionId}`).emit('session:disconnected', { sessionId, reason, needsQR: false });
+              eventIo.emit('session:update', { sessionId, status: 'disconnected' });
             }
             console.log(`[Baileys] Session ${sessionId} was replaced by another connection. Credentials kept for reconnect.`);
           } else if (reason === DisconnectReason.loggedOut) {
@@ -404,9 +407,10 @@ const connectSession = async (sessionId, io) => {
               try { fs.unlinkSync(credsPath); } catch (e) { /* ignore */ }
               console.log(`[Baileys] Deleted invalid creds for ${sessionId} - QR re-scan required`);
             }
-            if (io) {
-              io.to(`session_${sessionId}`).emit('session:disconnected', { sessionId, reason, needsQR: true });
-              io.emit('session:update', { sessionId, status: 'disconnected' });
+            const eventIo = io || globalIo;
+            if (eventIo) {
+              eventIo.to(`session_${sessionId}`).emit('session:disconnected', { sessionId, reason, needsQR: true });
+              eventIo.emit('session:update', { sessionId, status: 'disconnected' });
             }
             console.log(`[Baileys] Session ${sessionId} ended (reason: ${reason}), not reconnecting`);
           } else if (currentAttempts >= MAX_RECONNECT_ATTEMPTS) {
@@ -416,9 +420,10 @@ const connectSession = async (sessionId, io) => {
             session.qrCode = ''; session.qr = '';
             await session.save();
             reconnectAttempts.delete(sessionId);
-            if (io) {
-              io.to(`session_${sessionId}`).emit('session:disconnected', { sessionId, reason: 'max_retries' });
-              io.emit('session:update', { sessionId, status: 'disconnected' });
+            const eventIo = io || globalIo;
+            if (eventIo) {
+              eventIo.to(`session_${sessionId}`).emit('session:disconnected', { sessionId, reason: 'max_retries' });
+              eventIo.emit('session:update', { sessionId, status: 'disconnected' });
             }
           } else {
             const currentSock = sessions.get(sessionId);
@@ -656,6 +661,42 @@ const disconnectSession = async (sessionId) => {
   cleanupSession(sessionId);
   reconnectAttempts.delete(sessionId);
   await Session.findOneAndUpdate({ sessionId }, { status: 'disconnected', qrCode: '', qr: '' });
+};
+
+const waitForSessionQr = async (sessionId, io, timeoutMs = 12000) => {
+  const eventIo = io || globalIo;
+  let session = await Session.findOne({ sessionId });
+  if (!session) return null;
+
+  if (session.status === 'connected') {
+    return { qr: '', status: 'connected' };
+  }
+
+  if (session.qr) {
+    return { qr: session.qr, status: session.status || 'connecting' };
+  }
+
+  const sock = sessions.get(sessionId);
+  if (!sock?.user && !connectingSessions.has(sessionId)) {
+    await Session.findOneAndUpdate({ sessionId }, { status: 'connecting' }).catch(() => {});
+    connectSession(sessionId, eventIo).catch(err => {
+      console.error(`[Baileys] ${sessionId} QR connect error:`, err.message);
+    });
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 500));
+    session = await Session.findOne({ sessionId }).select('qr status');
+    if (!session) return null;
+    if (session.qr || session.status === 'connected') {
+      return { qr: session.qr || '', status: session.status || 'connecting' };
+    }
+  }
+
+  session = await Session.findOne({ sessionId }).select('qr status');
+  if (!session) return null;
+  return { qr: session.qr || '', status: session.status || 'connecting' };
 };
 
 const removeSession = async (sessionId) => {
@@ -1141,6 +1182,6 @@ module.exports = {
   connectSession, disconnectSession, removeSession,
   sendTextMessage, sendMediaMessage, sendButtonMessage, sendGroupMessage, getGroups,
   getConnectionStatus, isSessionConnected, isSessionReady, restoreSessions, sessions,
-  fetchProfilePic, fetchContactName, getReadySocket, getAllContacts, createPairingSession,
+  fetchProfilePic, fetchContactName, getReadySocket, getAllContacts, createPairingSession, waitForSessionQr,
   randomDelay
 };

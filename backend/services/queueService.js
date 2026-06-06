@@ -19,6 +19,8 @@ let messageQueue = null;
 let campaignQueue = null;
 let queueEvents = null;
 let campaignQueueEvents = null;
+const fallbackStats = { waiting: 0, active: 0, completed: 0, failed: 0 };
+const fallbackTimers = new Set();
 
 const queueReady = (async () => {
   try {
@@ -46,7 +48,7 @@ const queueReady = (async () => {
     setupWorkers();
     return { messageQueue, campaignQueue };
   } catch (err) {
-    console.warn('Redis unavailable - queue features disabled');
+    console.warn('Redis unavailable - queue features will use direct mode');
     return null;
   }
 })();
@@ -95,6 +97,21 @@ const processCampaignJob = async (job) => {
   }
 };
 
+const runDirectJob = async (name, data, processor) => {
+  const id = `direct_${name}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  fallbackStats.active += 1;
+  try {
+    const returnvalue = await processor({ id, data });
+    fallbackStats.completed += 1;
+    return { id, name, data, returnvalue, mode: 'direct' };
+  } catch (error) {
+    fallbackStats.failed += 1;
+    throw error;
+  } finally {
+    fallbackStats.active = Math.max(0, fallbackStats.active - 1);
+  }
+};
+
 let messageWorker = null;
 let campaignWorker = null;
 
@@ -139,27 +156,42 @@ const setupWorkers = () => {
 // Utility functions to add jobs to queues
 const addMessageJob = async (data) => {
   await queueReady;
-  if (!messageQueue) throw new Error('Redis unavailable - cannot queue message');
+  if (!messageQueue) return runDirectJob('send-message', data, processMessageJob);
   return messageQueue.add('send-message', data);
 };
 
 const addCampaignJob = async (data) => {
   await queueReady;
-  if (!campaignQueue) throw new Error('Redis unavailable - cannot queue campaign');
+  if (!campaignQueue) return runDirectJob('process-campaign', data, processCampaignJob);
   return campaignQueue.add('process-campaign', data);
 };
 
 // Schedule a job for future processing
 const scheduleMessageJob = async (data, delayMs) => {
   await queueReady;
-  if (!messageQueue) throw new Error('Redis unavailable - cannot schedule message');
+  if (!messageQueue) {
+    const id = `direct_delayed_send-message_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    fallbackStats.waiting += 1;
+    const timer = setTimeout(async () => {
+      fallbackTimers.delete(timer);
+      fallbackStats.waiting = Math.max(0, fallbackStats.waiting - 1);
+      try {
+        await runDirectJob('send-message', data, processMessageJob);
+      } catch (error) {
+        console.error(`Direct delayed message job ${id} failed:`, error.message);
+      }
+    }, Math.max(0, delayMs || 0));
+    timer.unref?.();
+    fallbackTimers.add(timer);
+    return { id, name: 'send-message', data, delay: delayMs, mode: 'direct-delayed' };
+  }
   return messageQueue.add('send-message', data, { delay: delayMs });
 };
 
 // Get queue status
 const getQueueStatus = async () => {
   await queueReady;
-  if (!messageQueue) return { waiting: 0, active: 0, completed: 0, failed: 0 };
+  if (!messageQueue) return { ...fallbackStats, mode: 'direct' };
   const [waiting, active, completed, failed] = await Promise.all([
     messageQueue.getWaitCount(),
     messageQueue.getActiveCount(),
@@ -171,6 +203,8 @@ const getQueueStatus = async () => {
 
 // Cleanup function (for graceful shutdown)
 const shutdown = async () => {
+  for (const timer of fallbackTimers) clearTimeout(timer);
+  fallbackTimers.clear();
   if (messageWorker) await messageWorker.close();
   if (campaignWorker) await campaignWorker.close();
   if (messageQueue) await messageQueue.close();

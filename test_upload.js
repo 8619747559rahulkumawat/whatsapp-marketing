@@ -2,7 +2,15 @@ const http = require('http');
 const fs = require('fs');
 
 // Login
-const loginData = JSON.stringify({ email: 'admin@digitalsms.biz', password: 'Admin@123' });
+const loginData = JSON.stringify({
+  email: process.env.ADMIN_EMAIL,
+  password: process.env.ADMIN_PASSWORD
+});
+
+if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
+  console.error('Set ADMIN_EMAIL and ADMIN_PASSWORD before running this script.');
+  process.exit(1);
+}
 const loginReq = http.request({
   hostname: 'localhost', port: 5000, path: '/api/auth/login',
   method: 'POST',

@@ -10,6 +10,8 @@ router.delete('/keys/:id', auth, apiController.deleteApiKey);
 
 router.post('/send', apiController.validateApiKey, checkCredits, apiController.apiSendMessage);
 router.post('/send-bulk', apiController.validateApiKey, checkCredits, apiController.apiSendBulk);
+router.post('/cloud-template-batch', apiController.validateApiKey, apiController.apiSendCloudTemplateBatch);
+router.get('/cloud-template-batch/:jobId', apiController.validateApiKey, apiController.apiGetCloudBatchStatus);
 router.post('/contacts', apiController.validateApiKey, apiController.apiCreateContact);
 router.get('/reports', apiController.validateApiKey, apiController.apiGetReports);
 router.post('/webhook', apiController.validateApiKey, apiController.apiWebhook);

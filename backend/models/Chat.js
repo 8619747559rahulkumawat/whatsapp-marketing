@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { addRetentionIndex, truncateText } = require('../utils/dataRetention');
 
 const chatSchema = new mongoose.Schema({
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: true },
@@ -22,5 +23,13 @@ chatSchema.index({ tenantId: 1, senderId: 1, createdAt: -1 });
 chatSchema.index({ tenantId: 1, receiverId: 1, createdAt: -1 });
 chatSchema.index({ tenantId: 1, waPhone: 1 });
 chatSchema.index({ tenantId: 1, read: 1, receiverId: 1 });
+addRetentionIndex(chatSchema, 'createdAt', 'CHAT', 90);
+
+chatSchema.pre('validate', function trimChatPayload(next) {
+  this.message = truncateText(this.message, 2000);
+  this.mediaUrl = truncateText(this.mediaUrl, 1000);
+  this.profilePic = truncateText(this.profilePic, 1000);
+  next();
+});
 
 module.exports = mongoose.model('Chat', chatSchema);

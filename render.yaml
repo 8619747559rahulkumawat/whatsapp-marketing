@@ -12,15 +12,15 @@ services:
       - key: PORT
         value: "10000"
       - key: MONGODB_URI
-        value: mongodb+srv://rsendix_admin:RSendixPro2026%21@cluster0.exeq63f.mongodb.net/whatsapp_marketing?retryWrites=true&w=majority
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 7d
       - key: ADMIN_EMAIL
-        value: admin@digitalsms.biz
+        sync: false
       - key: ADMIN_PASSWORD
-        value: Admin@123
+        sync: false
       - key: CORS_ORIGIN
         value: https://whatsapp-marketing-c1qj.onrender.com
       - key: CLEANUP_ENABLED

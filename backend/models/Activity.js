@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { addRetentionIndex, compactObject, truncateText } = require('../utils/dataRetention');
 
 const activitySchema = new mongoose.Schema({
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: true },
@@ -19,5 +20,12 @@ const activitySchema = new mongoose.Schema({
 activitySchema.index({ tenantId: 1, contactId: 1 });
 activitySchema.index({ tenantId: 1, dealId: 1 });
 activitySchema.index({ tenantId: 1, userId: 1 });
+addRetentionIndex(activitySchema, 'createdAt', 'ACTIVITY', 0);
+
+activitySchema.pre('validate', function trimActivityPayload(next) {
+  this.description = truncateText(this.description, 1000);
+  this.metadata = compactObject(this.metadata, 3000);
+  next();
+});
 
 module.exports = mongoose.model('Activity', activitySchema);

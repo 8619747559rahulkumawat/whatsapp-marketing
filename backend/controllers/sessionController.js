@@ -74,7 +74,12 @@ exports.getSessionQr = async (req, res) => {
     if (!session) {
       return res.status(404).json({ success: false, message: 'Session not found' });
     }
-    res.json({ success: true, qr: session.qr || session.qrCode || '', status: session.status });
+    const qrState = await whatsappService.waitForSessionQr(req.params.id, req.app.get('io'));
+    res.json({
+      success: true,
+      qr: qrState?.qr || session.qr || '',
+      status: qrState?.status || session.status
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

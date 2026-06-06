@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import API from '../utils/api';
 import { connectSocket, onReconnect } from '../utils/socket';
 import { FaWhatsapp, FaPlus, FaTrash, FaRedo, FaQrcode, FaMobileAlt, FaCheckCircle, FaUser, FaPhone, FaVideo, FaPhoneSlash, FaLink } from 'react-icons/fa';
-import { HiOutlineStop, HiOutlineRefresh } from 'react-icons/hi';
+import { HiOutlineStop, HiOutlineRefresh, HiOutlineDownload } from 'react-icons/hi';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function WhatsAppSessions() {
@@ -128,6 +128,30 @@ export default function WhatsAppSessions() {
     };
   }, []);
 
+  const applyQrState = (id, data) => {
+    setSessions(prev => prev.map(s =>
+      s.sessionId === id
+        ? { ...s, qrCode: data.qr || s.qrCode || '', qr: data.qr || s.qr || '', status: data.status || s.status }
+        : s
+    ));
+  };
+
+  const fetchQrWithRetry = async (id, attempts = 4) => {
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      try {
+        const { data } = await API.get(`/sessions/${id}/qr`);
+        applyQrState(id, data);
+        if (data.qr || data.status === 'connected') return data;
+      } catch (error) {
+        console.error('Error fetching QR:', error);
+      }
+      if (attempt < attempts - 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+    return null;
+  };
+
   const createSession = async () => {
     try {
       const { data } = await API.post('/sessions', { name: sessionName });
@@ -137,6 +161,10 @@ export default function WhatsAppSessions() {
       
       if (socketRef.current) {
         socketRef.current.emit('join:session', data.session.sessionId);
+      }
+
+      if (connectMode === 'qr') {
+        fetchQrWithRetry(data.session.sessionId).catch(() => {});
       }
 
       // If pairing mode selected, immediately open pairing code modal
@@ -172,6 +200,7 @@ export default function WhatsAppSessions() {
       setSessions(prev => prev.map(s =>
         s.sessionId === id ? { ...s, status: 'connecting' } : s
       ));
+      fetchQrWithRetry(id).catch(() => {});
     } catch (error) {
       console.error('Error reconnecting session:', error);
       alert('Failed to reconnect session: ' + (error.response?.data?.message || error.message));
@@ -191,10 +220,7 @@ export default function WhatsAppSessions() {
 
   const refreshQr = async (id) => {
     try {
-      const { data } = await API.get(`/sessions/${id}/qr`);
-      setSessions(prev => prev.map(s =>
-        s.sessionId === id ? { ...s, qrCode: data.qr, qr: data.qr, status: data.status } : s
-      ));
+      await fetchQrWithRetry(id, 2);
     } catch (error) {
       console.error('Error refreshing QR:', error);
     }

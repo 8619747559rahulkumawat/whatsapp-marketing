@@ -31,6 +31,5 @@ const webFormSchema = new mongoose.Schema({
 });
 
 webFormSchema.index({ tenantId: 1, userId: 1 });
-webFormSchema.index({ slug: 1 }, { unique: true });
 
 module.exports = mongoose.model('WebForm', webFormSchema);

@@ -10,3 +10,4 @@ fullstack-todo/backend/node_modules/
 fullstack-todo/frontend/node_modules/
 *.log
 *.err
+backend/*.txt

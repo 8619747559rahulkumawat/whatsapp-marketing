@@ -17,7 +17,7 @@ echo  RSendix.pro Started!
 echo  Backend:  http://localhost:5000
 echo  Frontend: http://localhost:3000
 echo.
-echo  Super Admin: admin@digitalsms.biz / Admin@123
+echo  Super Admin: use ADMIN_EMAIL and ADMIN_PASSWORD from backend\.env
 echo ========================================
 echo.
 pause

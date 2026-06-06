@@ -34,7 +34,7 @@ const queueReady = (async () => {
     });
     return scheduledQueue;
   } catch (err) {
-    console.warn('Redis unavailable - scheduler disabled');
+    console.warn('Redis unavailable - scheduler will use direct mode');
     return null;
   }
 })();
@@ -49,12 +49,10 @@ const startScheduler = async (io) => {
 
   if (checkTimer) return;
   if (!scheduledQueue) {
-    console.log('Redis unavailable - scheduler disabled');
-    return;
+    console.log('Redis unavailable - scheduler running in direct mode');
   }
 
   checkTimer = setInterval(async () => {
-    if (!scheduledQueue) return;
     try {
       const now = new Date();
       const dueCampaigns = await ScheduledCampaign.find({
@@ -64,23 +62,9 @@ const startScheduler = async (io) => {
 
       for (const sc of dueCampaigns) {
         try {
-          await scheduledQueue.add('process-scheduled', {
-            scheduledCampaignId: sc._id.toString(),
-            campaignId: sc.campaignId?._id?.toString(),
-            tenantId: sc.tenantId?.toString(),
-            userId: sc.userId?.toString()
-          }, {
-            jobId: `sc_${sc._id}`,
-            removeOnComplete: true
-          });
-
-          await ScheduledCampaign.findByIdAndUpdate(sc._id, {
-            status: 'running',
-            lastRunAt: now,
-            queueJobId: `sc_${sc._id}`
-          });
+          await queueOrProcessScheduledCampaign(sc, now, `sc_${sc._id}`);
         } catch (err) {
-          console.error(`Error queuing scheduled campaign ${sc._id}:`, err.message);
+          console.error(`Error processing scheduled campaign ${sc._id}:`, err.message);
           await ScheduledCampaign.findByIdAndUpdate(sc._id, { status: 'failed' });
         }
       }
@@ -93,39 +77,72 @@ const startScheduler = async (io) => {
   setupRecurringCrons();
 };
 
+const getCampaignId = (sc) => sc.campaignId?._id?.toString?.() || sc.campaignId?.toString?.();
+
+const completeScheduledCampaign = async (scheduledCampaignId, campaignId) => {
+  if (!campaignId) throw new Error('No campaignId in scheduled campaign');
+
+  const io = getIoInstance();
+  await campaignService.processCampaign(campaignId, io);
+
+  const sc = await ScheduledCampaign.findById(scheduledCampaignId);
+  if (sc) {
+    sc.totalRuns += 1;
+    if (sc.scheduleType === 'once') {
+      sc.status = 'completed';
+    } else {
+      sc.lastRunAt = new Date();
+      sc.nextRunAt = calculateNextRun(sc);
+      sc.status = 'pending';
+      if (sc.nextRunAt) {
+        const campaign = await require('../models/Campaign').findById(campaignId);
+        if (campaign) {
+          campaign.status = 'draft';
+          campaign.sentCount = 0;
+          campaign.deliveredCount = 0;
+          campaign.failedCount = 0;
+          await campaign.save();
+        }
+      }
+    }
+    await sc.save();
+  }
+
+  return { success: true, campaignId };
+};
+
+const queueOrProcessScheduledCampaign = async (sc, now, jobId) => {
+  const campaignId = getCampaignId(sc);
+  const update = {
+    status: 'running',
+    lastRunAt: now,
+    queueJobId: scheduledQueue ? jobId : ''
+  };
+
+  if (scheduledQueue) {
+    await scheduledQueue.add('process-scheduled', {
+      scheduledCampaignId: sc._id.toString(),
+      campaignId,
+      tenantId: sc.tenantId?.toString(),
+      userId: sc.userId?.toString()
+    }, {
+      jobId,
+      removeOnComplete: true
+    });
+
+    await ScheduledCampaign.findByIdAndUpdate(sc._id, update);
+    return;
+  }
+
+  await ScheduledCampaign.findByIdAndUpdate(sc._id, update);
+  await completeScheduledCampaign(sc._id.toString(), campaignId);
+};
+
 const setupWorker = () => {
   if (!scheduledQueue) return;
   const worker = new Worker('scheduled-campaigns', async (job) => {
     const { campaignId, scheduledCampaignId } = job.data;
-    if (!campaignId) throw new Error('No campaignId in job');
-
-    const io = getIoInstance();
-    await campaignService.processCampaign(campaignId, io);
-
-    const sc = await ScheduledCampaign.findById(scheduledCampaignId);
-    if (sc) {
-      sc.totalRuns += 1;
-      if (sc.scheduleType === 'once') {
-        sc.status = 'completed';
-      } else {
-        sc.lastRunAt = new Date();
-        sc.nextRunAt = calculateNextRun(sc);
-        sc.status = 'pending';
-        if (sc.nextRunAt) {
-          const campaign = await require('../models/Campaign').findById(campaignId);
-          if (campaign) {
-            campaign.status = 'draft';
-            campaign.sentCount = 0;
-            campaign.deliveredCount = 0;
-            campaign.failedCount = 0;
-            await campaign.save();
-          }
-        }
-      }
-      await sc.save();
-    }
-
-    return { success: true, campaignId };
+    return completeScheduledCampaign(scheduledCampaignId, campaignId);
   }, { connection, concurrency: 3 });
 
   worker.on('failed', async (job, err) => {
@@ -173,7 +190,6 @@ const calculateNextRun = (sc) => {
 };
 
 const setupRecurringCrons = () => {
-  if (!scheduledQueue) return;
   const tasks = {
     'daily': '0 0 * * *',
     'hourly': '0 * * * *',
@@ -191,15 +207,7 @@ const setupRecurringCrons = () => {
           nextRunAt: { $lte: now, $ne: null }
         });
         for (const sc of recurring) {
-          await scheduledQueue.add('process-scheduled', {
-            scheduledCampaignId: sc._id.toString(),
-            campaignId: sc.campaignId?.toString(),
-            tenantId: sc.tenantId?.toString(),
-            userId: sc.userId?.toString()
-          }, { jobId: `sc_recurring_${sc._id}` });
-          sc.status = 'running';
-          sc.lastRunAt = now;
-          await sc.save();
+          await queueOrProcessScheduledCampaign(sc, now, `sc_recurring_${sc._id}`);
         }
       } catch (err) {
         console.error(`Cron ${name} error:`, err.message);
@@ -222,7 +230,6 @@ const stopScheduler = async () => {
 
 const scheduleCampaign = async (campaignId, scheduledAt, scheduleType = 'once', timezone = 'Asia/Kolkata', repeatConfig = {}) => {
   await queueReady;
-  if (!scheduledQueue) throw new Error('Redis not available - scheduling unavailable');
   const campaign = await require('../models/Campaign').findById(campaignId);
   if (!campaign) throw new Error('Campaign not found');
 

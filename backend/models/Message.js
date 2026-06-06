@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { addRetentionIndex, truncateText } = require('../utils/dataRetention');
 
 const messageSchema = new mongoose.Schema({
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: true },
@@ -36,5 +37,13 @@ messageSchema.index({ createdAt: -1 });
 messageSchema.index({ to: 1, userId: 1 });
 messageSchema.index({ waMessageId: 1 });
 messageSchema.index({ sessionId: 1, sentAt: -1 });
+addRetentionIndex(messageSchema, 'createdAt', 'MESSAGE', 180);
+
+messageSchema.pre('validate', function trimMessagePayload(next) {
+  this.content = truncateText(this.content, 2000);
+  this.mediaUrl = truncateText(this.mediaUrl, 1000);
+  this.statusReason = truncateText(this.statusReason, 500);
+  next();
+});
 
 module.exports = mongoose.model('Message', messageSchema);

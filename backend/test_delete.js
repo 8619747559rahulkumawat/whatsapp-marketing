@@ -5,7 +5,15 @@ mongoose.connect('mongodb://localhost:27017/whatsapp-marketing').then(async () =
   const msg = await Chat.findOne({ waPhone: { $exists: true } }).sort({ createdAt: -1 });
   if (!msg) { console.log('No msg found'); process.exit(); return; }
 
-  const body = JSON.stringify({ email: 'admin@digitalsms.biz', password: 'Admin@123' });
+  if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
+    console.error('Set ADMIN_EMAIL and ADMIN_PASSWORD before running this script.');
+    process.exit(1);
+  }
+
+  const body = JSON.stringify({
+    email: process.env.ADMIN_EMAIL,
+    password: process.env.ADMIN_PASSWORD
+  });
   const req = http.request({ hostname: '127.0.0.1', port: 5000, path: '/api/auth/login', method: 'POST', headers: { 'Content-Type': 'application/json' } }, res => {
     let data = '';
     res.on('data', c => data += c);

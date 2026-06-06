@@ -85,6 +85,26 @@ cp .env.example .env
 # Edit .env with your MongoDB URI and other settings
 ```
 
+MongoDB Atlas storage is protected by default with retention windows for noisy data such as chat history, message logs, AI chat, audit logs, read notifications, SMS fallback logs, and group scrape snapshots. Important business data like users, contacts, campaigns, templates, billing, deals, tasks, and settings is not auto-deleted.
+
+Use these optional env values to tune retention:
+
+```env
+DATA_RETENTION_ENABLED=true
+CHAT_RETENTION_DAYS=90
+MESSAGE_RETENTION_DAYS=180
+AI_CHAT_RETENTION_DAYS=30
+AUDIT_LOG_RETENTION_DAYS=180
+AUTO_CAPTURE_LOG_RETENTION_DAYS=30
+SMS_FALLBACK_LOG_RETENTION_DAYS=90
+READ_NOTIFICATION_RETENTION_DAYS=30
+GROUP_SCRAPE_RETENTION_DAYS=30
+GROUP_SCRAPE_MAX_PARTICIPANTS=5000
+GROUP_SCRAPE_MAX_MESSAGES=100
+```
+
+Set any `*_RETENTION_DAYS=0` to keep that collection forever.
+
 ### 5. Start MongoDB
 
 Make sure MongoDB is running locally or update `MONGODB_URI` in `.env` to your MongoDB Atlas URI.
@@ -111,8 +131,8 @@ npm run dev
 
 ### Default Admin Credentials
 
-- **Email**: admin@digitalsms.biz
-- **Password**: Admin@123
+The first admin user is seeded from `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `backend/.env`.
+Use a strong password in production and do not commit real credentials.
 
 ## Project Structure
 
@@ -226,7 +246,77 @@ whatsapp-marketing/
 ### Messages
 - `POST /api/messages/send` - Send message
 - `POST /api/messages/bulk` - Send bulk
+- `POST /api/messages/cloud-template-batch` - Official WhatsApp Cloud API template batch send
+- `GET /api/messages/cloud-template-batch/:jobId` - Check Cloud API batch progress
+- `POST /api/messages/cloud-template-batch/:jobId/cancel` - Cancel a running Cloud API batch
 - `GET /api/messages` - List messages
+
+#### Official WhatsApp Cloud API Batch Send
+
+Set these in `backend/.env`:
+
+```env
+WHATSAPP_CLOUD_ACCESS_TOKEN=your_meta_cloud_api_access_token
+WHATSAPP_CLOUD_PHONE_NUMBER_ID=your_whatsapp_phone_number_id
+WHATSAPP_GRAPH_API_VERSION=v20.0
+```
+
+Start a template batch job:
+
+```bash
+curl -X POST http://localhost:5000/api/messages/cloud-template-batch \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "confirmOptIn": true,
+    "templateName": "hello_world",
+    "languageCode": "en_US",
+    "contacts": ["919999999999", "918888888888"],
+    "batchSize": 100,
+    "batchDelayMs": 120000,
+    "dailyLimit": 5000
+  }'
+```
+
+For templates with variables, pass Meta Cloud API `components`:
+
+```json
+{
+  "components": [
+    {
+      "type": "body",
+      "parameters": [
+        { "type": "text", "text": "Rahul" },
+        { "type": "text", "text": "20% OFF" }
+      ]
+    }
+  ]
+}
+```
+
+Check progress:
+
+```bash
+curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  http://localhost:5000/api/messages/cloud-template-batch/JOB_ID
+```
+
+The same batch sender is also available with an API key:
+
+```bash
+curl -X POST http://localhost:5000/api/api/cloud-template-batch \
+  -H "x-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "confirmOptIn": true,
+    "templateName": "hello_world",
+    "languageCode": "en_US",
+    "contacts": ["919999999999"],
+    "batchSize": 100,
+    "batchDelayMs": 120000,
+    "dailyLimit": 5000
+  }'
+```
 
 ### Contacts
 - `GET /api/contacts` - List contacts
@@ -259,6 +349,8 @@ whatsapp-marketing/
 ### Public API
 - `POST /api/api/send` - Send via API key
 - `POST /api/api/send-bulk` - Bulk via API key
+- `POST /api/api/cloud-template-batch` - Official WhatsApp Cloud API template batch via API key
+- `GET /api/api/cloud-template-batch/:jobId` - Check Cloud API batch progress via API key
 - `POST /api/api/contacts` - Create contact via API
 - `GET /api/api/reports` - Reports via API
 - `POST /api/api/webhook` - Trigger webhook

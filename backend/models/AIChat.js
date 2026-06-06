@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { addRetentionIndex, compactObject, truncateText } = require('../utils/dataRetention');
 
 const aiChatSchema = new mongoose.Schema({
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: true },
@@ -17,5 +18,12 @@ const aiChatSchema = new mongoose.Schema({
 
 aiChatSchema.index({ tenantId: 1, userId: 1, createdAt: -1 });
 aiChatSchema.index({ sessionId: 1 });
+addRetentionIndex(aiChatSchema, 'createdAt', 'AI_CHAT', 30);
+
+aiChatSchema.pre('validate', function trimAIChatPayload(next) {
+  this.content = truncateText(this.content, 4000);
+  this.metadata = compactObject(this.metadata, 3000);
+  next();
+});
 
 module.exports = mongoose.model('AIChat', aiChatSchema);

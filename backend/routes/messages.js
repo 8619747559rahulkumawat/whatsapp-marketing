@@ -17,6 +17,9 @@ router.post('/send', messageController.sendMessage);
 router.post('/', messageController.sendMessage);
 router.post('/bulk', messageController.sendBulkMessage);
 router.post('/bulk-with-image', upload.single('file'), messageController.sendBulkWithImage);
+router.post('/cloud-template-batch', messageController.sendCloudTemplateBatch);
+router.get('/cloud-template-batch/:jobId', messageController.getCloudBatchStatus);
+router.post('/cloud-template-batch/:jobId/cancel', messageController.cancelCloudBatch);
 router.put('/:id/status', messageController.updateMessageStatus);
 router.get('/:id', messageController.getMessage);
 

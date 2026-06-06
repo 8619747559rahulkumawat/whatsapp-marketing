@@ -181,10 +181,12 @@ app.get('/qr/:id', async (req, res) => {
     }
     const session = await Session.findOne({ sessionId: req.params.id });
     if (!session) return res.status(404).send('Session not found');
-    const rawQrData = String(session.qr || session.qrCode || '');
+    const qrState = await whatsappService.waitForSessionQr(req.params.id, io, 6000);
+    const rawQrData = String(qrState?.qr || session.qr || '');
     const qrData = rawQrData.startsWith('data:image/') ? escapeHtml(rawQrData) : '';
     const sessionName = escapeHtml(session.name || 'WhatsApp Session');
-    const status = ['connecting', 'connected', 'disconnected'].includes(session.status) ? session.status : 'disconnected';
+    const currentStatus = qrState?.status || session.status;
+    const status = ['connecting', 'connected', 'disconnected'].includes(currentStatus) ? currentStatus : 'disconnected';
     res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Connect WhatsApp — ${sessionName}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f0f1a;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}.card{background:#1a1a2e;border-radius:24px;padding:40px;max-width:420px;width:100%;text-align:center;border:1px solid rgba(255,255,255,.08);box-shadow:0 20px 60px rgba(0,0,0,.5)}h1{font-size:22px;margin-bottom:8px}h2{color:#9ca3af;font-size:14px;font-weight:400;margin-bottom:24px}.qr-box{background:#fff;border-radius:16px;padding:16px;margin-bottom:20px;display:${qrData ? 'block' : 'none'}}.qr-box img{width:100%;max-width:280px;height:auto;display:block;margin:0 auto}.status{display:inline-block;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:500;margin-bottom:20px}.status-connecting{background:rgba(234,179,8,.15);color:#eab308}.status-connected{background:rgba(34,197,94,.15);color:#22c55e}.status-disconnected{background:rgba(107,114,128,.15);color:#6b7280}.steps{text-align:left;background:rgba(255,255,255,.05);border-radius:12px;padding:16px;margin-top:16px}.steps ol{margin:0;padding-left:20px}.steps li{color:#9ca3af;font-size:13px;line-height:1.8}.icon{font-size:48px;margin-bottom:16px}@media(max-width:480px){.card{padding:24px}}</style></head><body><div class="card"><div class="icon">📱</div><h1>${sessionName}</h1><h2>WhatsApp Connection</h2><div class="status status-${status}">${status === 'connected' ? 'Connected' : status === 'connecting' ? 'Awaiting Scan' : 'Disconnected'}</div>${qrData ? `<div class="qr-box"><img src="${qrData}" alt="QR Code"/></div>` : '<p style="color:#6b7280;padding:20px">No QR code available. Please refresh the QR from the dashboard.</p>'}${status !== 'connected' ? `<div class="steps"><ol><li>Open <strong>WhatsApp</strong> on your phone</li><li>Tap <strong>Menu</strong> (3 dots) or <strong>Settings</strong></li><li>Go to <strong>Linked Devices</strong></li><li>Tap <strong>Link a Device</strong></li><li>Scan this <strong>QR code</strong></li></ol></div>` : '<p style="color:#22c55e;font-weight:500">✅ This device is already connected</p>'}</div></body></html>`);
   } catch (err) {
     res.status(500).send('Server error');
@@ -220,9 +222,20 @@ app.use(errorHandler);
 io.on('connection', (socket) => {
   console.log(`Socket connected: ${socket.id}`);
 
-  socket.on('join:session', (sessionId) => {
+  socket.on('join:session', async (sessionId) => {
     if (!sessionId) return;
     socket.join(`session_${sessionId}`);
+    try {
+      const session = await Session.findOne({ sessionId }).select('qr status phone');
+      if (session?.qr) {
+        socket.emit('qr:generated', { sessionId, qr: session.qr });
+      }
+      if (session?.status) {
+        socket.emit('session:update', { sessionId, status: session.status, phone: session.phone || '' });
+      }
+    } catch (err) {
+      console.error(`join:session ${sessionId} error:`, err.message);
+    }
   });
 
   socket.on('join:campaign', (campaignId) => {
