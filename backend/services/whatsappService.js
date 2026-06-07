@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { default: makeWASocket, DisconnectReason, useMultiFileAuthState, Browsers, downloadMediaMessage, extractMessageContent, getContentType } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, DisconnectReason, useMultiFileAuthState, Browsers, fetchLatestBaileysVersion, fetchLatestWaWebVersion, downloadMediaMessage, extractMessageContent, getContentType } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
@@ -173,9 +173,25 @@ const emulateHumanActivity = async (sock, jid, mediaType = 'text') => {
 // ==========================================
 
 const getBaileysVersion = async () => {
-  const bundled = [2, 3000, 1023223821];
-  console.log(`[Baileys] Using bundled version:`, bundled);
-  return bundled;
+  try {
+    const { version } = await fetchLatestBaileysVersion();
+    console.log(`[Baileys] Using version from fetchLatestBaileysVersion:`, version);
+    return version;
+  } catch (err) {
+    console.error('[Baileys] fetchLatestBaileysVersion failed:', err.message);
+  }
+  try {
+    const { version, isLatest } = await fetchLatestWaWebVersion();
+    if (isLatest) {
+      console.log(`[Baileys] Using version from fetchLatestWaWebVersion:`, version);
+      return version;
+    }
+  } catch (err) {
+    console.error('[Baileys] fetchLatestWaWebVersion failed:', err.message);
+  }
+  const defaultVer = [2, 3000, 1035194821];
+  console.warn(`[Baileys] Using fallback version:`, defaultVer);
+  return defaultVer;
 };
 
 const getSessionDir = (sessionId) => {
