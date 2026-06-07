@@ -234,6 +234,16 @@ exports.getSessionDiagnostics = async (req, res) => {
 
 exports.exportContacts = async (req, res) => {
   try {
+    const Session = require('../models/Session');
+    const session = await Session.findOne({ sessionId: req.params.id, userId: req.user._id });
+    if (!session) {
+      return res.status(404).json({ success: false, message: 'Session not found or access denied' });
+    }
+
+    if (session.status !== 'connected') {
+      return res.status(400).json({ success: false, message: 'WhatsApp session not connected. Please connect the session first.' });
+    }
+
     const contacts = await whatsappService.getAllContacts(req.params.id);
     if (!contacts.length) {
       return res.status(400).json({ success: false, message: 'No WhatsApp contacts synced yet. Try "Scrape All Groups" in Group Scraper instead - it extracts all members from your groups. Phone contacts are only available if you have chatted with them recently on this device.' });
@@ -272,6 +282,9 @@ exports.exportContacts = async (req, res) => {
     res.end();
   } catch (err) {
     console.error(`[ExportContacts] Error:`, err.stack || err.message);
+    if (err.message.includes('not connected')) {
+      return res.status(400).json({ success: false, message: 'WhatsApp session not connected. Please connect the session first.' });
+    }
     res.status(500).json({ success: false, message: err.message });
   }
 };

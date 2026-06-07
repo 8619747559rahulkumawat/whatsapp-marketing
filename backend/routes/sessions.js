@@ -2,21 +2,25 @@ const express = require('express');
 const router = express.Router();
 const sessionController = require('../controllers/sessionController');
 const { auth } = require('../middleware/auth');
+const { tenantMiddleware } = require('../middleware/tenant');
 const whatsappService = require('../services/whatsappService');
 
-router.get('/', auth, sessionController.getSessions);
-router.post('/', auth, sessionController.createSession);
-router.get('/:id/qr', auth, sessionController.getSessionQr);
-router.get('/:id/status', auth, sessionController.getSessionStatus);
-router.get('/:id/groups', auth, sessionController.getGroups);
-router.post('/:id/disconnect', auth, sessionController.disconnectSession);
-router.post('/:id/reconnect', auth, sessionController.reconnectSession);
-router.delete('/:id', auth, sessionController.deleteSession);
-router.post('/:id/pairing-code', auth, sessionController.pairingCode);
+router.use(auth);
+router.use(tenantMiddleware);
 
-router.get('/:id/diagnostics', auth, sessionController.getSessionDiagnostics);
-router.get('/:id/contacts/export', auth, sessionController.exportContacts);
-router.get('/:id/chat/:jid', auth, sessionController.getContactChat);
+router.get('/', sessionController.getSessions);
+router.post('/', sessionController.createSession);
+router.get('/:id/qr', sessionController.getSessionQr);
+router.get('/:id/status', sessionController.getSessionStatus);
+router.get('/:id/groups', sessionController.getGroups);
+router.post('/:id/disconnect', sessionController.disconnectSession);
+router.post('/:id/reconnect', sessionController.reconnectSession);
+router.delete('/:id', sessionController.deleteSession);
+router.post('/:id/pairing-code', sessionController.pairingCode);
+
+router.get('/:id/diagnostics', sessionController.getSessionDiagnostics);
+router.get('/:id/contacts/export', sessionController.exportContacts);
+router.get('/:id/chat/:jid', sessionController.getContactChat);
 router.get('/:id/profile/:phone', auth, async (req, res) => {
   try {
     const { id, phone } = req.params;
