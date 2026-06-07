@@ -27,6 +27,9 @@ const sessionSchema = new mongoose.Schema({
   skeleton: { type: String, default: '' },
   platform: { type: String, default: '' },
   headless: { type: Boolean, default: false },
+  errorMessage: { type: String, default: '' },
+  errorDetails: { type: mongoose.Schema.Types.Mixed, default: null },
+  lastErrorAt: { type: Date },
   updatedAt: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now }
 });

@@ -204,6 +204,32 @@ exports.getContactChat = async (req, res) => {
   }
 };
 
+exports.getSessionDiagnostics = async (req, res) => {
+  try {
+    const session = await Session.findOne({ sessionId: req.params.id })
+      .select('sessionId status errorMessage errorDetails lastErrorAt qr createdAt updatedAt');
+    if (!session) {
+      return res.status(404).json({ success: false, message: 'Session not found' });
+    }
+    res.json({
+      success: true,
+      diagnostics: {
+        sessionId: session.sessionId,
+        status: session.status,
+        hasError: !!session.errorMessage,
+        errorMessage: session.errorMessage || null,
+        errorDetails: session.errorDetails || null,
+        lastErrorAt: session.lastErrorAt || null,
+        hasQR: !!session.qr,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 exports.exportContacts = async (req, res) => {
   try {
     const contacts = await whatsappService.getAllContacts(req.params.id);

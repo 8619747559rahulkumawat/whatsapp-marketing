@@ -14,6 +14,7 @@ router.post('/:id/reconnect', auth, sessionController.reconnectSession);
 router.delete('/:id', auth, sessionController.deleteSession);
 router.post('/:id/pairing-code', auth, sessionController.pairingCode);
 
+router.get('/:id/diagnostics', auth, sessionController.getSessionDiagnostics);
 router.get('/:id/contacts/export', auth, sessionController.exportContacts);
 router.get('/:id/chat/:jid', auth, sessionController.getContactChat);
 router.get('/:id/profile/:phone', auth, async (req, res) => {

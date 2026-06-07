@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { default: makeWASocket, DisconnectReason, useMultiFileAuthState, Browsers, fetchLatestBaileysVersion, fetchLatestWaWebVersion, downloadMediaMessage, extractMessageContent, getContentType, makeInMemoryStore } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, DisconnectReason, useMultiFileAuthState, Browsers, downloadMediaMessage, extractMessageContent, getContentType, makeInMemoryStore } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
@@ -62,9 +62,17 @@ const MAX_RECONNECT_DELAY = 60000;
 const MAX_RECONNECT_ATTEMPTS = 30;
 const RECONNECT_POLL_TIMEOUT = 60000;
 const RECONNECT_POLL_INTERVAL = 1000;
-const CONNECTION_STALE_TIMEOUT = 45000; // 45s max for a connection attempt
-let cachedBaileysVersion = null;
+const CONNECTION_STALE_TIMEOUT = 120000; // 120s max for a connection attempt
 let globalIo = null;
+
+// Keep-alive HTTPS agent for Baileys WebSocket connections (helps on free Render/AWS)
+const baileysAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,
+  maxSockets: 10,
+  maxFreeSockets: 5,
+  timeout: 120000
+});
 
 const STOP_KEYWORDS = ['STOP', 'UNSUBSCRIBE', 'CANCEL', 'QUIT', 'END'];
 const START_KEYWORDS = ['START', 'YES', 'UNSTOP', 'SUBSCRIBE'];
@@ -166,30 +174,9 @@ const emulateHumanActivity = async (sock, jid, mediaType = 'text') => {
 // ==========================================
 
 const getBaileysVersion = async () => {
-  if (cachedBaileysVersion) return cachedBaileysVersion;
-  try {
-    const { version } = await fetchLatestBaileysVersion();
-    cachedBaileysVersion = version;
-    console.log(`[Baileys] Using version from fetchLatestBaileysVersion:`, version);
-    return version;
-  } catch (err) {
-    console.error('[Baileys] fetchLatestBaileysVersion failed:', err.message);
-  }
-  try {
-    const { version, isLatest } = await fetchLatestWaWebVersion();
-    if (isLatest) {
-      cachedBaileysVersion = version;
-      console.log(`[Baileys] Using version from fetchLatestWaWebVersion:`, version);
-      return version;
-    }
-    console.error('[Baileys] fetchLatestWaWebVersion returned stale version');
-  } catch (err) {
-    console.error('[Baileys] fetchLatestWaWebVersion failed:', err.message);
-  }
-  const fallback = [2, 3000, 1035194821];
-  cachedBaileysVersion = fallback;
-  console.warn(`[Baileys] Using fallback version:`, fallback);
-  return fallback;
+  const bundled = [2, 3000, 1023223821];
+  console.log(`[Baileys] Using bundled version:`, bundled);
+  return bundled;
 };
 
 const getSessionDir = (sessionId) => {
@@ -213,11 +200,18 @@ const getConnectionStatus = async (sessionId) => {
   if (sock && sock.user) return { status: 'connected', phone: sock.user.id.split(':')[0] };
   try {
     const Session = require('../models/Session');
-    const dbSession = await Session.findOne({ sessionId }).select('status phone');
-    if (dbSession && dbSession.status === 'connected') return { status: 'connected', phone: dbSession.phone || '' };
+    const dbSession = await Session.findOne({ sessionId }).select('status phone errorMessage errorDetails');
+    if (dbSession) {
+      return {
+        status: dbSession.status || 'disconnected',
+        phone: dbSession.phone || '',
+        errorMessage: dbSession.errorMessage || '',
+        errorDetails: dbSession.errorDetails || null
+      };
+    }
   } catch (err) { console.error("WhatsApp Error:", err); }
   if (sock) return { status: 'connecting', phone: '' };
-  return { status: 'disconnected', phone: '' };
+  return { status: 'disconnected', phone: '', errorMessage: '', errorDetails: null };
 };
 
 const cleanupSession = (sessionId) => {
@@ -277,10 +271,11 @@ const connectSession = async (sessionId, io) => {
       mobile: false,
       version,
       keepAliveIntervalMs: 10000,
-      connectTimeoutMs: 45000,
-      defaultQueryTimeoutMs: 120000,
+      connectTimeoutMs: 120000,
+      defaultQueryTimeoutMs: 180000,
       maxRetries: 2,
-      emitOwnEvents: true
+      emitOwnEvents: true,
+      agent: baileysAgent
     });
 
     sessions.set(sessionId, sock);
@@ -329,6 +324,7 @@ const connectSession = async (sessionId, io) => {
           reconnectAttempts.delete(sessionId);
           session.status = 'connected';
           session.qrCode = ''; session.qr = '';
+          session.errorMessage = ''; session.errorDetails = null; session.lastErrorAt = null;
           session.phone = sock.user?.id?.split(':')[0] || '';
           session.lastSynced = new Date();
           await session.save();
@@ -382,6 +378,20 @@ const connectSession = async (sessionId, io) => {
 
           const statusCode = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.data?.reason || lastDisconnect?.error?.message;
           const reason = typeof statusCode === 'number' ? statusCode : DisconnectReason.connectionClosed;
+
+          // Store diagnostic error info
+          const errMsg = lastDisconnect?.error?.message || lastDisconnect?.error?.output?.payload?.message || '';
+          const errStack = lastDisconnect?.error?.stack || '';
+          const errData = lastDisconnect?.error?.data || {};
+          session.errorMessage = `[${reason}] ${errMsg}`;
+          session.errorDetails = {
+            reason,
+            statusCode: typeof statusCode === 'number' ? statusCode : undefined,
+            message: errMsg.slice(0, 500),
+            stack: errStack.slice(0, 1000),
+            data: typeof errData === 'object' ? JSON.stringify(errData).slice(0, 500) : String(errData).slice(0, 500)
+          };
+          session.lastErrorAt = new Date();
 
           const currentAttempts = reconnectAttempts.get(sessionId) || 0;
           if (reason === DisconnectReason.connectionReplaced) {
@@ -745,7 +755,7 @@ const disconnectSession = async (sessionId) => {
   await Session.findOneAndUpdate({ sessionId }, { status: 'disconnected', qrCode: '', qr: '' });
 };
 
-const waitForSessionQr = async (sessionId, io, timeoutMs = 45000) => {
+const waitForSessionQr = async (sessionId, io, timeoutMs = 120000) => {
   const eventIo = io || globalIo;
   let session = await Session.findOne({ sessionId });
   if (!session) return null;
@@ -1182,10 +1192,11 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
       mobile: false,
       version,
       keepAliveIntervalMs: 10000,
-      connectTimeoutMs: 45000,
-      defaultQueryTimeoutMs: 120000,
+      connectTimeoutMs: 120000,
+      defaultQueryTimeoutMs: 180000,
       maxRetries: 2,
-      emitOwnEvents: true
+      emitOwnEvents: true,
+      agent: baileysAgent
     });
 
     sessions.set(sessionId, sock);
