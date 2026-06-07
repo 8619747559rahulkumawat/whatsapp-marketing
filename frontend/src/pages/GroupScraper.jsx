@@ -195,7 +195,7 @@ export default function GroupScraper() {
 
   const filteredMembers = members.filter(m =>
     (m.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (m.phone || m.number || '').includes(searchTerm)
+    String(m.phone || m.number || '').includes(searchTerm)
   );
 
   const filteredMessages = messages.filter(m =>

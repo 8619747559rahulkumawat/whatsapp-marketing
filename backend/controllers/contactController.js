@@ -292,14 +292,18 @@ exports.getContactVariables = async (req, res) => {
 exports.addContactsToGroup = async (req, res) => {
   try {
     const { contactIds } = req.body;
-    await Contact.updateMany(
+    const group = await ContactGroup.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Group not found or access denied' });
+    }
+    const result = await Contact.updateMany(
       { _id: { $in: contactIds }, userId: req.user._id },
       { $addToSet: { groups: req.params.id } }
     );
-    const group = await ContactGroup.findByIdAndUpdate(req.params.id, {
-      $inc: { contactCount: contactIds.length }
-    });
-    res.json({ success: true, message: `${contactIds.length} contacts added` });
+    const addedCount = result.modifiedCount || 0;
+    group.contactCount = await Contact.countDocuments({ groups: req.params.id, userId: req.user._id });
+    await group.save();
+    res.json({ success: true, message: `${addedCount} contacts added to group` });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

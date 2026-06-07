@@ -18,6 +18,7 @@ const { seedAll } = require('./utils/seeder');
 const whatsappService = require('./services/whatsappService');
 const { startCleanupSchedule } = require('./services/cleanupScheduleService');
 const aiService = require('./services/aiService');
+const Session = require('./models/Session');
 const { setIoInstance } = require('./socket');
 
 process.on('unhandledRejection', (err) => {
@@ -235,7 +236,6 @@ const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, (char) => (
 }[char]));
 
 // Public QR page (no auth) — shareable link that displays QR code
-const Session = require('./models/Session');
 app.get('/qr/:id', async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {

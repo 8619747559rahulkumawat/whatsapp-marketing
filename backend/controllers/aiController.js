@@ -145,9 +145,8 @@ const setOpenAIKey = async (req, res) => {
     const { apiKey, key, model } = req.body;
     const openaiKey = apiKey || key;
     if (!openaiKey) return res.status(400).json({ success: false, message: 'API key is required' });
-    process.env.OPENAI_API_KEY = openaiKey;
-    if (model) process.env.OPENAI_MODEL = model;
     aiService.setOpenAIKey(openaiKey);
+    if (model) process.env.OPENAI_MODEL = model;
     await Setting.findOneAndUpdate(
       { key: 'openai_api_key', tenantId: req.tenant?._id || req.user.tenantId },
       { key: 'openai_api_key', value: openaiKey, tenantId: req.tenant?._id || req.user.tenantId },
@@ -278,6 +277,53 @@ const deleteKnowledgeBase = async (req, res) => {
   }
 };
 
+const checkOpenAIStatus = async (req, res) => {
+  try {
+    const openaiSetting = await Setting.findOne({ key: 'openai_api_key', tenantId: req.tenant?._id || req.user.tenantId });
+    res.json({ success: true, hasKey: !!openaiSetting?.value, configured: !!openaiSetting?.value });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const createKnowledgeBase = async (req, res) => {
+  try {
+    const { name, description, content } = req.body;
+    if (!name) return res.status(400).json({ success: false, message: 'Name is required' });
+    const chunks = content ? aiService.chunkText(content, 500, 50) : [];
+    const chunkedDocs = [];
+    for (const chunk of chunks) {
+      const embedding = await aiService.generateEmbedding(chunk);
+      chunkedDocs.push({ text: chunk, embedding: embedding || [], metadata: {} });
+    }
+    const kb = await KnowledgeBase.create({
+      tenantId: req.tenant?._id || req.user.tenantId,
+      userId: req.user._id,
+      name,
+      description: description || '',
+      content: (content || '').substring(0, 100000),
+      chunks: chunkedDocs,
+      chunkCount: chunkedDocs.length,
+      status: chunkedDocs.length > 0 ? 'ready' : 'pending'
+    });
+    res.status(201).json({ success: true, knowledgeBase: kb });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const getKnowledgeBaseChunks = async (req, res) => {
+  try {
+    const kb = await KnowledgeBase.findOne({
+      _id: req.params.id, tenantId: req.tenant?._id || req.user.tenantId
+    }).select('chunks name');
+    if (!kb) return res.status(404).json({ success: false, message: 'Knowledge base not found' });
+    res.json({ success: true, chunks: kb.chunks || [] });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 const searchKnowledgeBase = async (req, res) => {
   try {
     const { query, topK } = req.body;
@@ -326,7 +372,8 @@ const trainFromWebsite = async (req, res) => {
 module.exports = {
   getChatHistory, chat, smartReply, analyzeSentiment, optimizeMessage,
   getSuggestions, checkOllamaStatus, setOpenAIKey, getOpenAIKey,
-  setGeminiKey, getGeminiKey,
-  getKnowledgeBases, uploadKnowledgeBase, deleteKnowledgeBase,
+  setGeminiKey, getGeminiKey, checkOpenAIStatus,
+  getKnowledgeBases, createKnowledgeBase, getKnowledgeBaseChunks,
+  uploadKnowledgeBase, deleteKnowledgeBase,
   searchKnowledgeBase, trainFromWebsite, getAIAnalytics
 };

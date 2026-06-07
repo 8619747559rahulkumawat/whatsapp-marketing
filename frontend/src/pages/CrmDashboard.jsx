@@ -7,7 +7,7 @@ import {
   HiOutlineLightningBolt, HiOutlineChatAlt2, HiOutlineRefresh, HiOutlineUserGroup,
   HiOutlineBell, HiOutlineViewGrid, HiOutlineCode, HiOutlineDeviceMobile,
   HiOutlineUpload, HiOutlineDocumentText, HiOutlineFlag, HiOutlineDocument,
-  HiOutlineHeart, HiOutlineClock, HiOutlineShieldCheck
+  HiOutlineHeart, HiOutlineClock
 } from 'react-icons/hi';
 
 const allFeatures = [

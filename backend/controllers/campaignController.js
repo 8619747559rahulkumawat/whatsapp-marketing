@@ -107,7 +107,7 @@ exports.createCampaign = async (req, res) => {
       groups: groupIds || [],
       buttons: buttons || [],
       scheduledAt: scheduledAt || null,
-      status: scheduledAt ? 'draft' : 'draft'
+      status: scheduledAt ? 'scheduled' : 'draft'
     });
     res.status(201).json({ success: true, campaign });
   } catch (err) {
@@ -117,9 +117,18 @@ exports.createCampaign = async (req, res) => {
 
 exports.updateCampaign = async (req, res) => {
   try {
-    const campaign = await Campaign.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const allowed = ['name', 'type', 'sessionId', 'messageType', 'message', 'mediaUrl', 'delay', 'minDelaySeconds', 'maxDelaySeconds', 'dailyLimit', 'requireOptIn', 'appendOptOut', 'stopOnHighFailureRate', 'isPersonalized', 'contactIds', 'groupIds', 'buttons', 'scheduledAt', 'status'];
+    const updates = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+    const campaign = await Campaign.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user._id },
+      updates,
+      { new: true }
+    );
     if (!campaign) {
-      return res.status(404).json({ success: false, message: 'Campaign not found' });
+      return res.status(404).json({ success: false, message: 'Campaign not found or access denied' });
     }
     res.json({ success: true, campaign });
   } catch (err) {
@@ -129,7 +138,10 @@ exports.updateCampaign = async (req, res) => {
 
 exports.deleteCampaign = async (req, res) => {
   try {
-    await Campaign.findByIdAndDelete(req.params.id);
+    const campaign = await Campaign.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
+    if (!campaign) {
+      return res.status(404).json({ success: false, message: 'Campaign not found or access denied' });
+    }
     res.json({ success: true, message: 'Campaign deleted' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

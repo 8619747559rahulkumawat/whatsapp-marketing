@@ -1,5 +1,7 @@
 const Message = require('../models/Message');
 const Campaign = require('../models/Campaign');
+const Session = require('../models/Session');
+const Contact = require('../models/Contact');
 const { calculatePagination } = require('../utils/helpers');
 
 exports.getDashboardStats = async (req, res) => {
@@ -19,8 +21,8 @@ exports.getDashboardStats = async (req, res) => {
       Message.countDocuments({ ...filter, status: { $in: ['delivered', 'read'] } }),
       Message.countDocuments({ ...filter, status: 'failed' }),
       Campaign.countDocuments(filter),
-      require('../models/Session').countDocuments({ ...(req.user.role !== 'admin' ? { userId: req.user._id } : {}), status: 'connected' }),
-      require('../models/Contact').countDocuments(filter)
+      Session.countDocuments({ ...(req.user.role !== 'admin' ? { userId: req.user._id } : {}), status: 'connected' }),
+      Contact.countDocuments(filter)
     ]);
     
     // For admin dashboard stats, we're already showing only aggregated/system-level data
@@ -172,7 +174,13 @@ exports.exportReport = async (req, res) => {
     const messages = await Message.find(filter).populate('campaignId', 'name').lean();
     let csv = 'Date,Phone,Message,Type,Status,Sent At\n';
     for (const m of messages) {
-      csv += `"${new Date(m.createdAt).toISOString()}","${m.to}","${(m.content || '').replace(/"/g, '""')}","${m.messageType}","${m.status}","${m.sentAt ? new Date(m.sentAt).toISOString() : ''}"\n`;
+      let to = m.to;
+      let content = m.content || '';
+      if (req.user.role === 'admin' && m.userId && m.userId.toString() !== req.user._id.toString()) {
+        to = '[Private]';
+        content = '[Private Message]';
+      }
+      csv += `"${new Date(m.createdAt).toISOString()}","${to}","${content.replace(/"/g, '""')}","${m.messageType}","${m.status}","${m.sentAt ? new Date(m.sentAt).toISOString() : ''}"\n`;
     }
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=report.csv');

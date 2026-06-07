@@ -3,8 +3,10 @@ import { motion } from 'framer-motion';
 import API from '../utils/api';
 import { HiOutlinePlus, HiOutlinePencil, HiOutlineTrash, HiOutlineCheck, HiOutlineX, HiOutlineSearch, HiOutlineDuplicate } from 'react-icons/hi';
 import { FaWhatsapp } from 'react-icons/fa';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Templates() {
+  const { user } = useAuth();
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');

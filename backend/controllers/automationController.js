@@ -1,6 +1,7 @@
 const AutomationFlow = require('../models/AutomationFlow');
 const automationService = require('../services/automationService');
 const Campaign = require('../models/Campaign');
+const Contact = require('../models/Contact');
 
 exports.getFlows = async (req, res) => {
   try {
@@ -85,7 +86,6 @@ exports.toggleFlowStatus = async (req, res) => {
 exports.executeFlow = async (req, res) => {
   try {
     const { contactId } = req.body;
-    const Contact = require('../models/Contact');
     const contact = contactId ? await Contact.findById(contactId) : null;
     const context = {
       userId: req.user._id,

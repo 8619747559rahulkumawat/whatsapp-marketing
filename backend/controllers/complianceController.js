@@ -379,6 +379,33 @@ exports.gdprRequest = async (req, res) => {
   }
 };
 
+exports.getSubscribers = async (req, res) => {
+  try {
+    // Contacts who have opted in (not blacklisted) — optionally with consent log record
+    const contacts = await Contact.find({
+      tenantId: req.tenant._id,
+      userId: req.user._id,
+      isBlacklisted: false
+    })
+      .select('phone name createdAt')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const subscribers = contacts.map(c => ({
+      _id: c._id,
+      phone: c.phone,
+      name: c.name || '',
+      status: 'subscribed',
+      source: 'manual',
+      subscribedAt: c.createdAt
+    }));
+
+    res.json({ success: true, subscribers });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 exports.getGDPRRequestStatus = async (req, res) => {
   try {
     const { complianceId } = req.params;

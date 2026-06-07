@@ -11,6 +11,7 @@ router.use(tenantMiddleware);
 // Compliance logging routes
 router.post('/', complianceController.logComplianceEvent);
 router.get('/', complianceController.getComplianceLogs);
+router.get('/subscribers', complianceController.getSubscribers);
 
 // DND checking
 router.get('/dnd/check/:phone', complianceController.checkDND);

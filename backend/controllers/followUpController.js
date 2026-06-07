@@ -74,7 +74,9 @@ exports.runFollowUp = async (req, res) => {
         const hasReply = await Message.findOne({ to: msg.to, status: 'received', sentAt: { $gt: msg.sentAt } });
         if (hasReply) { skipped++; continue; }
 
-        const followUpMsg = rule.message.replace(/{name}/g, msg.contactName || '');
+        const contact = await Contact.findOne({ phone: msg.to, tenantId: req.tenant._id }).select('name').lean();
+        const contactName = contact?.name || msg.to;
+        const followUpMsg = rule.message.replace(/{name}/g, contactName);
         await whatsappService.sendTextMessage(session.sessionId, msg.to, followUpMsg);
         sent++;
       } catch { skipped++; }

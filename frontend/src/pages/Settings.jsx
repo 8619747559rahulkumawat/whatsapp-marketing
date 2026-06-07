@@ -58,12 +58,17 @@ export default function Settings() {
 
   const handleCreditUpdate = async (e) => {
     e.preventDefault();
+    if (!creditAmount || isNaN(parseInt(creditAmount))) {
+      setMessage({ type: 'error', text: 'Please enter a valid credit amount' });
+      return;
+    }
     setSaving(true);
     setMessage({ type: '', text: '' });
     try {
-      await API.put('/admin/my-credits', { credits: parseInt(creditAmount) });
-      setMessage({ type: 'success', text: `Credits updated to ${parseInt(creditAmount).toLocaleString()}` });
-      if (updateUser) updateUser({ ...user, credits: parseInt(creditAmount) });
+      const credits = parseInt(creditAmount);
+      await API.put('/admin/my-credits', { credits });
+      setMessage({ type: 'success', text: `Credits updated to ${credits.toLocaleString()}` });
+      if (updateUser) updateUser({ ...user, credits });
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.message || 'Update failed' });
     } finally { setSaving(false); }

@@ -240,9 +240,9 @@ exports.confirmPlanSubscription = async (req, res) => {
       'billing.subscriptionId': paymentId,
       'billing.currentPeriodEnd': periodEnd,
       'billing.invoiceDate': new Date(),
-      'settings.limits.contacts': plan.limits.contacts || 0,
-      'settings.limits.messagesPerDay': plan.limits.messagesPerDay || 0,
-      'settings.limits.users': plan.limits.users || 0
+      'settings.limits.contacts': plan.limits?.contacts || 0,
+      'settings.limits.messagesPerDay': plan.limits?.messagesPerDay || 0,
+      'settings.limits.users': plan.limits?.users || 0
     });
 
     res.json({

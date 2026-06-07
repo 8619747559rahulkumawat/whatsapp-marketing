@@ -12,9 +12,7 @@ exports.getAdminDashboard = async (req, res) => {
       totalUsers,
       totalSessions,
       totalCampaigns,
-      /* totalMessages removed for admin privacy */,
       totalContacts,
-      totalCreditsUsed,
       activeSessions,
       recentUsers,
       recentCampaigns
@@ -22,12 +20,14 @@ exports.getAdminDashboard = async (req, res) => {
       User.countDocuments({ role: { $ne: 'admin' } }),
       Session.countDocuments(),
       Campaign.countDocuments(),
-      /* Message.countDocuments() removed for admin privacy */,
       Contact.countDocuments(),
-      /* Message.countDocuments({ status: { $in: ['sent', 'delivered', 'read'] } }) removed for admin privacy */,
       Session.countDocuments({ status: 'connected' }),
       User.find({ role: { $ne: 'admin' } }).sort({ createdAt: -1 }).limit(10).select('name email credits role isActive createdAt'),
       Campaign.find().populate('userId', 'name email').sort({ createdAt: -1 }).limit(10)
+    ]);
+    const totalCreditsUsed = await Transaction.aggregate([
+      { $match: { type: 'debit', tenantId: req.user.tenantId } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
     
     // Anonymize recent users data for admin dashboard

@@ -17,6 +17,7 @@ router.post('/sentiment', aiController.analyzeSentiment);
 router.post('/optimize', aiController.optimizeMessage);
 router.post('/suggestions', aiController.getSuggestions);
 router.get('/ollama-status', aiController.checkOllamaStatus);
+router.get('/openai-status', aiController.checkOpenAIStatus);
 
 // OpenAI Key Management
 router.post('/openai-key', aiController.setOpenAIKey);
@@ -28,6 +29,8 @@ router.get('/gemini-key', aiController.getGeminiKey);
 
 // Knowledge Base
 router.get('/knowledge-base', aiController.getKnowledgeBases);
+router.post('/knowledge-base', aiController.createKnowledgeBase);
+router.get('/knowledge-base/:id/chunks', aiController.getKnowledgeBaseChunks);
 router.post('/knowledge-base/upload', upload.single('file'), aiController.uploadKnowledgeBase);
 router.post('/knowledge-base/train-website', aiController.trainFromWebsite);
 router.post('/knowledge-base/search', aiController.searchKnowledgeBase);

@@ -5,7 +5,7 @@ import { connectSocket } from '../utils/socket';
 import { resetUnread } from '../stores/chatStore';
 import { useAuth } from '../contexts/AuthContext';
 import { FaWhatsapp, FaPaperPlane, FaUser, FaSmile, FaPaperclip, FaReply, FaTrash, FaStar, FaSearch, FaTimes, FaDownload, FaPhone, FaVideo, FaPhoneSlash } from 'react-icons/fa';
-import { HiOutlineDotsVertical } from 'react-icons/hi';
+
 
 const EMOJIS = ['😊','👍','❤️','😂','🔥','🎉','🙏','😍','🤣','💀','😎','🥳','😅','🤔','👌','✌️','💪','🤝','😭','🥺','😤','🤩','😱','🤗','😴','🤪','😈','💩','👻','👋','🙌','🤲','💯','✅','❌','⭐','🌈','🎯','🔥','💀','👑','🚀','💰','📱','💻','📞','✉️','📷','🎬','🏆','🥇','💎','😡','🥶','🤡','💔','🗿','✨','🕊️','🔴','🟢','🔵','🟡'];
 const STICKERS = ['👍', '❤️', '😂', '😍', '🔥', '🎉', '🙏', '💀', '😎', '🥳', '🤔', '👌', '💪', '🤝', '😭', '🥺', '😤', '🤩', '😱', '🤗', '😴', '🤪', '😈', '💩', '👻', '👋', '🙌', '🤲', '💯', '✅', '❌', '⭐', '🎯', '👑', '🚀'];
@@ -33,14 +33,16 @@ export default function LiveChat() {
    const [callType, setCallType] = useState('video');
    const [roomName, setRoomName] = useState('');
    const [incomingCall, setIncomingCall] = useState(null);
-   const jitsiRef = useRef(null);
-   const jitsiContainerRef = useRef(null);
+    const socketRef = useRef(null);
+    const jitsiRef = useRef(null);
+    const jitsiContainerRef = useRef(null);
 
    useEffect(() => {
      resetUnread();
      fetchData();
-     const socket = connectSocket();
-     const userId = user?._id;
+      const socket = connectSocket();
+      socketRef.current = socket;
+      const userId = user?._id;
       const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
      if (isAdmin) {
        socket.emit('join:admin');
@@ -662,7 +664,7 @@ export default function LiveChat() {
             <p className="text-gray-400 text-sm mb-6">{incomingCall.type === 'audio' ? '🔊 Audio' : '📹 Video'} call from <span className="text-purple-400 font-medium">{selectedConv?.user?.name || selectedConv?.userName || 'User'}</span></p>
             <p className="text-gray-500 text-xs mb-4">Room: {incomingCall.room?.slice(0, 20)}...</p>
             <div className="flex gap-4 justify-center">
-              <button onClick={() => { setIncomingCall(null); }}
+              <button onClick={() => { if (socketRef.current && incomingCall?.userId) socketRef.current.emit('call:end', { userId: incomingCall.userId }); setIncomingCall(null); }}
                 className="px-6 py-3 rounded-xl bg-red-600/20 text-red-400 border border-red-500/20 hover:bg-red-600/30 transition-all font-medium">
                 Decline
               </button>

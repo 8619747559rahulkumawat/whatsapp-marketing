@@ -2,7 +2,6 @@ const Message = require('../models/Message');
 const Chat = require('../models/Chat');
 const Contact = require('../models/Contact');
 const User = require('../models/User');
-const Transaction = require('../models/Transaction');
 const whatsappService = require('../services/whatsappService');
 const whatsappCloudService = require('../services/whatsappCloudService');
 const { formatPhoneNumber } = require('../utils/helpers');
@@ -222,16 +221,6 @@ exports.getMessages = async (req, res) => {
     }
   } catch (err) {
     console.error('Error in getMessages:', err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-};
-
-exports.sendBulkMessage = async (req, res) => {
-  try {
-    const { sessionId, contacts, messageType, message, mediaUrl, delay, buttons } = req.body;
-    req.body.contacts = contacts;
-    return exports.sendBulk(req, res);
-  } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
