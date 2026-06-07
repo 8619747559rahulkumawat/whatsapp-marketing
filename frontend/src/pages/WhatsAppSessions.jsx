@@ -385,8 +385,8 @@ export default function WhatsAppSessions() {
 
               {qrError === session.sessionId && !session.qrCode && !session.qr && session.status !== 'connected' && (
                 <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-300">
-                  <p className="font-medium mb-1">QR not received</p>
-                  <p className="text-xs text-red-400/80">Server cannot connect to WhatsApp servers. Check <a href="/api/debug/connectivity" target="_blank" className="underline text-red-200">/api/debug/connectivity</a> for diagnostics. Try using "Pair Code" instead, or deploy on a VPS (not free Render) for WhatsApp WebSocket access.</p>
+                  <p className="font-medium mb-1">QR not received yet</p>
+                  <p className="text-xs text-red-400/80">QR generation taking longer than expected. The connection will auto-retry. You can try <strong>Refresh QR</strong> or use <strong>Pair Code</strong> instead. Check <a href="/api/debug/connectivity" target="_blank" className="underline text-red-200">/api/debug/connectivity</a> for diagnostics.</p>
                 </div>
               )}
 

@@ -263,12 +263,6 @@ const connectSession = async (sessionId, io) => {
     const sessionDir = getSessionDir(sessionId);
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
 
-    if (state.creds && state.creds.registered === false && state.creds.me && state.creds.me.id) {
-      console.log(`[Baileys] WARNING: Session ${sessionId} has registered=false but valid me.id detected. Auto-fixing...`);
-      state.creds.registered = true;
-      await saveCreds();
-    }
-
     console.log(`[Baileys] Connecting session ${sessionId}...`);
     const version = await getBaileysVersion();
 
@@ -276,14 +270,14 @@ const connectSession = async (sessionId, io) => {
       auth: state,
       browser: Browsers.macOS('Chrome'),
       logger: pino({ level: 'warn' }),
-      printQRInTerminal: true,
+      printQRInTerminal: false,
       markOnlineOnConnect: false,
       syncFullHistory: false,
       generateHighQualityLinkPreview: false,
       mobile: false,
       version,
       keepAliveIntervalMs: 10000,
-      connectTimeoutMs: 20000,
+      connectTimeoutMs: 45000,
       defaultQueryTimeoutMs: 120000,
       maxRetries: 2,
       emitOwnEvents: true
@@ -310,14 +304,20 @@ const connectSession = async (sessionId, io) => {
 
         if (qr) {
           console.log(`[Baileys] QR generated for session ${sessionId}, emitting to client`);
-          const qrDataUrl = await qrcode.toDataURL(qr);
+          let qrDataUrl = '';
+          try {
+            qrDataUrl = await qrcode.toDataURL(qr);
+          } catch (qrErr) {
+            console.error(`[Baileys] qrcode.toDataURL failed for ${sessionId}:`, qrErr.message);
+            qrDataUrl = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-size="14">${qr.slice(0, 50)}</text></svg>`)}`;
+          }
           session.qrCode = qrDataUrl;
           session.qr = qrDataUrl;
           session.status = 'connecting';
-          await session.save();
+          try { await session.save(); } catch (saveErr) { console.error(`[Baileys] Session save error for ${sessionId}:`, saveErr.message); }
           const eventIo = io || globalIo;
           if (eventIo) {
-            eventIo.to(`session_${sessionId}`).emit('qr:generated', { sessionId, qr: qrDataUrl });
+            eventIo.to(`session_${sessionId}`).emit('qr:generated', { sessionId, qr: qrDataUrl, qrRaw: qr });
             eventIo.emit('session:update', { sessionId, status: 'connecting' });
           }
         } else if (update.hasQR === false && !update.connection) {
@@ -745,7 +745,7 @@ const disconnectSession = async (sessionId) => {
   await Session.findOneAndUpdate({ sessionId }, { status: 'disconnected', qrCode: '', qr: '' });
 };
 
-const waitForSessionQr = async (sessionId, io, timeoutMs = 15000) => {
+const waitForSessionQr = async (sessionId, io, timeoutMs = 45000) => {
   const eventIo = io || globalIo;
   let session = await Session.findOne({ sessionId });
   if (!session) return null;
@@ -1175,14 +1175,14 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
       auth: state,
       browser: Browsers.macOS('Chrome'),
       logger: pino({ level: 'warn' }),
-      printQRInTerminal: true,
+      printQRInTerminal: false,
       markOnlineOnConnect: false,
       syncFullHistory: false,
       generateHighQualityLinkPreview: false,
       mobile: false,
       version,
       keepAliveIntervalMs: 10000,
-      connectTimeoutMs: 20000,
+      connectTimeoutMs: 45000,
       defaultQueryTimeoutMs: 120000,
       maxRetries: 2,
       emitOwnEvents: true
