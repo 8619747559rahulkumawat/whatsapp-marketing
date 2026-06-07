@@ -226,7 +226,7 @@ const Sidebar = memo(function Sidebar({ isOpen, setIsOpen, collapsed, setCollaps
 
         <nav className="p-4 sm:p-4 space-y-1">
           {userNav
-            .filter(item => !(isFreePlan && ['/cleanup', '/settings'].includes(item.path)))
+            .filter(item => !(isFreePlan && ['/cleanup', '/settings', '/team'].includes(item.path)))
             .filter(item => item.label.toLowerCase().includes(searchQuery.toLowerCase()))
             .map(item => (
             <NavLink key={item.path} item={item} onClick={() => setIsOpen(false)} />
