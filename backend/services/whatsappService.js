@@ -731,8 +731,18 @@ const connectSession = async (sessionId, io) => {
     console.log(`[Baileys] Session ${sessionId} registered`);
   } catch (err) {
     console.error(`[Baileys] Error connecting session ${sessionId}:`, err.message);
+    console.error(`[Baileys] Stack:`, err.stack);
     sessions.delete(sessionId);
-    await Session.findOneAndUpdate({ sessionId }, { status: 'disconnected' }).catch(() => {});
+    await Session.findOneAndUpdate({ sessionId }, {
+      status: 'disconnected',
+      errorMessage: err.message?.slice(0, 500) || 'Unknown error in connectSession',
+      errorDetails: {
+        message: err.message?.slice(0, 500),
+        stack: err.stack?.slice(0, 1000),
+        code: err.code || err.statusCode || undefined
+      },
+      lastErrorAt: new Date()
+    }).catch(() => {});
   } finally {
     connectingSessions.delete(sessionId);
   }
