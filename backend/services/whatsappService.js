@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { default: makeWASocket, DisconnectReason, useMultiFileAuthState, Browsers, downloadMediaMessage, extractMessageContent, getContentType, makeInMemoryStore } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, DisconnectReason, useMultiFileAuthState, Browsers, downloadMediaMessage, extractMessageContent, getContentType } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
@@ -51,7 +51,6 @@ checkConnectivity();
 
 const sessions = new Map();
 const sessionsContactMap = new Map();
-const sessionsStore = new Map();
 const reconnectTimers = new Map();
 const reconnectAttempts = new Map();
 const healthCheckers = new Map();
@@ -226,7 +225,6 @@ const cleanupSession = (sessionId) => {
   healthFailures.delete(sessionId);
   reconnectPromises.delete(sessionId);
   sessionsContactMap.delete(sessionId);
-  sessionsStore.delete(sessionId);
   const oldSock = sessions.get(sessionId);
   if (oldSock) {
     try { oldSock.ev?.removeAllListeners?.(); } catch (err) { console.error("WhatsApp Error:", err); }
@@ -282,15 +280,6 @@ const connectSession = async (sessionId, io) => {
     sessionsContactMap.set(sessionId, new Map());
     console.log(`[Baileys] Socket created for ${sessionId}`);
 
-    // In-memory store for contacts/chats that persists on reconnect
-    const storePath = path.join(sessionDir, 'baileys-store.json');
-    const store = makeInMemoryStore({ logger: pino({ level: 'silent' }) });
-    try {
-      store.readFromFile(storePath);
-    } catch (err) { console.error("WhatsApp Error:", err); }
-    store.bind(sock.ev);
-    sessionsStore.set(sessionId, store);
-
     // Register connection.update handler IMMEDIATELY after makeWASocket, before any await
     // This prevents missing QR events that fire during async operations
     sock.ev.on('connection.update', async (update) => {
@@ -328,8 +317,6 @@ const connectSession = async (sessionId, io) => {
           session.phone = sock.user?.id?.split(':')[0] || '';
           session.lastSynced = new Date();
           await session.save();
-          // Defer store persistence to give time for contacts to sync
-          setTimeout(() => { try { store.writeToFile(storePath); } catch (err) { console.error("WhatsApp Error:", err); } }, 10000);
           const eventIo = io || globalIo;
           if (eventIo) {
             eventIo.to(`session_${sessionId}`).emit('session:connected', { sessionId });
@@ -480,7 +467,6 @@ const connectSession = async (sessionId, io) => {
             if (c.id) existing[c.id] = { ...existing[c.id], ...c };
           }
           fs.writeFileSync(contactFile, JSON.stringify(existing));
-          try { store.writeToFile(storePath); } catch (err) { console.error("WhatsApp Error:", err); }
         } catch (e) { console.error('[Baileys] History contacts persist error:', e.message); }
       }
     });
@@ -501,7 +487,6 @@ const connectSession = async (sessionId, io) => {
         }
         fs.writeFileSync(contactFile, JSON.stringify(existing));
         console.log(`[Baileys] Saved ${Object.keys(existing).length} contacts to ${contactFile}`);
-        try { store.writeToFile(storePath); } catch (e) { console.error('[Baileys] Store write error:', e.message); }
       } catch (e) { console.error('[Baileys] Contact persist error:', e.message); }
     });
 
@@ -1141,24 +1126,6 @@ const getAllContacts = async (sessionId) => {
       } catch (e) { console.error('[Baileys] Contact file load error:', e.message); }
     }
 
-    if (!cmap || cmap.size === 0) {
-      try {
-        const store = sessionsStore.get(sessionId);
-        if (store && store.contacts) {
-          let raw = store.contacts;
-          let entries = [];
-          if (raw instanceof Map) {
-            for (const [jid, c] of raw) {
-              if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
-            }
-          } else if (typeof raw === 'object' && raw !== null) {
-            entries = Object.entries(raw).filter(([jid]) => jid && !jid.includes('@g.us'));
-          }
-          if (entries.length > 0) cmap = new Map(entries);
-        }
-      } catch (e) { console.error('[Baileys] Store contact fallback error:', e.message); }
-    }
-
     if (!cmap || cmap.size === 0) return [];
     return Array.from(cmap.values()).filter(c => c.id && typeof c.id === 'string' && !c.id.includes('@g.us')).map(c => ({
       jid: c.id,
@@ -1237,12 +1204,6 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
     }
 
     // Set up event handlers (same as connectSession)
-    const storePath = path.join(sessionDir, 'baileys-store.json');
-    const store = makeInMemoryStore({ logger: pino({ level: 'silent' }) });
-    try { store.readFromFile(storePath); } catch (err) { console.error("WhatsApp Error:", err); }
-    store.bind(sock.ev);
-    sessionsStore.set(sessionId, store);
-
     sock.ev.on('contacts.upsert', (contacts) => {
       console.log(`[Baileys] Contacts upsert for ${sessionId}: ${contacts?.length} contacts`);
       const cmap = sessionsContactMap.get(sessionId);
@@ -1252,7 +1213,6 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
         const existing = fs.existsSync(contactFile) ? JSON.parse(fs.readFileSync(contactFile, 'utf8')) : {};
         for (const c of contacts) { if (c.id) existing[c.id] = c; }
         fs.writeFileSync(contactFile, JSON.stringify(existing));
-        try { store.writeToFile(storePath); } catch (e) { console.error('[Baileys] Store write error:', e.message); }
       } catch (e) { console.error('[Baileys] Contact persist error:', e.message); }
     });
 
@@ -1278,7 +1238,6 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
           await sessionDoc.save();
           if (io) io.emit('session:update', { sessionId, status: 'connected', phone: sessionDoc.phone });
           console.log(`[Baileys] Session ${sessionId} paired & connected!`);
-          setTimeout(() => { try { store.writeToFile(storePath); } catch (err) { console.error("WhatsApp Error:", err); } }, 10000);
         }
         if (connection === 'close') {
           const reason = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.data?.reason || 428;
