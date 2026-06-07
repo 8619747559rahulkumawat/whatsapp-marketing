@@ -65,8 +65,14 @@ export default function Contacts() {
       const a = document.createElement('a');
       a.href = url;
       a.download = 'contacts.csv';
+      document.body.appendChild(a);
       a.click();
-    } catch (err) { console.error(err); }
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) { 
+      console.error(err);
+      alert('Export failed: ' + (err.response?.data?.message || err.message));
+    }
   };
 
   const createGroup = async (e) => {
