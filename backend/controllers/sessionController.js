@@ -211,6 +211,7 @@ exports.getSessionDiagnostics = async (req, res) => {
     if (!session) {
       return res.status(404).json({ success: false, message: 'Session not found' });
     }
+    const baileysVersion = whatsappService.getSavedVersion ? whatsappService.getSavedVersion() : null;
     res.json({
       success: true,
       diagnostics: {
@@ -221,6 +222,7 @@ exports.getSessionDiagnostics = async (req, res) => {
         errorDetails: session.errorDetails || null,
         lastErrorAt: session.lastErrorAt || null,
         hasQR: !!session.qr,
+        baileysVersion,
         createdAt: session.createdAt,
         updatedAt: session.updatedAt
       }

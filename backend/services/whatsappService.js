@@ -63,6 +63,7 @@ const RECONNECT_POLL_TIMEOUT = 60000;
 const RECONNECT_POLL_INTERVAL = 1000;
 const CONNECTION_STALE_TIMEOUT = 120000; // 120s max for a connection attempt
 let globalIo = null;
+let savedVersion = null;
 
 // Keep-alive HTTPS agent for Baileys WebSocket connections (helps on free Render/AWS)
 const baileysAgent = new https.Agent({
@@ -276,13 +277,12 @@ const connectSession = async (sessionId, io) => {
 
     const sock = makeWASocket({
       auth: state,
-      browser: Browsers.macOS('Chrome'),
+      browser: Browsers.ubuntu('Chrome'),
       logger: pino({ level: 'warn' }),
       printQRInTerminal: false,
       markOnlineOnConnect: false,
       syncFullHistory: false,
       generateHighQualityLinkPreview: false,
-      mobile: false,
       version,
       keepAliveIntervalMs: 10000,
       connectTimeoutMs: 120000,
@@ -292,9 +292,10 @@ const connectSession = async (sessionId, io) => {
       agent: baileysAgent
     });
 
+    savedVersion = version;
     sessions.set(sessionId, sock);
     sessionsContactMap.set(sessionId, new Map());
-    console.log(`[Baileys] Socket created for ${sessionId}`);
+    console.log(`[Baileys] Socket created for ${sessionId} (version: ${version.join('.')})`);
 
     // Register connection.update handler IMMEDIATELY after makeWASocket, before any await
     // This prevents missing QR events that fire during async operations
@@ -1276,10 +1277,12 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
   }
 };
 
+const getSavedVersion = () => savedVersion;
+
 module.exports = {
   connectSession, disconnectSession, removeSession,
   sendTextMessage, sendMediaMessage, sendButtonMessage, sendGroupMessage, getGroups,
   getConnectionStatus, isSessionConnected, isSessionReady, restoreSessions, sessions,
   fetchProfilePic, fetchContactName, getReadySocket, getAllContacts, createPairingSession, waitForSessionQr,
-  randomDelay
+  randomDelay, getSavedVersion
 };
