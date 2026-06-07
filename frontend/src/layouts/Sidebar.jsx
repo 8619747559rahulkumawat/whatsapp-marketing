@@ -17,7 +17,7 @@ import {
 } from 'react-icons/hi';
 import { FaWhatsapp, FaBrain, FaRobot } from 'react-icons/fa';
 
-const ALWAYS_UNLOCKED = ['/dashboard', '/billing', '/wallet', '/reports', '/support', '/pricing'];
+const ALWAYS_UNLOCKED = ['/dashboard', '/billing', '/wallet', '/reports', '/support', '/pricing', '/ai-assist', '/messages'];
 
 const userNav = [
   { path: '/dashboard', label: 'Dashboard', icon: HiOutlineHome },

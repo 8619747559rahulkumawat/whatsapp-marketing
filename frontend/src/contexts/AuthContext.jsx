@@ -70,11 +70,13 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
-  const ALWAYS_ALLOWED = ['dashboard', 'billing', 'wallet', 'reports', 'pricing'];
+  const ALWAYS_ALLOWED = ['dashboard', 'billing', 'wallet', 'reports', 'pricing', 'ai-assist', 'messages'];
 
   const hasAccess = (feature) => {
     if (!user) return false;
-    return true;
+    if (user.role === 'admin' || user.role === 'super_admin') return true;
+    if ((user.credits || 0) > 0) return true;
+    return ALWAYS_ALLOWED.includes(feature);
   };
 
   return (
