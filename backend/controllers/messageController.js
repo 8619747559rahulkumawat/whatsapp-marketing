@@ -53,6 +53,7 @@ exports.sendBulk = async (req, res) => {
     const safeDelay = Math.max(4000, parseInt(delay) || 4000);
     const BATCH_SIZE = 5;
     const results = [];
+    const io = req.app.get('io');
 
     const sendOne = async (contact) => {
       const phone = formatPhoneNumber(contact.phone);
@@ -89,6 +90,13 @@ exports.sendBulk = async (req, res) => {
           results.push({ phone: batch[j].phone, status: 'failed', error: r.reason?.message || 'Unknown' });
         }
       }
+      if (io) {
+        io.to('admin_room').emit('bulk:progress', {
+          sent: results.filter(r => r.status === 'sent').length,
+          failed: results.filter(r => r.status === 'failed').length,
+          total: contacts.length
+        });
+      }
       if (i + BATCH_SIZE < contacts.length) {
         await new Promise(r => setTimeout(r, safeDelay));
       }
@@ -100,7 +108,12 @@ exports.sendBulk = async (req, res) => {
     if (req.user.role === 'admin') {
       results.forEach(r => { r.phone = '[Private]'; });
     }
-    res.json({ success: true, results, sent: results.filter(r => r.status === 'sent').length, failed: results.filter(r => r.status === 'failed').length });
+    const sent = results.filter(r => r.status === 'sent').length;
+    const failed = results.filter(r => r.status === 'failed').length;
+    if (io) {
+      io.to('admin_room').emit('bulk:completed', { sent, failed, total: contacts.length });
+    }
+    res.json({ success: true, results, sent, failed });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -114,6 +127,7 @@ exports.sendBulkWithImage = async (req, res) => {
     const delay = parseInt(req.body.delay) || 4000;
     const safeDelay = Math.max(4000, delay);
     const mediaUrl = req.file ? `/uploads/${req.file.filename}` : '';
+    const io = req.app.get('io');
     const BATCH_SIZE = 5;
 
     if (typeof contacts === 'string') {
@@ -159,6 +173,13 @@ exports.sendBulkWithImage = async (req, res) => {
           results.push({ phone: batch[j].phone, status: 'failed', error: r.reason?.message || 'Unknown' });
         }
       }
+      if (io) {
+        io.to('admin_room').emit('bulk:progress', {
+          sent: results.filter(r => r.status === 'sent').length,
+          failed: results.filter(r => r.status === 'failed').length,
+          total: contacts.length
+        });
+      }
       if (i + BATCH_SIZE < contacts.length) {
         await new Promise(r => setTimeout(r, safeDelay));
       }
@@ -170,7 +191,12 @@ exports.sendBulkWithImage = async (req, res) => {
     if (req.user.role === 'admin') {
       results.forEach(r => { r.phone = '[Private]'; });
     }
-    res.json({ success: true, results, sent: results.filter(r => r.status === 'sent').length, failed: results.filter(r => r.status === 'failed').length });
+    const sent = results.filter(r => r.status === 'sent').length;
+    const failed = results.filter(r => r.status === 'failed').length;
+    if (io) {
+      io.to('admin_room').emit('bulk:completed', { sent, failed, total: contacts.length });
+    }
+    res.json({ success: true, results, sent, failed });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

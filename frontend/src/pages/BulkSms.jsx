@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import API from '../utils/api';
 import { FaWhatsapp, FaUpload, FaImage, FaTrash, FaCheckCircle, FaTimesCircle, FaSpinner, FaDownload, FaRedo } from 'react-icons/fa';
+import { connectSocket } from '../utils/socket';
 
 export default function BulkSms() {
   const navigate = useNavigate();
@@ -21,12 +22,32 @@ export default function BulkSms() {
   const fileRef = useRef(null);
   const [savedContacts, setSavedContacts] = useState([]);
   const [showContacts, setShowContacts] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupData, setPopupData] = useState({ sent: 0, failed: 0, total: 0 });
 
   useEffect(() => {
     fetchSessions();
     API.get('/contacts?limit=100').then(r => { if (r.data.success) setSavedContacts(r.data.contacts); }).catch(() => {});
     const interval = setInterval(fetchSessions, 5000);
-    return () => clearInterval(interval);
+
+    const socket = connectSocket();
+    const onProgress = (data) => {
+      setProgress(prev => ({ ...prev, sent: data.sent, failed: data.failed }));
+    };
+    const onCompleted = (data) => {
+      setProgress(prev => ({ ...prev, sent: data.sent, failed: data.failed }));
+      setPopupData(data);
+      setShowPopup(true);
+      setSending(false);
+    };
+    socket.on('bulk:progress', onProgress);
+    socket.on('bulk:completed', onCompleted);
+
+    return () => {
+      clearInterval(interval);
+      socket.off('bulk:progress', onProgress);
+      socket.off('bulk:completed', onCompleted);
+    };
   }, []);
 
    const fetchSessions = async () => {
@@ -288,6 +309,36 @@ export default function BulkSms() {
           )}
         </div>
       </div>
+
+      <AnimatePresence>
+        {showPopup && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowPopup(false)}>
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} className="bg-gray-900 border border-white/10 rounded-2xl p-8 max-w-md w-full text-center" onClick={e => e.stopPropagation()}>
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center">
+                <FaCheckCircle className="text-green-400" size={32} />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">Bulk Sent Complete!</h2>
+              <p className="text-gray-400 mb-6">All messages have been processed</p>
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="p-4 rounded-xl bg-white/5">
+                  <p className="text-3xl font-bold text-green-400">{popupData.total}</p>
+                  <p className="text-xs text-gray-400 mt-1">Total Numbers</p>
+                </div>
+                <div className="p-4 rounded-xl bg-white/5">
+                  <p className="text-3xl font-bold text-blue-400">{popupData.sent}</p>
+                  <p className="text-xs text-gray-400 mt-1">Sent Successfully</p>
+                </div>
+              </div>
+              {popupData.failed > 0 && (
+                <p className="text-red-400 text-sm mb-4">{popupData.failed} message(s) failed</p>
+              )}
+              <button onClick={() => setShowPopup(false)} className="w-full px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-medium transition-colors">
+                Done
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
