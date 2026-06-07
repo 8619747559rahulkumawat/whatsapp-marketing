@@ -15,7 +15,7 @@ router.get('/stats/daily', messageController.getDailyStats);
 router.get('/stats/user/:userId', messageController.getUserStats);
 router.post('/send', messageController.sendMessage);
 router.post('/', messageController.sendMessage);
-router.post('/bulk', messageController.sendBulkMessage);
+router.post('/bulk', messageController.sendBulk);
 router.post('/bulk-with-image', upload.single('file'), messageController.sendBulkWithImage);
 router.post('/cloud-template-batch', messageController.sendCloudTemplateBatch);
 router.get('/cloud-template-batch/:jobId', messageController.getCloudBatchStatus);
