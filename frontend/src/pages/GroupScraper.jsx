@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import API from '../utils/api';
 import { HiOutlineUsers, HiOutlineDownload, HiOutlineSearch, HiOutlineTag, HiOutlineRefresh, HiOutlineTrash, HiOutlineEye, HiOutlineFilter, HiOutlineUserAdd, HiOutlineChat, HiOutlineChatAlt2 } from 'react-icons/hi';
 import { FaWhatsapp, FaUserPlus, FaCommentDots } from 'react-icons/fa';
+import { useToast } from '../contexts/ToastContext';
 
 export default function GroupScraper() {
+  const { addToast } = useToast();
   const [scrapes, setScrapes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedScrape, setSelectedScrape] = useState(null);
@@ -18,6 +20,7 @@ export default function GroupScraper() {
   const [scrapingAll, setScrapingAll] = useState(false);
   const [exportingContacts, setExportingContacts] = useState(false);
   const [exportSessionId, setExportSessionId] = useState('');
+  const [exportFormat, setExportFormat] = useState('xlsx');
   const [showMsgModal, setShowMsgModal] = useState(false);
   const [msgForm, setMsgForm] = useState({ groupJid: '', groupName: '', sessionId: '', limit: 50 });
   const [scrapingMessages, setScrapingMessages] = useState(false);
@@ -45,12 +48,13 @@ export default function GroupScraper() {
     e.preventDefault();
     try {
       await API.post('/contacts/groups/scrape', form);
+      addToast('Group scraped successfully', 'success');
       setShowScrapeModal(false);
       setForm({ groupJid: '', groupName: '', sessionId: '' });
       setAvailableGroups([]);
       fetchScrapes();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to start scrape');
+      addToast(err.response?.data?.message || 'Failed to start scrape', 'error');
     }
   };
 
@@ -62,20 +66,65 @@ export default function GroupScraper() {
     } catch { console.error('Operation failed'); }
   };
 
+  const getBlobErrorMessage = async (err, fallback = 'Export failed') => {
+    let msg = err.response?.data?.message || err.message || fallback;
+    try {
+      const d = err.response?.data;
+      if (d instanceof Blob) {
+        const text = await d.text();
+        try { msg = JSON.parse(text).message || text || msg; } catch { msg = text || msg; }
+      } else if (typeof d === 'string') {
+        try { msg = JSON.parse(d).message || d || msg; } catch { msg = d || msg; }
+      } else if (d && typeof d === 'object') {
+        msg = d.message || JSON.stringify(d) || msg;
+      }
+    } catch { console.error('Operation failed'); }
+    return msg;
+  };
+
+  const downloadBlob = (data, filename) => {
+    try {
+      const blob = data instanceof Blob ? data : new Blob([data]);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download failed:', err);
+      addToast('Failed to download file. Please try again.', 'error');
+    }
+  };
+
   const exportExcel = async (id) => {
+    const scrape = scrapes.find(s => s._id === id);
+    if (!scrape) return addToast('Scrape not found', 'error');
+    
+    const contactCount = scrape.participants?.length || scrape.totalMembers || 0;
+    if (!contactCount) return addToast('No contacts found to export for this scrape', 'warning');
+    
     try {
       const { data } = await API.get(`/contacts/groups/scrape/${id}/export`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([data]));
-      const a = document.createElement('a');
-      a.href = url; a.download = `group-members-${id}.xlsx`; a.click();
+      downloadBlob(data, `group-members-${scrape.groupName || id}.xlsx`);
+      addToast('Export downloaded successfully', 'success');
     } catch (err) {
-      alert('Export failed');
+      addToast(await getBlobErrorMessage(err, 'Failed to export scrape contacts'), 'error');
     }
   };
 
   const deleteScrape = async (id) => {
     if (!confirm('Delete this scrape record?')) return;
-    try { await API.delete(`/contacts/groups/scrape/${id}`); fetchScrapes(); if (selectedScrape?._id === id) { setSelectedScrape(null); setMembers([]); } } catch { console.error('Operation failed'); }
+    try { 
+      await API.delete(`/contacts/groups/scrape/${id}`); 
+      fetchScrapes(); 
+      if (selectedScrape?._id === id) { setSelectedScrape(null); setMembers([]); }
+      addToast('Scrape deleted', 'success');
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Failed to delete scrape', 'error');
+    }
   };
 
   const fetchGroups = async (sessionId) => {
@@ -85,12 +134,12 @@ export default function GroupScraper() {
       const { data } = await API.get(`/sessions/${sessionId}/groups`);
       if (data.success) {
         setAvailableGroups(data.groups || []);
-        if (!data.groups?.length) alert('No WhatsApp groups found on this account');
+        if (!data.groups?.length) addToast('No WhatsApp groups found on this account', 'warning');
       } else {
-        alert(data.message || 'Failed to fetch groups');
+        addToast(data.message || 'Failed to fetch groups', 'error');
       }
     } catch (err) {
-      alert(err.response?.data?.message || err.message || 'Failed to fetch groups. Ensure session is connected (✅).');
+      addToast(err.response?.data?.message || err.message || 'Failed to fetch groups. Ensure session is connected (✅).', 'error');
     } finally { setFetchingGroups(false); }
   };
 
@@ -101,34 +150,47 @@ export default function GroupScraper() {
   const importToContacts = async (id) => {
     try {
       await API.post(`/contacts/groups/scrape/${id}/import`);
-      alert('Members imported to contacts');
+      addToast('Members imported to contacts', 'success');
     } catch (err) {
-      alert(err.response?.data?.message || 'Import failed');
+      addToast(err.response?.data?.message || 'Import failed', 'error');
     }
   };
 
   const exportPhoneContacts = async () => {
     const sessionId = exportSessionId;
-    if (!sessionId) return alert('Select a connected session from the dropdown first');
+    if (!sessionId) return addToast('Select a connected session from the dropdown first', 'warning');
+    
+    const selectedSession = sessions.find(s => s.sessionId === sessionId);
+    if (!selectedSession) return addToast('Invalid session selected', 'error');
+    if (selectedSession.status !== 'connected') {
+      return addToast('WhatsApp session not connected. Please connect the session first.', 'warning');
+    }
+
+    const sessionScrapes = scrapes.filter(scrape => scrape.sessionId === sessionId);
+    const contactCount = sessionScrapes.reduce((total, scrape) => total + (scrape.totalMembers || scrape.participants?.length || 0), 0);
+    if (!contactCount) return addToast('No contacts found to export for this session', 'warning');
+
     setExportingContacts(true);
     try {
-      const { data } = await API.get(`/sessions/${sessionId}/contacts/export`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([data]));
-      const a = document.createElement('a');
-      a.href = url; a.download = `whatsapp-contacts-${sessionId}.xlsx`; a.click();
+      const format = exportFormat || 'xlsx';
+      console.log('[ExportContacts] Starting export', { sessionId, format, scrapeCount: sessionScrapes.length, contactCount });
+      
+      const { data } = await API.get(`/sessions/${sessionId}/contacts/export`, {
+        params: { format },
+        responseType: 'blob'
+      });
+      
+      const filename = `group-contacts-${selectedSession.name || sessionId}.${format}`;
+      downloadBlob(data, filename);
+      addToast('Contacts exported successfully', 'success');
+      console.log('[ExportContacts] Export completed', { sessionId, format, filename });
     } catch (err) {
-      let msg = err.message || 'Export failed';
-      try {
-        const d = err.response?.data;
-        if (d instanceof Blob) {
-          const text = await d.text();
-          try { msg = JSON.parse(text).message || text; } catch { msg = text; }
-        } else if (typeof d === 'string') {
-          try { msg = JSON.parse(d).message || d; } catch { msg = d; }
-        }
-      } catch { console.error('Operation failed'); }
-      alert(msg);
-    } finally { setExportingContacts(false); }
+      const errorMsg = await getBlobErrorMessage(err, 'Export failed');
+      console.error('[ExportContacts] Export error', { sessionId, format, error: errorMsg, err });
+      addToast(errorMsg, 'error');
+    } finally { 
+      setExportingContacts(false); 
+    }
   };
 
   const scrapeAllGroups = async () => {
@@ -137,32 +199,31 @@ export default function GroupScraper() {
     try {
       const { data } = await API.post('/contacts/groups/scrape-all', { sessionId: form.sessionId });
       if (data.success) {
-        alert(data.message);
+        addToast(data.message, 'success');
         setShowScrapeModal(false);
         setForm({ groupJid: '', groupName: '', sessionId: '' });
         setAvailableGroups([]);
         fetchScrapes();
       } else {
-        alert(data.message || 'Failed to scrape all groups');
+        addToast(data.message || 'Failed to scrape all groups', 'error');
       }
     } catch (err) {
-      alert(err.response?.data?.message || err.message || 'Failed to scrape all groups');
+      addToast(err.response?.data?.message || err.message || 'Failed to scrape all groups', 'error');
     } finally { setScrapingAll(false); }
   };
 
   const exportMessagesExcel = async (id) => {
     try {
       const { data } = await API.get(`/contacts/groups/scrape/${id}/export-messages`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([data]));
-      const a = document.createElement('a');
-      a.href = url; a.download = `group-messages-${id}.xlsx`; a.click();
+      downloadBlob(data, `group-messages-${id}.xlsx`);
+      addToast('Messages exported successfully', 'success');
     } catch (err) {
-      alert('Export failed');
+      addToast(await getBlobErrorMessage(err, 'Failed to export messages'), 'error');
     }
   };
 
   const scrapeMessages = async () => {
-    if (!msgForm.groupJid || !msgForm.sessionId) return alert('Select a group and session first');
+    if (!msgForm.groupJid || !msgForm.sessionId) return addToast('Select a group and session first', 'warning');
     setScrapingMessages(true);
     setMessages([]);
     try {
@@ -173,10 +234,11 @@ export default function GroupScraper() {
       });
       if (data.success) {
         setMessages(data.messages || []);
-        if (!data.messages?.length) alert('No messages found in this group');
+        if (!data.messages?.length) addToast('No messages found in this group', 'warning');
+        else addToast(`Scraped ${data.messages.length} messages`, 'success');
       }
     } catch (err) {
-      alert(err.response?.data?.message || err.message || 'Failed to scrape messages');
+      addToast(err.response?.data?.message || err.message || 'Failed to scrape messages', 'error');
     } finally {
       setScrapingMessages(false);
     }
@@ -219,6 +281,11 @@ export default function GroupScraper() {
               {sessions.map(s => (
                 <option key={s._id} value={s.sessionId}>{s.name || s.sessionId} {s.status === 'connected' ? '✅' : '❌'}</option>
               ))}
+            </select>
+            <select className="input-field text-sm py-1.5" value={exportFormat} onChange={e => setExportFormat(e.target.value)}>
+              <option value="xlsx">XLSX</option>
+              <option value="csv">CSV</option>
+              <option value="json">JSON</option>
             </select>
             <button onClick={exportPhoneContacts} disabled={exportingContacts || !exportSessionId}
               className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium flex items-center gap-1.5 transition-colors">

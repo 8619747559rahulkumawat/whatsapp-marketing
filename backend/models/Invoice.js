@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const invoiceSchema = new mongoose.Schema({
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  invoiceNumber: { type: String, required: true, unique: true },
+  invoiceNumber: { type: String, required: true },
   planId: { type: mongoose.Schema.Types.ObjectId, ref: 'SubscriptionPlan' },
   amount: { type: Number, required: true },
   currency: { type: String, default: 'INR' },
@@ -37,5 +37,6 @@ const invoiceSchema = new mongoose.Schema({
 
 invoiceSchema.index({ tenantId: 1, userId: 1 });
 invoiceSchema.index({ status: 1 });
+invoiceSchema.index({ invoiceNumber: 1 }, { unique: true });
 
 module.exports = mongoose.model('Invoice', invoiceSchema);

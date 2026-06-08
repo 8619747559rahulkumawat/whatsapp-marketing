@@ -3,7 +3,9 @@ const ContactGroup = require('../models/ContactGroup');
 const GroupScrape = require('../models/GroupScrape');
 const whatsappService = require('../services/whatsappService');
 const { formatPhoneNumber, calculatePagination } = require('../utils/helpers');
+const { buildGroupScrapeRows, normalizeExportFormat, sendContactExport } = require('../utils/contactExport');
 const csv = require('csv-parser');
+const mongoose = require('mongoose');
 const { Readable } = require('stream');
 
 exports.getContacts = async (req, res) => {
@@ -439,48 +441,62 @@ exports.getGroupScrapeMembers = async (req, res) => {
 };
 
 exports.exportGroupScrape = async (req, res) => {
+  const scrapeId = String(req.params.id || '').trim();
+  const format = normalizeExportFormat(req.query.format || req.params.format);
+
   try {
-    const scrape = await GroupScrape.findOne({ _id: req.params.id, tenantId: req.tenant?._id || req.user?.tenantId });
+    if (!mongoose.Types.ObjectId.isValid(scrapeId)) {
+      console.warn('[ExportGroupScrape] Invalid scrape ID', { scrapeId, format });
+      return res.status(422).json({ success: false, message: 'Invalid scrape ID' });
+    }
+
+    const tenantId = req.tenant?._id || req.user?.tenantId;
+    const filter = { _id: scrapeId };
+    if (tenantId) filter.tenantId = tenantId;
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      filter.userId = req.user._id;
+    }
+
+    const scrape = await GroupScrape.findOne(filter)
+      .select('sessionId groupJid groupName groupSubject participants createdAt totalMembers status')
+      .lean();
+    console.log('[ExportGroupScrape] Database query result', {
+      scrapeId,
+      sessionId: scrape?.sessionId || '',
+      format,
+      found: !!scrape,
+      participantCount: scrape?.participants?.length || 0,
+      filter
+    });
+
     if (!scrape) return res.status(404).json({ success: false, message: 'Scrape not found' });
 
-    const ExcelJS = require('exceljs');
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Group Members');
-
-    ws.columns = [
-      { header: 'Name', key: 'name', width: 30 },
-      { header: 'Phone', key: 'phone', width: 18 },
-      { header: 'Address', key: 'address', width: 35 },
-      { header: 'Group', key: 'group', width: 30 },
-      { header: 'Admin', key: 'admin', width: 10 }
-    ];
-    ws.getRow(1).font = { bold: true };
-
     const participants = scrape.participants || [];
-    const phones = participants.map(m => m.phone || m.jid?.split('@')[0]).filter(Boolean);
+    const phones = Array.from(new Set(participants.map(m => m.phone || m.jid?.split('@')[0]).filter(Boolean)));
     const existingContacts = await Contact.find({ userId: req.user._id, phone: { $in: phones } }).lean();
-    const contactMap = {};
-    for (const c of existingContacts) {
-      if (!contactMap[c.phone] || c.name) contactMap[c.phone] = c;
+    const rows = buildGroupScrapeRows([scrape], existingContacts);
+    console.log('[ExportGroupScrape] Contact count', {
+      scrapeId,
+      sessionId: scrape.sessionId || '',
+      format,
+      contactCount: rows.length,
+      savedContactMatches: existingContacts.length
+    });
+
+    if (!rows.length) {
+      return res.status(404).json({ success: false, message: 'No contacts found to export' });
     }
 
-    for (const m of participants) {
-      const phone = m.phone || m.jid?.split('@')[0] || '';
-      const contact = contactMap[phone];
-      ws.addRow({
-        name: (contact?.name || m.name || '').trim(),
-        phone,
-        address: (contact?.address || contact?.city || '').trim(),
-        group: scrape.groupName || scrape.groupSubject || '',
-        admin: m.isAdmin ? 'Yes' : 'No'
-      });
-    }
-
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=group-${scrape._id}.xlsx`);
-    await wb.xlsx.write(res);
-    res.end();
+    await sendContactExport(res, rows, {
+      format,
+      filenameBase: `group-members-${scrapeId}`
+    });
   } catch (err) {
+    console.error('[ExportGroupScrape] Error stack', {
+      scrapeId,
+      format,
+      stack: err.stack || err.message
+    });
     res.status(500).json({ success: false, message: err.message });
   }
 };

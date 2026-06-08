@@ -1,7 +1,10 @@
 const Session = require('../models/Session');
 const Contact = require('../models/Contact');
+const GroupScrape = require('../models/GroupScrape');
 const whatsappService = require('../services/whatsappService');
 const { generateSessionId } = require('../utils/helpers');
+const { buildGroupScrapeRows, normalizeExportFormat, sendContactExport } = require('../utils/contactExport');
+const mongoose = require('mongoose');
 
 exports.getSessions = async (req, res) => {
   try {
@@ -233,58 +236,143 @@ exports.getSessionDiagnostics = async (req, res) => {
 };
 
 exports.exportContacts = async (req, res) => {
+  const sessionId = String(req.params.id || '').trim();
+  const format = normalizeExportFormat(req.query.format || req.params.format);
+  const startTime = Date.now();
+
+  console.log('[ExportContacts] Request received', {
+    sessionId,
+    format,
+    userId: req.user?._id?.toString(),
+    userRole: req.user?.role,
+    tenantId: req.tenant?._id?.toString(),
+    query: req.query,
+    params: req.params
+  });
+
   try {
-    const Session = require('../models/Session');
-    const session = await Session.findOne({ sessionId: req.params.id, userId: req.user._id });
+    if (!sessionId || sessionId.length < 3 || sessionId.length > 256) {
+      console.warn('[ExportContacts] Invalid session ID length', { sessionId, format });
+      return res.status(422).json({ success: false, message: 'Invalid session ID format' });
+    }
+
+    const tenantId = req.tenant?._id || req.user?.tenantId;
+    const sessionFilter = { sessionId };
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      sessionFilter.userId = req.user._id;
+    }
+    if (tenantId) sessionFilter.tenantId = tenantId;
+
+    const session = await Session.findOne(sessionFilter).lean();
     if (!session) {
+      console.warn('[ExportContacts] Session not found', { sessionId, format, filter: sessionFilter });
       return res.status(404).json({ success: false, message: 'Session not found or access denied' });
     }
 
-    if (session.status !== 'connected') {
-      return res.status(400).json({ success: false, message: 'WhatsApp session not connected. Please connect the session first.' });
+    const connectionStatus = await whatsappService.getConnectionStatus(sessionId);
+    console.log('[ExportContacts] Session status checked', {
+      sessionId,
+      dbStatus: session.status,
+      liveStatus: connectionStatus?.status || 'unknown',
+      format,
+      sessionPhone: session.phone
+    });
+
+    const scrapeFilter = { sessionId };
+    if (tenantId) scrapeFilter.tenantId = tenantId;
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      scrapeFilter.userId = req.user._id;
     }
 
-    const contacts = await whatsappService.getAllContacts(req.params.id);
-    if (!contacts.length) {
-      return res.status(400).json({ success: false, message: 'No WhatsApp contacts synced yet. Try "Scrape All Groups" in Group Scraper instead - it extracts all members from your groups. Phone contacts are only available if you have chatted with them recently on this device.' });
+    const scrapes = await GroupScrape.find(scrapeFilter)
+      .select('sessionId groupJid groupName groupSubject participants createdAt totalMembers status')
+      .sort({ createdAt: -1 })
+      .lean();
+    
+    const participantCount = scrapes.reduce((total, scrape) => total + ((scrape.participants || []).length), 0);
+    console.log('[ExportContacts] GroupScrape query result', {
+      sessionId,
+      format,
+      scrapeCount: scrapes.length,
+      participantCount,
+      scrapes: scrapes.map(s => ({
+        id: s._id?.toString(),
+        groupName: s.groupName,
+        groupJid: s.groupJid,
+        participantCount: s.participants?.length || 0,
+        status: s.status,
+        createdAt: s.createdAt
+      })),
+      filter: scrapeFilter
+    });
+
+    if (!scrapes.length) {
+      console.warn('[ExportContacts] No group scrapes found for session', { sessionId, format });
+      return res.status(404).json({ success: false, message: 'No group scrapes found for this session. Scrape a group first.' });
     }
 
-    const phones = contacts.map(c => c.phone).filter(Boolean);
-    const existingContacts = await Contact.find({ userId: req.user._id, phone: { $in: phones } }).lean();
-    const contactMap = {};
-    for (const c of existingContacts) {
-      if (!contactMap[c.phone] || c.name) contactMap[c.phone] = c;
+    const phones = new Set();
+    const phoneDetails = [];
+    for (const scrape of scrapes) {
+      for (const member of scrape.participants || []) {
+        const phone = member.phone || (member.jid ? member.jid.split('@')[0] : '');
+        if (phone) {
+          phones.add(phone);
+          phoneDetails.push({ phone, groupName: scrape.groupName, groupJid: scrape.groupJid, isAdmin: member.isAdmin });
+        }
+      }
     }
 
-    const ExcelJS = require('exceljs');
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Phone Contacts');
+    console.log('[ExportContacts] Unique phones extracted', {
+      sessionId,
+      format,
+      uniquePhoneCount: phones.size,
+      totalParticipants: participantCount
+    });
 
-    ws.columns = [
-      { header: 'Name', key: 'name', width: 30 },
-      { header: 'Phone', key: 'phone', width: 18 },
-      { header: 'Address', key: 'address', width: 35 }
-    ];
-    ws.getRow(1).font = { bold: true };
+    const existingContacts = await Contact.find({ userId: req.user._id, phone: { $in: Array.from(phones) } }).lean();
+    const rows = buildGroupScrapeRows(scrapes, existingContacts);
+    
+    console.log('[ExportContacts] Export rows built', {
+      sessionId,
+      format,
+      contactCount: rows.length,
+      savedContactMatches: existingContacts.length,
+      uniquePhones: phones.size,
+      durationMs: Date.now() - startTime
+    });
 
-    for (const c of contacts) {
-      const contact = contactMap[c.phone];
-      ws.addRow({
-        name: (contact?.name || c.name || '').trim(),
-        phone: c.phone,
-        address: (contact?.address || contact?.city || '').trim()
-      });
+    if (!rows.length) {
+      console.warn('[ExportContacts] No contacts to export after processing', { sessionId, format });
+      return res.status(404).json({ success: false, message: 'No contacts found to export' });
     }
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=contacts-${req.params.id}.xlsx`);
-    await wb.xlsx.write(res);
-    res.end();
+    await sendContactExport(res, rows, {
+      format,
+      filenameBase: `group-contacts-${sessionId}`
+    });
+
+    console.log('[ExportContacts] Export completed successfully', {
+      sessionId,
+      format,
+      contactCount: rows.length,
+      durationMs: Date.now() - startTime
+    });
   } catch (err) {
-    console.error(`[ExportContacts] Error:`, err.stack || err.message);
-    if (err.message.includes('not connected')) {
-      return res.status(400).json({ success: false, message: 'WhatsApp session not connected. Please connect the session first.' });
+    console.error('[ExportContacts] Error', {
+      sessionId,
+      format,
+      error: err.message,
+      stack: err.stack,
+      durationMs: Date.now() - startTime
+    });
+    
+    if (err.name === 'ValidationError' || err.name === 'CastError') {
+      return res.status(400).json({ success: false, message: `Validation error: ${err.message}` });
     }
-    res.status(500).json({ success: false, message: err.message });
+    
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: err.message });
+    }
   }
 };

@@ -20,6 +20,7 @@ router.post('/:id/pairing-code', sessionController.pairingCode);
 
 router.get('/:id/diagnostics', sessionController.getSessionDiagnostics);
 router.get('/:id/contacts/export', sessionController.exportContacts);
+router.get('/:id/contacts/export/:format', sessionController.exportContacts);
 router.get('/:id/chat/:jid', sessionController.getContactChat);
 router.get('/:id/profile/:phone', auth, async (req, res) => {
   try {

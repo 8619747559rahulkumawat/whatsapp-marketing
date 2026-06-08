@@ -24,6 +24,7 @@ router.post('/groups/scrape', contactController.startGroupScrape);
 router.post('/groups/scrape-all', contactController.scrapeAllGroups);
 router.get('/groups/scrape/:id/members', contactController.getGroupScrapeMembers);
 router.get('/groups/scrape/:id/export', contactController.exportGroupScrape);
+router.get('/groups/scrape/:id/export/:format', contactController.exportGroupScrape);
 router.post('/groups/scrape/:id/import', contactController.importGroupScrape);
 router.delete('/groups/scrape/:id', contactController.deleteGroupScrape);
 router.post('/groups/scrape-messages', contactController.scrapeGroupMessages);

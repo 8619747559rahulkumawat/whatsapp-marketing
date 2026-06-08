@@ -13,7 +13,7 @@ const templateSchema = new mongoose.Schema({
     enum: ['draft', 'pending_approval', 'approved', 'rejected'],
     default: 'draft'
   },
-  whatsappTemplateId: { type: String, unique: true, sparse: true }, // ID from WhatsApp Business API
+  whatsappTemplateId: { type: String }, // ID from WhatsApp Business API
   rejectedReason: { type: String, default: '' },
   approvedAt: { type: Date },
   createdAt: { type: Date, default: Date.now },
@@ -24,5 +24,6 @@ const templateSchema = new mongoose.Schema({
 templateSchema.index({ tenantId: 1, status: 1 });
 templateSchema.index({ userId: 1 });
 templateSchema.index({ category: 1 });
+templateSchema.index({ whatsappTemplateId: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('Template', templateSchema);
