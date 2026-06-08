@@ -19,9 +19,12 @@ router.delete('/:id', sessionController.deleteSession);
 router.post('/:id/pairing-code', sessionController.pairingCode);
 
 router.get('/:id/diagnostics', sessionController.getSessionDiagnostics);
+router.get('/:id/export', sessionController.exportContacts);
+router.get('/:id/export/:format', sessionController.exportContacts);
 router.get('/:id/contacts/export', sessionController.exportContacts);
 router.get('/:id/contacts/export/:format', sessionController.exportContacts);
 router.get('/:id/chat/:jid', sessionController.getContactChat);
+router.get('/:id/debug', sessionController.getSessionDebug);
 router.get('/:id/profile/:phone', auth, async (req, res) => {
   try {
     const { id, phone } = req.params;

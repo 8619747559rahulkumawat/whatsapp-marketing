@@ -235,165 +235,213 @@ exports.getSessionDiagnostics = async (req, res) => {
   }
 };
 
+const collectSessionContacts = async (sessionId, userId, phone) => {
+  const results = { sources: {}, all: new Map() };
+
+  // Source 1: GroupScrape participants
+  const scrapes = await GroupScrape.find({ sessionId })
+    .select('sessionId groupJid groupName groupSubject participants totalMembers')
+    .sort({ createdAt: -1 })
+    .lean();
+  results.sources.groupScrapes = scrapes.length;
+  let fromScrapes = 0;
+  for (const scrape of scrapes) {
+    for (const m of scrape.participants || []) {
+      const p = m.phone || (m.jid ? m.jid.split('@')[0] : '');
+      if (!p || results.all.has(p)) continue;
+      results.all.set(p, { name: m.name || '', group: scrape.groupName || scrape.groupSubject || 'Group', phone: p });
+      fromScrapes++;
+    }
+  }
+  results.sources.fromScrapes = fromScrapes;
+
+  // Source 2: WhatsApp contacts (Baileys)
+  try {
+    const waContacts = await whatsappService.getAllContacts(sessionId);
+    results.sources.waContacts = waContacts.length;
+    for (const c of waContacts) {
+      if (!c.phone || results.all.has(c.phone)) continue;
+      results.all.set(c.phone, { name: c.name || '', group: 'WhatsApp Contacts', phone: c.phone });
+    }
+  } catch (e) { results.sources.waContactsError = e.message; }
+
+  // Source 3: Direct socket contacts
+  try {
+    const sock = whatsappService.sessions?.get?.(sessionId);
+    if (sock?.contacts) {
+      let entries = [];
+      if (sock.contacts instanceof Map) {
+        for (const [jid, c] of sock.contacts) {
+          if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
+        }
+      } else if (typeof sock.contacts === 'object') {
+        entries = Object.entries(sock.contacts).filter(([jid]) => jid && !jid.includes('@g.us'));
+      }
+      results.sources.socketContacts = entries.length;
+      for (const [jid, c] of entries) {
+        const p = c.id?.split('@')[0] || jid.split('@')[0];
+        if (!p || results.all.has(p)) continue;
+        results.all.set(p, { name: c.name || c.notify || c.verifiedName || '', group: 'WhatsApp Contacts', phone: p });
+      }
+    }
+  } catch (e) { results.sources.socketContactsError = e.message; }
+
+  // Source 4: Saved MongoDB contacts
+  try {
+    const savedContacts = await Contact.find({ userId }).lean();
+    results.sources.savedContacts = savedContacts.length;
+    for (const c of savedContacts) {
+      const p = c.phone;
+      if (!p) continue;
+      if (results.all.has(p)) {
+        const ex = results.all.get(p);
+        if (c.name && !ex.name) ex.name = c.name;
+        if (c.address) ex.address = c.address;
+      } else {
+        results.all.set(p, { name: c.name || '', group: 'Saved Contacts', phone: p, address: c.address || c.city || '' });
+      }
+    }
+  } catch (e) { results.sources.savedContactsError = e.message; }
+
+  // Also collect from Contact model for THIS session specifically (imported via scrape)
+  try {
+    const importedContacts = await Contact.find({ userId, source: 'scrape' }).lean();
+    results.sources.importedContacts = importedContacts.length;
+    for (const c of importedContacts) {
+      const p = c.phone;
+      if (!p || results.all.has(p)) continue;
+      results.all.set(p, { name: c.name || '', group: 'Imported Contacts', phone: p, address: c.address || c.city || '' });
+    }
+  } catch (e) { /* skip */ }
+
+  results.total = results.all.size;
+  return results;
+};
+
+exports.getSessionDebug = async (req, res) => {
+  const sessionId = String(req.params.id || '').trim();
+  try {
+    const session = await Session.findOne({ sessionId }).lean();
+    const sock = whatsappService.sessions?.get?.(sessionId);
+    const contacts = await collectSessionContacts(sessionId, req.user._id);
+    res.json({
+      success: true,
+      diagnostics: {
+        sessionId,
+        sessionExists: !!session,
+        dbStatus: session?.status || 'unknown',
+        liveSocket: !!sock,
+        liveConnected: sock?.user ? true : false,
+        sourceBreakdown: contacts.sources,
+        contactsFound: contacts.total,
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 exports.exportContacts = async (req, res) => {
   const sessionId = String(req.params.id || '').trim();
   const format = normalizeExportFormat(req.query.format || req.params.format);
   const startTime = Date.now();
 
-  console.log('[ExportContacts] Request received', {
-    sessionId,
-    format,
-    userId: req.user?._id?.toString(),
-    userRole: req.user?.role,
-    tenantId: req.tenant?._id?.toString(),
-    query: req.query,
-    params: req.params
-  });
+  console.log('[ExportContacts] ====== START ======', { sessionId, format, userId: req.user?._id?.toString() });
 
   try {
     if (!sessionId || sessionId.length < 3 || sessionId.length > 256) {
-      console.warn('[ExportContacts] Invalid session ID length', { sessionId, format });
       return res.status(422).json({ success: false, message: 'Invalid session ID format' });
     }
 
     const tenantId = req.tenant?._id || req.user?.tenantId;
     const sessionFilter = { sessionId };
-    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
-      sessionFilter.userId = req.user._id;
-    }
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') sessionFilter.userId = req.user._id;
     if (tenantId) sessionFilter.tenantId = tenantId;
 
     const session = await Session.findOne(sessionFilter).lean();
+    console.log('[ExportContacts] Session:', sessionId, 'Found:', !!session, 'Status:', session?.status);
     if (!session) {
-      console.warn('[ExportContacts] Session not found', { sessionId, format, filter: sessionFilter });
       return res.status(404).json({ success: false, message: 'Session not found or access denied' });
     }
 
-    // Collect contacts from ALL possible sources
-    const allPhones = new Map(); // phone -> { name, group, phone }
+    // Collect contacts from ALL sources
+    const collected = await collectSessionContacts(sessionId, req.user._id);
+    console.log('[ExportContacts] Collection done', { sessionId, sources: collected.sources, total: collected.total });
 
-    // Source 1: GroupScrape participants
-    const scrapes = await GroupScrape.find({ sessionId })
-      .select('sessionId groupJid groupName groupSubject participants totalMembers')
-      .sort({ createdAt: -1 })
-      .lean();
-    console.log('[ExportContacts] Scrapes found', { sessionId, count: scrapes.length });
-
-    for (const scrape of scrapes) {
-      for (const m of scrape.participants || []) {
-        const phone = m.phone || (m.jid ? m.jid.split('@')[0] : '');
-        if (!phone || allPhones.has(phone)) continue;
-        allPhones.set(phone, {
-          name: m.name || '',
-          group: scrape.groupName || scrape.groupSubject || 'Group',
-          phone
-        });
-      }
-    }
-
-    // Source 2: WhatsApp direct contacts (Baileys)
-    try {
-      const waContacts = await whatsappService.getAllContacts(sessionId);
-      console.log('[ExportContacts] WA contacts fetched', { sessionId, count: waContacts.length });
-      for (const c of waContacts) {
-        if (!c.phone || allPhones.has(c.phone)) continue;
-        allPhones.set(c.phone, {
-          name: c.name || '',
-          group: 'WhatsApp Contacts',
-          phone: c.phone
-        });
-      }
-    } catch (waErr) {
-      console.log('[ExportContacts] WA contacts fetch skipped:', waErr.message);
-    }
-
-    // Source 3: Try direct socket contacts as extra fallback
-    try {
-      const sock = whatsappService.sessions?.get?.(sessionId);
-      if (sock?.contacts) {
-        let entries = [];
-        if (sock.contacts instanceof Map) {
-          for (const [jid, c] of sock.contacts) {
-            if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
-          }
-        } else if (typeof sock.contacts === 'object') {
-          entries = Object.entries(sock.contacts).filter(([jid]) => jid && !jid.includes('@g.us'));
-        }
-        console.log('[ExportContacts] Direct socket contacts', { sessionId, count: entries.length });
-        for (const [jid, c] of entries) {
-          const phone = c.id?.split('@')[0] || jid.split('@')[0];
-          if (!phone || allPhones.has(phone)) continue;
-          allPhones.set(phone, {
-            name: c.name || c.notify || c.verifiedName || '',
-            group: 'WhatsApp Contacts',
-            phone
-          });
-        }
-      }
-    } catch (sockErr) {
-      console.log('[ExportContacts] Direct socket contacts skipped:', sockErr.message);
-    }
-
-    // Source 4: Saved MongoDB contacts for this user
-    try {
-      const savedContacts = await Contact.find({ userId: req.user._id }).lean();
-      console.log('[ExportContacts] Saved contacts', { userId: req.user._id, count: savedContacts.length });
-      for (const c of savedContacts) {
-        const phone = c.phone;
-        if (!phone) continue;
-        if (allPhones.has(phone)) {
-          const existing = allPhones.get(phone);
-          if (c.name && !existing.name) existing.name = c.name;
-          if (c.address) existing.address = c.address;
-        } else {
-          allPhones.set(phone, {
-            name: c.name || '',
-            group: 'Saved Contacts',
-            phone,
-            address: c.address || c.city || ''
-          });
-        }
-      }
-    } catch (dbErr) {
-      console.log('[ExportContacts] Saved contacts fetch skipped:', dbErr.message);
-    }
-
-    const finalContacts = Array.from(allPhones.values()).map(c => ({
-      ...c,
-      admin: '-',
-      sessionId,
-      groupJid: '',
-      scrapedAt: '',
-      address: c.address || ''
+    let finalContacts = Array.from(collected.all.values()).map(c => ({
+      ...c, admin: '-', sessionId, groupJid: '', scrapedAt: '', address: c.address || ''
     }));
 
-    if (!finalContacts.length) {
-      console.warn('[ExportContacts] No contacts from any source', { sessionId });
-      return res.status(404).json({ success: false, message: 'No contacts found to export. Make sure WhatsApp session is connected and has contacts or group scrapes.' });
+    // If still empty, try auto-trigger contact sync from WhatsApp
+    if (!finalContacts.length && session.status === 'connected') {
+      console.log('[ExportContacts] No contacts found, triggering sync from live WhatsApp socket...');
+      try {
+        const sock = whatsappService.sessions?.get?.(sessionId);
+        if (sock?.contacts) {
+          let entries = [];
+          if (sock.contacts instanceof Map) {
+            for (const [jid, c] of sock.contacts) {
+              if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
+            }
+          } else if (typeof sock.contacts === 'object') {
+            entries = Object.entries(sock.contacts).filter(([jid]) => jid && !jid.includes('@g.us'));
+          }
+          console.log('[ExportContacts] Socket sync contacts:', entries.length);
+          for (const [jid, c] of entries) {
+            const p = c.id?.split('@')[0] || jid.split('@')[0];
+            if (!p || collected.all.has(p)) continue;
+            finalContacts.push({ name: c.name || c.notify || c.verifiedName || '', phone: p, group: 'WhatsApp Contacts', admin: '-', sessionId, groupJid: jid, scrapedAt: '', address: '' });
+          }
+        }
+      } catch (syncErr) {
+        console.log('[ExportContacts] Socket sync error:', syncErr.message);
+      }
     }
 
-    console.log('[ExportContacts] Total contacts to export', { sessionId, count: finalContacts.length });
+    // Also fetch from sock.store?.contacts if available (Baileys store)
+    if (!finalContacts.length && session.status === 'connected') {
+      try {
+        const sock = whatsappService.sessions?.get?.(sessionId);
+        if (sock?.store?.contacts) {
+          const storeContacts = sock.store.contacts;
+          let entries = [];
+          if (storeContacts instanceof Map) {
+            for (const [jid, c] of storeContacts) {
+              if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
+            }
+          } else if (typeof storeContacts === 'object') {
+            entries = Object.entries(storeContacts).filter(([jid]) => jid && !jid.includes('@g.us'));
+          }
+          console.log('[ExportContacts] Store contacts:', entries.length);
+          for (const [jid, c] of entries) {
+            const p = c.id?.split('@')[0] || jid.split('@')[0];
+            if (!p || finalContacts.some(fc => fc.phone === p)) continue;
+            finalContacts.push({ name: c.name || c.notify || c.verifiedName || '', phone: p, group: 'WhatsApp Contacts', admin: '-', sessionId, groupJid: jid, scrapedAt: '', address: '' });
+          }
+        }
+      } catch (storeErr) {
+        console.log('[ExportContacts] Store contacts error:', storeErr.message);
+      }
+    }
+
+    console.log('[ExportContacts] Final contacts count:', finalContacts.length, 'Session:', sessionId);
+
+    if (!finalContacts.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'No contacts found to export. Make sure WhatsApp session is connected and has contacts or group scrapes.',
+        diagnostics: { sessionId, sources: collected.sources }
+      });
+    }
+
+    console.log('[ExportContacts] Generating file...', { sessionId, count: finalContacts.length, format });
     await sendContactExport(res, finalContacts, { format, filenameBase: `contacts-${sessionId}` });
 
-    console.log('[ExportContacts] Export completed successfully', {
-      sessionId,
-      format,
-      contactCount: rows.length,
-      durationMs: Date.now() - startTime
+    console.log('[ExportContacts] ====== SUCCESS ======', {
+      sessionId, format, contactCount: finalContacts.length, durationMs: Date.now() - startTime
     });
   } catch (err) {
-    console.error('[ExportContacts] Error', {
-      sessionId,
-      format,
-      error: err.message,
-      stack: err.stack,
-      durationMs: Date.now() - startTime
-    });
-    
-    if (err.name === 'ValidationError' || err.name === 'CastError') {
-      return res.status(400).json({ success: false, message: `Validation error: ${err.message}` });
-    }
-    
+    console.error('[ExportContacts] Error:', err.message);
     if (!res.headersSent) {
       res.status(500).json({ success: false, message: err.message });
     }

@@ -171,18 +171,29 @@ export default function GroupScraper() {
     try {
       console.log('[ExportContacts] Starting export', { sessionId, format });
       
-      const { data } = await API.get(`/sessions/${sessionId}/contacts/export`, {
+      const { data } = await API.get(`/sessions/${sessionId}/export`, {
         params: { format },
         responseType: 'blob'
       });
       
-      const filename = `group-contacts-${selectedSession.name || sessionId}.${format}`;
+      const filename = `contacts-${selectedSession.name || sessionId}.${format}`;
       downloadBlob(data, filename);
       addToast('Contacts exported successfully', 'success');
       console.log('[ExportContacts] Export completed', { sessionId, format, filename });
     } catch (err) {
-      const errorMsg = await getBlobErrorMessage(err, 'No contacts found to export for this session');
-      console.error('[ExportContacts] Export error', { sessionId, format, error: errorMsg, err });
+      let errorMsg = await getBlobErrorMessage(err, 'No contacts found to export for this session');
+      if (err.response?.status === 404) {
+        try {
+          const diag = await API.get(`/api/debug/session/${sessionId}`);
+          if (diag.data?.success) {
+            const d = diag.data.diagnostics;
+            errorMsg = `No contacts found. Diagnostics: Session=${d.sessionExists}, Scrapes=${d.sourceBreakdown?.groupScrapes || 0}, WA Contacts=${d.sourceBreakdown?.waContacts || 0}, Saved=${d.sourceBreakdown?.savedContacts || 0}`;
+          }
+        } catch (diagErr) {
+          console.error('[ExportContacts] Diagnostics fetch error:', diagErr);
+        }
+      }
+      console.error('[ExportContacts] Export error', { sessionId, format, error: errorMsg });
       addToast(errorMsg, 'error');
     } finally { 
       setExportingContacts(false); 

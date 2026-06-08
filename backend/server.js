@@ -174,6 +174,20 @@ app.use('/api', (req, res, next) => {
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/sessions', require('./routes/sessions'));
+app.get('/api/debug/session/:id', async (req, res) => {
+  try {
+    const { auth } = require('./middleware/auth');
+    await auth(req, res, async () => {
+      const { tenantMiddleware } = require('./middleware/tenant');
+      await tenantMiddleware(req, res, async () => {
+        const sessionController = require('./controllers/sessionController');
+        await sessionController.getSessionDebug(req, res);
+      });
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 app.use('/api/campaigns', require('./routes/campaigns'));
 app.use('/api/contacts', require('./routes/contacts'));
 app.use('/api/messages', require('./routes/messages'));
