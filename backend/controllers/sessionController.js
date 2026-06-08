@@ -289,67 +289,59 @@ exports.exportContacts = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
     
-    const participantCount = scrapes.reduce((total, scrape) => total + ((scrape.participants || []).length), 0);
     console.log('[ExportContacts] GroupScrape query result', {
-      sessionId,
-      format,
-      scrapeCount: scrapes.length,
-      participantCount,
-      scrapes: scrapes.map(s => ({
-        id: s._id?.toString(),
-        groupName: s.groupName,
-        groupJid: s.groupJid,
-        participantCount: s.participants?.length || 0,
-        status: s.status,
-        createdAt: s.createdAt
-      })),
+      sessionId, format, scrapeCount: scrapes.length,
       filter: scrapeFilter
     });
 
-    if (!scrapes.length) {
-      console.warn('[ExportContacts] No group scrapes found for session', { sessionId, format });
-      return res.status(404).json({ success: false, message: 'No group scrapes found for this session. Scrape a group first.' });
+    let rows = [];
+    let finalContacts = [];
+
+    if (scrapes.length) {
+      const phones = new Set();
+      for (const scrape of scrapes) {
+        for (const member of scrape.participants || []) {
+          const phone = member.phone || (member.jid ? member.jid.split('@')[0] : '');
+          if (phone) phones.add(phone);
+        }
+      }
+
+      const existingContacts = await Contact.find({ userId: req.user._id, phone: { $in: Array.from(phones) } }).lean();
+      rows = buildGroupScrapeRows(scrapes, existingContacts);
+      finalContacts = [...rows];
+      console.log('[ExportContacts] Rows from group scrapes', { sessionId, count: rows.length });
     }
 
-    const phones = new Set();
-    const phoneDetails = [];
-    for (const scrape of scrapes) {
-      for (const member of scrape.participants || []) {
-        const phone = member.phone || (member.jid ? member.jid.split('@')[0] : '');
-        if (phone) {
-          phones.add(phone);
-          phoneDetails.push({ phone, groupName: scrape.groupName, groupJid: scrape.groupJid, isAdmin: member.isAdmin });
-        }
+    if (!finalContacts.length) {
+      console.log('[ExportContacts] No scrapes found, falling back to WhatsApp contacts', { sessionId, format });
+      const waContacts = await whatsappService.getAllContacts(sessionId);
+      if (waContacts.length) {
+        const phones = waContacts.map(c => c.phone).filter(Boolean);
+        const existingContacts = await Contact.find({ userId: req.user._id, phone: { $in: phones } }).lean();
+        const contactMap = {};
+        for (const c of existingContacts) { if (!contactMap[c.phone] || c.name) contactMap[c.phone] = c; }
+        finalContacts = waContacts.map(c => ({
+          name: (contactMap[c.phone]?.name || c.name || '').trim(),
+          phone: c.phone || '',
+          address: (contactMap[c.phone]?.address || contactMap[c.phone]?.city || '').trim(),
+          group: 'WhatsApp Contacts',
+          admin: '-',
+          sessionId,
+          groupJid: c.jid || '',
+          scrapedAt: ''
+        }));
+        console.log('[ExportContacts] Fallback WhatsApp contacts', { sessionId, count: finalContacts.length });
       }
     }
 
-    console.log('[ExportContacts] Unique phones extracted', {
-      sessionId,
-      format,
-      uniquePhoneCount: phones.size,
-      totalParticipants: participantCount
-    });
-
-    const existingContacts = await Contact.find({ userId: req.user._id, phone: { $in: Array.from(phones) } }).lean();
-    const rows = buildGroupScrapeRows(scrapes, existingContacts);
-    
-    console.log('[ExportContacts] Export rows built', {
-      sessionId,
-      format,
-      contactCount: rows.length,
-      savedContactMatches: existingContacts.length,
-      uniquePhones: phones.size,
-      durationMs: Date.now() - startTime
-    });
-
-    if (!rows.length) {
-      console.warn('[ExportContacts] No contacts to export after processing', { sessionId, format });
-      return res.status(404).json({ success: false, message: 'No contacts found to export' });
+    if (!finalContacts.length) {
+      console.warn('[ExportContacts] No contacts found from any source', { sessionId, format });
+      return res.status(404).json({ success: false, message: 'No contacts found to export for this session. Make sure the session is connected and has contacts.' });
     }
 
-    await sendContactExport(res, rows, {
+    await sendContactExport(res, finalContacts, {
       format,
-      filenameBase: `group-contacts-${sessionId}`
+      filenameBase: `contacts-${sessionId}`
     });
 
     console.log('[ExportContacts] Export completed successfully', {

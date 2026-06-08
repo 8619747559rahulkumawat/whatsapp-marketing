@@ -166,14 +166,10 @@ export default function GroupScraper() {
       return addToast('WhatsApp session not connected. Please connect the session first.', 'warning');
     }
 
-    const sessionScrapes = scrapes.filter(scrape => scrape.sessionId === sessionId);
-    const contactCount = sessionScrapes.reduce((total, scrape) => total + (scrape.totalMembers || scrape.participants?.length || 0), 0);
-    if (!contactCount) return addToast('No contacts found to export for this session', 'warning');
-
     setExportingContacts(true);
     try {
       const format = exportFormat || 'xlsx';
-      console.log('[ExportContacts] Starting export', { sessionId, format, scrapeCount: sessionScrapes.length, contactCount });
+      console.log('[ExportContacts] Starting export', { sessionId, format });
       
       const { data } = await API.get(`/sessions/${sessionId}/contacts/export`, {
         params: { format },
