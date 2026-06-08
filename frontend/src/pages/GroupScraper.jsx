@@ -167,8 +167,8 @@ export default function GroupScraper() {
     }
 
     setExportingContacts(true);
+    const format = exportFormat || 'xlsx';
     try {
-      const format = exportFormat || 'xlsx';
       console.log('[ExportContacts] Starting export', { sessionId, format });
       
       const { data } = await API.get(`/sessions/${sessionId}/contacts/export`, {
@@ -181,7 +181,7 @@ export default function GroupScraper() {
       addToast('Contacts exported successfully', 'success');
       console.log('[ExportContacts] Export completed', { sessionId, format, filename });
     } catch (err) {
-      const errorMsg = await getBlobErrorMessage(err, 'Export failed');
+      const errorMsg = await getBlobErrorMessage(err, 'No contacts found to export for this session');
       console.error('[ExportContacts] Export error', { sessionId, format, error: errorMsg, err });
       addToast(errorMsg, 'error');
     } finally { 
