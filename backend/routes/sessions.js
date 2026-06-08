@@ -23,6 +23,7 @@ router.get('/:id/export', sessionController.exportContacts);
 router.get('/:id/export/:format', sessionController.exportContacts);
 router.get('/:id/contacts/export', sessionController.exportContacts);
 router.get('/:id/contacts/export/:format', sessionController.exportContacts);
+router.get('/:id/contacts/count', sessionController.getContactCount);
 router.get('/:id/chat/:jid', sessionController.getContactChat);
 router.get('/:id/debug', sessionController.getSessionDebug);
 router.get('/:id/profile/:phone', auth, async (req, res) => {

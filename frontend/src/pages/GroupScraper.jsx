@@ -184,7 +184,7 @@ export default function GroupScraper() {
       let errorMsg = await getBlobErrorMessage(err, 'No contacts found to export for this session');
       if (err.response?.status === 404) {
         try {
-          const diag = await API.get(`/api/debug/session/${sessionId}`);
+          const diag = await API.get(`/debug/session/${sessionId}`);
           if (diag.data?.success) {
             const d = diag.data.diagnostics;
             errorMsg = `No contacts found. Diagnostics: Session=${d.sessionExists}, Scrapes=${d.sourceBreakdown?.groupScrapes || 0}, WA Contacts=${d.sourceBreakdown?.waContacts || 0}, Saved=${d.sourceBreakdown?.savedContacts || 0}`;

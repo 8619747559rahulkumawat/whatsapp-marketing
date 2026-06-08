@@ -235,7 +235,118 @@ exports.getSessionDiagnostics = async (req, res) => {
   }
 };
 
-const collectSessionContacts = async (sessionId, userId, phone) => {
+// ---------------------------------------------------------------------------
+// Auto-sync: fetch contacts from Baileys store + socket and save to MongoDB
+// ---------------------------------------------------------------------------
+const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
+  console.log('[AutoSync] Starting auto-sync for', { sessionId, userId });
+  let syncedCount = 0;
+  const rawContacts = [];
+
+  // 1) Try getAllContacts first
+  try {
+    const waContacts = await whatsappService.getAllContacts(sessionId);
+    console.log('[AutoSync] getAllContacts returned', waContacts.length);
+    for (const c of waContacts) {
+      if (c.phone && c.phone.length >= 8) rawContacts.push({ phone: c.phone, name: c.name || '', jid: c.jid || '' });
+    }
+  } catch (e) { console.log('[AutoSync] getAllContacts error:', e.message); }
+
+  // 2) Try direct socket contacts
+  if (!rawContacts.length) {
+    try {
+      const sock = whatsappService.sessions?.get?.(sessionId);
+      if (sock?.contacts) {
+        let entries = [];
+        if (sock.contacts instanceof Map) {
+          for (const [jid, c] of sock.contacts) {
+            if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
+          }
+        } else if (typeof sock.contacts === 'object') {
+          entries = Object.entries(sock.contacts).filter(([j]) => j && !j.includes('@g.us'));
+        }
+        console.log('[AutoSync] Socket contacts:', entries.length);
+        for (const [, c] of entries) {
+          const p = c.id?.split('@')[0] || '';
+          if (p && p.length >= 8) rawContacts.push({ phone: p, name: c.name || c.notify || c.verifiedName || '', jid: c.id || '' });
+        }
+      }
+    } catch (e) { console.log('[AutoSync] Socket error:', e.message); }
+  }
+
+  // 3) Try Baileys store contacts
+  if (!rawContacts.length) {
+    try {
+      const sock = whatsappService.sessions?.get?.(sessionId);
+      if (sock?.store?.contacts) {
+        const store = sock.store.contacts;
+        let entries = [];
+        if (store instanceof Map) {
+          for (const [jid, c] of store) {
+            if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
+          }
+        } else if (typeof store === 'object') {
+          entries = Object.entries(store).filter(([j]) => j && !j.includes('@g.us'));
+        }
+        console.log('[AutoSync] Store contacts:', entries.length);
+        for (const [, c] of entries) {
+          const p = c.id?.split('@')[0] || '';
+          if (p && p.length >= 8) rawContacts.push({ phone: p, name: c.name || c.notify || c.verifiedName || '', jid: c.id || '' });
+        }
+      }
+    } catch (e) { console.log('[AutoSync] Store error:', e.message); }
+  }
+
+  if (!rawContacts.length) {
+    console.log('[AutoSync] No raw contacts found from any source');
+    return 0;
+  }
+
+  // Deduplicate by phone
+  const seen = new Set();
+  const unique = [];
+  for (const c of rawContacts) {
+    const key = c.phone.replace(/[^0-9]/g, '').slice(-10);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    unique.push(c);
+  }
+  console.log('[AutoSync] Unique contacts to save:', unique.length);
+
+  // Bulk upsert into MongoDB
+  const ops = unique.map(c => ({
+    updateOne: {
+      filter: { userId, phone: c.phone },
+      update: {
+        $setOnInsert: {
+          userId, tenantId, phone: c.phone, name: c.name || '', source: 'whatsapp_sync', createdAt: new Date()
+        },
+        $set: { updatedAt: new Date() }
+      },
+      upsert: true
+    }
+  }));
+
+  // Batch in chunks of 500
+  const chunkSize = 500;
+  for (let i = 0; i < ops.length; i += chunkSize) {
+    const chunk = ops.slice(i, i + chunkSize);
+    try {
+      const result = await Contact.bulkWrite(chunk, { ordered: false });
+      syncedCount += (result.upsertedCount || 0) + (result.modifiedCount || 0);
+    } catch (e) {
+      console.log('[AutoSync] Bulk write chunk error:', e.message);
+    }
+  }
+
+  console.log('[AutoSync] Synced', syncedCount, 'contacts to MongoDB for session', sessionId);
+  return syncedCount;
+};
+
+// ---------------------------------------------------------------------------
+// Collect contacts from ALL possible sources (read-only, no DB writes)
+// ---------------------------------------------------------------------------
+const collectSessionContacts = async (sessionId, userId) => {
   const results = { sources: {}, all: new Map() };
 
   // Source 1: GroupScrape participants
@@ -255,7 +366,7 @@ const collectSessionContacts = async (sessionId, userId, phone) => {
   }
   results.sources.fromScrapes = fromScrapes;
 
-  // Source 2: WhatsApp contacts (Baileys)
+  // Source 2: getAllContacts (Baileys contact map)
   try {
     const waContacts = await whatsappService.getAllContacts(sessionId);
     results.sources.waContacts = waContacts.length;
@@ -275,18 +386,40 @@ const collectSessionContacts = async (sessionId, userId, phone) => {
           if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
         }
       } else if (typeof sock.contacts === 'object') {
-        entries = Object.entries(sock.contacts).filter(([jid]) => jid && !jid.includes('@g.us'));
+        entries = Object.entries(sock.contacts).filter(([j]) => j && !j.includes('@g.us'));
       }
       results.sources.socketContacts = entries.length;
-      for (const [jid, c] of entries) {
-        const p = c.id?.split('@')[0] || jid.split('@')[0];
+      for (const [, c] of entries) {
+        const p = c.id?.split('@')[0] || '';
         if (!p || results.all.has(p)) continue;
         results.all.set(p, { name: c.name || c.notify || c.verifiedName || '', group: 'WhatsApp Contacts', phone: p });
       }
     }
   } catch (e) { results.sources.socketContactsError = e.message; }
 
-  // Source 4: Saved MongoDB contacts
+  // Source 4: Baileys store contacts
+  try {
+    const sock = whatsappService.sessions?.get?.(sessionId);
+    if (sock?.store?.contacts) {
+      const store = sock.store.contacts;
+      let entries = [];
+      if (store instanceof Map) {
+        for (const [jid, c] of store) {
+          if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
+        }
+      } else if (typeof store === 'object') {
+        entries = Object.entries(store).filter(([j]) => j && !j.includes('@g.us'));
+      }
+      results.sources.storeContacts = entries.length;
+      for (const [, c] of entries) {
+        const p = c.id?.split('@')[0] || '';
+        if (!p || results.all.has(p)) continue;
+        results.all.set(p, { name: c.name || c.notify || c.verifiedName || '', group: 'WhatsApp Contacts', phone: p });
+      }
+    }
+  } catch (e) { results.sources.storeContactsError = e.message; }
+
+  // Source 5: Saved MongoDB contacts (userId match)
   try {
     const savedContacts = await Contact.find({ userId }).lean();
     results.sources.savedContacts = savedContacts.length;
@@ -303,7 +436,7 @@ const collectSessionContacts = async (sessionId, userId, phone) => {
     }
   } catch (e) { results.sources.savedContactsError = e.message; }
 
-  // Also collect from Contact model for THIS session specifically (imported via scrape)
+  // Source 6: Imported contacts (source=scrape)
   try {
     const importedContacts = await Contact.find({ userId, source: 'scrape' }).lean();
     results.sources.importedContacts = importedContacts.length;
@@ -318,29 +451,77 @@ const collectSessionContacts = async (sessionId, userId, phone) => {
   return results;
 };
 
+// ---------------------------------------------------------------------------
+// GET /api/debug/session/:sessionId  —  rich diagnostics
+// ---------------------------------------------------------------------------
 exports.getSessionDebug = async (req, res) => {
   const sessionId = String(req.params.id || '').trim();
   try {
-    const session = await Session.findOne({ sessionId }).lean();
+    const session = await Session.findOne({ sessionId }).select('sessionId status qr createdAt updatedAt').lean();
     const sock = whatsappService.sessions?.get?.(sessionId);
-    const contacts = await collectSessionContacts(sessionId, req.user._id);
+
+    // Count contacts in MongoDB
+    const contactsCount = await Contact.countDocuments({ userId: req.user._id });
+    const scrapedContactsCount = await Contact.countDocuments({ userId: req.user._id, source: 'scrape' });
+    const groupScrapes = await GroupScrape.find({ sessionId }).lean();
+    const groupMembersCount = groupScrapes.reduce((sum, s) => sum + (s.participants?.length || 0), 0);
+
+    // List all MongoDB collection names
+    const collections = await mongoose.connection.db?.listCollections().toArray() || [];
+    const databaseCollections = collections.map(c => c.name).sort();
+
+    // Live WhatsApp store contacts count
+    let storeContactsCount = 0;
+    if (sock?.store?.contacts) {
+      const store = sock.store.contacts;
+      if (store instanceof Map) storeContactsCount = store.size;
+      else if (typeof store === 'object') storeContactsCount = Object.keys(store).length;
+    }
+
+    // Socket contacts count
+    let socketContactsCount = 0;
+    if (sock?.contacts) {
+      if (sock.contacts instanceof Map) socketContactsCount = sock.contacts.size;
+      else if (typeof sock.contacts === 'object') socketContactsCount = Object.keys(sock.contacts).length;
+    }
+
     res.json({
       success: true,
-      diagnostics: {
-        sessionId,
-        sessionExists: !!session,
-        dbStatus: session?.status || 'unknown',
-        liveSocket: !!sock,
-        liveConnected: sock?.user ? true : false,
-        sourceBreakdown: contacts.sources,
-        contactsFound: contacts.total,
-      }
+      sessionId,
+      sessionExists: !!session,
+      connected: sock?.user ? true : false,
+      dbStatus: session?.status || 'unknown',
+      contactsCount: contactsCount || 0,
+      scrapedContactsCount: scrapedContactsCount || 0,
+      groupMembersCount: groupMembersCount || 0,
+      storeContactsCount: storeContactsCount || 0,
+      socketContactsCount: socketContactsCount || 0,
+      databaseCollections
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
+// ---------------------------------------------------------------------------
+// GET /api/sessions/:sessionId/contacts/count
+// ---------------------------------------------------------------------------
+exports.getContactCount = async (req, res) => {
+  const sessionId = String(req.params.id || '').trim();
+  try {
+    const count = await Contact.countDocuments({ userId: req.user._id });
+    const scrapedCount = await Contact.countDocuments({ userId: req.user._id, source: 'scrape' });
+    const groupScrapes = await GroupScrape.find({ sessionId }).lean();
+    const groupMembers = groupScrapes.reduce((sum, s) => sum + (s.participants?.length || 0), 0);
+    res.json({ success: true, count: count + groupMembers, dbContacts: count, scrapedContacts: scrapedCount, groupMembers });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /api/sessions/:sessionId/contacts/export  —  export with auto-sync
+// ---------------------------------------------------------------------------
 exports.exportContacts = async (req, res) => {
   const sessionId = String(req.params.id || '').trim();
   const format = normalizeExportFormat(req.query.format || req.params.format);
@@ -359,82 +540,84 @@ exports.exportContacts = async (req, res) => {
     if (tenantId) sessionFilter.tenantId = tenantId;
 
     const session = await Session.findOne(sessionFilter).lean();
-    console.log('[ExportContacts] Session:', sessionId, 'Found:', !!session, 'Status:', session?.status);
+    console.log('[ExportContacts] Session found:', !!session, 'Status:', session?.status);
     if (!session) {
       return res.status(404).json({ success: false, message: 'Session not found or access denied' });
     }
 
-    // Collect contacts from ALL sources
-    const collected = await collectSessionContacts(sessionId, req.user._id);
-    console.log('[ExportContacts] Collection done', { sessionId, sources: collected.sources, total: collected.total });
+    // Phase 1: collect from all existing sources (DB + scrapes + in-memory)
+    let collected = await collectSessionContacts(sessionId, req.user._id);
+    console.log('[ExportContacts] Phase 1 collection:', collected.total, 'sources:', collected.sources);
 
-    let finalContacts = Array.from(collected.all.values()).map(c => ({
-      ...c, admin: '-', sessionId, groupJid: '', scrapedAt: '', address: c.address || ''
+    // Phase 2: if empty and connected, auto-sync Baileys store contacts to MongoDB
+    if (collected.total === 0 && session.status === 'connected') {
+      console.log('[ExportContacts] Phase 2: auto-syncing Baileys contacts to MongoDB...');
+      const synced = await autoSyncContactsToDb(sessionId, req.user._id, tenantId);
+      console.log('[ExportContacts] Auto-sync result:', synced, 'contacts saved');
+      if (synced > 0) {
+        collected = await collectSessionContacts(sessionId, req.user._id);
+        console.log('[ExportContacts] Phase 2 collection after sync:', collected.total);
+      }
+    }
+
+    // Phase 3: if still empty and connected, try live store + socket directly
+    if (collected.total === 0 && session.status === 'connected') {
+      console.log('[ExportContacts] Phase 3: live fallback from socket + store...');
+      const sock = whatsappService.sessions?.get?.(sessionId);
+      const liveMap = new Map();
+
+      if (sock?.store?.contacts) {
+        const store = sock.store.contacts;
+        if (store instanceof Map) {
+          for (const [jid, c] of store) {
+            if (jid && !jid.includes('@g.us')) liveMap.set(jid, c);
+          }
+        } else if (typeof store === 'object') {
+          for (const [jid, c] of Object.entries(store)) {
+            if (jid && !jid.includes('@g.us')) liveMap.set(jid, c);
+          }
+        }
+      }
+      if (sock?.contacts) {
+        if (sock.contacts instanceof Map) {
+          for (const [jid, c] of sock.contacts) {
+            if (jid && !jid.includes('@g.us') && !liveMap.has(jid)) liveMap.set(jid, c);
+          }
+        } else if (typeof sock.contacts === 'object') {
+          for (const [jid, c] of Object.entries(sock.contacts)) {
+            if (jid && !jid.includes('@g.us') && !liveMap.has(jid)) liveMap.set(jid, c);
+          }
+        }
+      }
+      console.log('[ExportContacts] Live fallback contacts:', liveMap.size);
+      if (liveMap.size > 0) {
+        const rows = [];
+        for (const [jid, c] of liveMap) {
+          const p = c.id?.split('@')[0] || jid.split('@')[0];
+          if (!p) continue;
+          rows.push({ name: c.name || c.notify || c.verifiedName || '', phone: p, group: 'WhatsApp Contacts', admin: '-', sessionId, groupJid: jid, scrapedAt: '', address: '' });
+        }
+        collected = { all: new Map(), total: rows.length, sources: { liveFallback: rows.length } };
+        for (const r of rows) collected.all.set(r.phone, r);
+      }
+    }
+
+    const finalContacts = Array.from(collected.all.values()).map(c => ({
+      ...c, admin: c.admin || '-', sessionId, groupJid: c.groupJid || '', scrapedAt: c.scrapedAt || '', address: c.address || ''
     }));
-
-    // If still empty, try auto-trigger contact sync from WhatsApp
-    if (!finalContacts.length && session.status === 'connected') {
-      console.log('[ExportContacts] No contacts found, triggering sync from live WhatsApp socket...');
-      try {
-        const sock = whatsappService.sessions?.get?.(sessionId);
-        if (sock?.contacts) {
-          let entries = [];
-          if (sock.contacts instanceof Map) {
-            for (const [jid, c] of sock.contacts) {
-              if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
-            }
-          } else if (typeof sock.contacts === 'object') {
-            entries = Object.entries(sock.contacts).filter(([jid]) => jid && !jid.includes('@g.us'));
-          }
-          console.log('[ExportContacts] Socket sync contacts:', entries.length);
-          for (const [jid, c] of entries) {
-            const p = c.id?.split('@')[0] || jid.split('@')[0];
-            if (!p || collected.all.has(p)) continue;
-            finalContacts.push({ name: c.name || c.notify || c.verifiedName || '', phone: p, group: 'WhatsApp Contacts', admin: '-', sessionId, groupJid: jid, scrapedAt: '', address: '' });
-          }
-        }
-      } catch (syncErr) {
-        console.log('[ExportContacts] Socket sync error:', syncErr.message);
-      }
-    }
-
-    // Also fetch from sock.store?.contacts if available (Baileys store)
-    if (!finalContacts.length && session.status === 'connected') {
-      try {
-        const sock = whatsappService.sessions?.get?.(sessionId);
-        if (sock?.store?.contacts) {
-          const storeContacts = sock.store.contacts;
-          let entries = [];
-          if (storeContacts instanceof Map) {
-            for (const [jid, c] of storeContacts) {
-              if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
-            }
-          } else if (typeof storeContacts === 'object') {
-            entries = Object.entries(storeContacts).filter(([jid]) => jid && !jid.includes('@g.us'));
-          }
-          console.log('[ExportContacts] Store contacts:', entries.length);
-          for (const [jid, c] of entries) {
-            const p = c.id?.split('@')[0] || jid.split('@')[0];
-            if (!p || finalContacts.some(fc => fc.phone === p)) continue;
-            finalContacts.push({ name: c.name || c.notify || c.verifiedName || '', phone: p, group: 'WhatsApp Contacts', admin: '-', sessionId, groupJid: jid, scrapedAt: '', address: '' });
-          }
-        }
-      } catch (storeErr) {
-        console.log('[ExportContacts] Store contacts error:', storeErr.message);
-      }
-    }
 
     console.log('[ExportContacts] Final contacts count:', finalContacts.length, 'Session:', sessionId);
 
     if (!finalContacts.length) {
+      console.log('[ExportContacts] No contacts from ANY source after all fallbacks');
       return res.status(404).json({
         success: false,
-        message: 'No contacts found to export. Make sure WhatsApp session is connected and has contacts or group scrapes.',
-        diagnostics: { sessionId, sources: collected.sources }
+        message: 'No contacts found to export after checking all sources (DB, scrapes, Baileys store, socket).',
+        diagnostics: collected.sources
       });
     }
 
-    console.log('[ExportContacts] Generating file...', { sessionId, count: finalContacts.length, format });
+    console.log('[ExportContacts] Generating', format, 'file for', finalContacts.length, 'contacts');
     await sendContactExport(res, finalContacts, { format, filenameBase: `contacts-${sessionId}` });
 
     console.log('[ExportContacts] ====== SUCCESS ======', {
