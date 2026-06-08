@@ -1,3 +1,5 @@
+const path = require('path');
+const fs = require('fs');
 const Session = require('../models/Session');
 const Contact = require('../models/Contact');
 const GroupScrape = require('../models/GroupScrape');
@@ -236,14 +238,42 @@ exports.getSessionDiagnostics = async (req, res) => {
 };
 
 // ---------------------------------------------------------------------------
-// Auto-sync: fetch contacts from Baileys store + socket and save to MongoDB
+// Read contacts.json from session disk directory (persisted by Baileys events)
+// ---------------------------------------------------------------------------
+const readContactsFromDisk = (sessionId) => {
+  const dir = path.join(process.cwd(), process.env.SESSIONS_DIR || 'sessions', sessionId);
+  const file = path.join(dir, 'contacts.json');
+  if (fs.existsSync(file)) {
+    try {
+      const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+      const entries = Object.entries(raw).filter(([jid]) => jid && !jid.includes('@g.us'));
+      console.log('[DiskContacts] Found', entries.length, 'contacts in', file);
+      return entries.map(([jid, c]) => ({
+        phone: c.id?.split('@')[0] || jid.split('@')[0] || '',
+        name: c.name || c.notify || c.verifiedName || '',
+        jid: c.id || jid || '',
+        pushName: c.name || '',
+        verifiedName: c.verifiedName || '',
+        isBusiness: !!c.business
+      })).filter(c => c.phone.length >= 8);
+    } catch (e) {
+      console.log('[DiskContacts] Parse error:', e.message);
+    }
+  } else {
+    console.log('[DiskContacts] No contacts.json at', file);
+  }
+  return [];
+};
+
+// ---------------------------------------------------------------------------
+// Auto-sync: fetch contacts from ALL possible Baileys sources + disk + save to MongoDB
 // ---------------------------------------------------------------------------
 const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
   console.log('[AutoSync] Starting auto-sync for', { sessionId, userId });
   let syncedCount = 0;
   const rawContacts = [];
 
-  // 1) Try getAllContacts first
+  // 1) getAllContacts (checks in-memory map, sock.contacts, then contacts.json)
   try {
     const waContacts = await whatsappService.getAllContacts(sessionId);
     console.log('[AutoSync] getAllContacts returned', waContacts.length);
@@ -252,7 +282,7 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
     }
   } catch (e) { console.log('[AutoSync] getAllContacts error:', e.message); }
 
-  // 2) Try direct socket contacts
+  // 2) Direct socket contacts
   if (!rawContacts.length) {
     try {
       const sock = whatsappService.sessions?.get?.(sessionId);
@@ -274,7 +304,7 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
     } catch (e) { console.log('[AutoSync] Socket error:', e.message); }
   }
 
-  // 3) Try Baileys store contacts
+  // 3) Baileys store contacts
   if (!rawContacts.length) {
     try {
       const sock = whatsappService.sessions?.get?.(sessionId);
@@ -297,12 +327,45 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
     } catch (e) { console.log('[AutoSync] Store error:', e.message); }
   }
 
+  // 4) Read contacts.json from disk directly
   if (!rawContacts.length) {
-    console.log('[AutoSync] No raw contacts found from any source');
+    const diskContacts = readContactsFromDisk(sessionId);
+    console.log('[AutoSync] Disk contacts:', diskContacts.length);
+    for (const c of diskContacts) {
+      if (c.phone && c.phone.length >= 8) rawContacts.push(c);
+    }
+  }
+
+  // 5) Last resort: try to extract from sock.chats / store.chats (JID -> phone)
+  if (!rawContacts.length) {
+    try {
+      const sock = whatsappService.sessions?.get?.(sessionId);
+      let chats = [];
+      if (sock?.store?.chats) {
+        const store = sock.store.chats;
+        if (store instanceof Map) chats = Array.from(store.keys());
+        else if (Array.isArray(store)) chats = store.map(c => c.id).filter(Boolean);
+        else if (typeof store === 'object') chats = Object.keys(store);
+      } else if (sock?.chats) {
+        if (sock.chats instanceof Map) chats = Array.from(sock.chats.keys());
+        else if (Array.isArray(sock.chats)) chats = sock.chats.map(c => c.id).filter(Boolean);
+        else if (typeof sock.chats === 'object') chats = Object.keys(sock.chats);
+      }
+      chats = chats.filter(jid => jid && !jid.includes('@g.us') && !jid.includes('@broadcast'));
+      console.log('[AutoSync] Chat JIDs (non-group):', chats.length);
+      for (const jid of chats) {
+        const p = jid.split('@')[0];
+        if (p && p.length >= 8) rawContacts.push({ phone: p, name: '', jid });
+      }
+    } catch (e) { console.log('[AutoSync] Chats error:', e.message); }
+  }
+
+  if (!rawContacts.length) {
+    console.log('[AutoSync] No raw contacts found from ANY source');
     return 0;
   }
 
-  // Deduplicate by phone
+  // Deduplicate by phone (last 10 digits)
   const seen = new Set();
   const unique = [];
   for (const c of rawContacts) {
@@ -313,30 +376,24 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
   }
   console.log('[AutoSync] Unique contacts to save:', unique.length);
 
-  // Bulk upsert into MongoDB
-  const ops = unique.map(c => ({
-    updateOne: {
-      filter: { userId, phone: c.phone },
-      update: {
-        $setOnInsert: {
-          userId, tenantId, phone: c.phone, name: c.name || '', source: 'whatsapp_sync', createdAt: new Date()
-        },
-        $set: { updatedAt: new Date() }
-      },
-      upsert: true
-    }
-  }));
-
-  // Batch in chunks of 500
+  // Bulk upsert into MongoDB in chunks of 500
   const chunkSize = 500;
-  for (let i = 0; i < ops.length; i += chunkSize) {
-    const chunk = ops.slice(i, i + chunkSize);
+  for (let i = 0; i < unique.length; i += chunkSize) {
+    const chunk = unique.slice(i, i + chunkSize);
+    const ops = chunk.map(c => ({
+      updateOne: {
+        filter: { userId, phone: c.phone },
+        update: {
+          $setOnInsert: { userId, tenantId, phone: c.phone, name: c.name || '', source: 'whatsapp_sync', createdAt: new Date() },
+          $set: { updatedAt: new Date() }
+        },
+        upsert: true
+      }
+    }));
     try {
-      const result = await Contact.bulkWrite(chunk, { ordered: false });
+      const result = await Contact.bulkWrite(ops, { ordered: false });
       syncedCount += (result.upsertedCount || 0) + (result.modifiedCount || 0);
-    } catch (e) {
-      console.log('[AutoSync] Bulk write chunk error:', e.message);
-    }
+    } catch (e) { console.log('[AutoSync] Bulk write chunk error:', e.message); }
   }
 
   console.log('[AutoSync] Synced', syncedCount, 'contacts to MongoDB for session', sessionId);
@@ -446,6 +503,19 @@ const collectSessionContacts = async (sessionId, userId) => {
       results.all.set(p, { name: c.name || '', group: 'Imported Contacts', phone: p, address: c.address || c.city || '' });
     }
   } catch (e) { /* skip */ }
+
+  // Source 7: contacts.json from disk (persisted by Baileys events)
+  if (results.total === 0) {
+    try {
+      const diskContacts = readContactsFromDisk(sessionId);
+      results.sources.diskContacts = diskContacts.length;
+      for (const c of diskContacts) {
+        const p = c.phone;
+        if (!p || results.all.has(p)) continue;
+        results.all.set(p, { name: c.name || '', group: 'WhatsApp Contacts (Disk)', phone: p });
+      }
+    } catch (e) { results.sources.diskContactsError = e.message; }
+  }
 
   results.total = results.all.size;
   return results;

@@ -186,8 +186,8 @@ export default function GroupScraper() {
         try {
           const diag = await API.get(`/debug/session/${sessionId}`);
           if (diag.data?.success) {
-            const d = diag.data.diagnostics;
-            errorMsg = `No contacts found. Diagnostics: Session=${d.sessionExists}, Scrapes=${d.sourceBreakdown?.groupScrapes || 0}, WA Contacts=${d.sourceBreakdown?.waContacts || 0}, Saved=${d.sourceBreakdown?.savedContacts || 0}`;
+            const d = diag.data;
+            errorMsg = `❌ No contacts. Session=${d.sessionExists}, Connected=${d.connected}, DB Contacts=${d.contactsCount}, Scraped=${d.scrapedContactsCount}, Group Members=${d.groupMembersCount}, Store Contacts=${d.storeContactsCount}, Socket Contacts=${d.socketContactsCount}`;
           }
         } catch (diagErr) {
           console.error('[ExportContacts] Diagnostics fetch error:', diagErr);
