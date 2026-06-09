@@ -361,27 +361,26 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
     } catch (e) { console.log('[AutoSync] Chats error:', e.message); }
   }
 
-  // 6) FINAL resort: fetch all participating groups and extract members
+  // 6) FINAL resort: fetch all participating groups and extract members (concurrent, max 20)
   if (!rawContacts.length) {
     try {
       const sock = whatsappService.sessions?.get?.(sessionId);
       if (sock?.groupFetchAllParticipating) {
         console.log('[AutoSync] Fetching all groups to extract members...');
         const groupsMap = await sock.groupFetchAllParticipating();
-        const groupIds = Object.keys(groupsMap || {});
-        console.log('[AutoSync] Found', groupIds.length, 'groups');
-        for (const gid of groupIds.slice(0, 50)) { // max 50 groups to avoid rate limits
-          try {
-            const meta = await sock.groupMetadata(gid);
+        const groupIds = Object.keys(groupsMap || {}).slice(0, 20);
+        console.log('[AutoSync] Found', Object.keys(groupsMap || {}).length, 'groups, processing', groupIds.length);
+        await Promise.allSettled(groupIds.map(gid =>
+          sock.groupMetadata(gid).then(meta => {
             for (const p of meta.participants || []) {
               const jid = p.id || p.jid || '';
               const phone = jid.split('@')[0];
               if (phone && phone.length >= 8) {
-                rawContacts.push({ phone, name: '', jid, group: meta.subject || '' });
+                rawContacts.push({ phone, name: p.name || p.pushName || '', jid, group: meta.subject || '' });
               }
             }
-          } catch (e) { /* skip group */ }
-        }
+          }).catch(() => {})
+        ));
         console.log('[AutoSync] Extracted', rawContacts.length, 'contacts from groups');
       }
     } catch (e) { console.log('[AutoSync] Group extraction error:', e.message); }
@@ -544,19 +543,18 @@ const collectSessionContacts = async (sessionId, userId) => {
     } catch (e) { results.sources.diskContactsError = e.message; }
   }
 
-  // Source 8: Fetch all participating groups and extract members
+  // Source 8: Fetch all participating groups and extract members (concurrent, max 20 groups)
   if (results.total === 0) {
     try {
       const sock = whatsappService.sessions?.get?.(sessionId);
       if (sock?.groupFetchAllParticipating) {
         console.log('[CollectContacts] Fetching all groups for contacts...');
         const groupsMap = await sock.groupFetchAllParticipating();
-        const groupIds = Object.keys(groupsMap || {});
-        console.log('[CollectContacts] Found', groupIds.length, 'groups');
+        const groupIds = Object.keys(groupsMap || {}).slice(0, 20);
+        console.log('[CollectContacts] Found', Object.keys(groupsMap || {}).length, 'groups, processing', groupIds.length);
         let groupContactCount = 0;
-        for (const gid of groupIds.slice(0, 50)) {
-          try {
-            const meta = await sock.groupMetadata(gid);
+        await Promise.allSettled(groupIds.map(gid =>
+          sock.groupMetadata(gid).then(meta => {
             for (const p of meta.participants || []) {
               const jid = p.id || p.jid || '';
               const phone = jid.split('@')[0];
@@ -566,8 +564,8 @@ const collectSessionContacts = async (sessionId, userId) => {
                 groupContactCount++;
               }
             }
-          } catch (e) { /* skip */ }
-        }
+          }).catch(() => {})
+        ));
         results.sources.groupMembers = groupContactCount;
         console.log('[CollectContacts] Extracted', groupContactCount, 'contacts from groups');
       }
@@ -656,7 +654,12 @@ exports.exportContacts = async (req, res) => {
 
   console.log('[ExportContacts] ====== START ======', { sessionId, format, userId: req.user?._id?.toString() });
 
-  try {
+  // Overall timeout: 55s so frontend 120s timeout doesn't fire first
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Export timed out after 55s')), 55000)
+  );
+
+  const exportPromise = (async () => {
     if (!sessionId || sessionId.length < 3 || sessionId.length > 256) {
       return res.status(422).json({ success: false, message: 'Invalid session ID format' });
     }
@@ -750,6 +753,9 @@ exports.exportContacts = async (req, res) => {
     console.log('[ExportContacts] ====== SUCCESS ======', {
       sessionId, format, contactCount: finalContacts.length, durationMs: Date.now() - startTime
     });
+  })();
+
+  await Promise.race([exportPromise, timeoutPromise]);
   } catch (err) {
     console.error('[ExportContacts] Error:', err.message);
     if (!res.headersSent) {

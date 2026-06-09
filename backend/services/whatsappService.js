@@ -1109,8 +1109,8 @@ const getAllContacts = async (sessionId) => {
 
     let cmap = sessionsContactMap.get(sessionId);
     if (!cmap || cmap.size === 0) {
-      for (let i = 0; i < 10; i++) {
-        await new Promise(r => setTimeout(r, 1500));
+      for (let i = 0; i < 5; i++) {
+        await new Promise(r => setTimeout(r, 1000));
         cmap = sessionsContactMap.get(sessionId);
         if (cmap && cmap.size > 0) break;
       }

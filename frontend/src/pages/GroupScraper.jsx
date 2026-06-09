@@ -173,7 +173,8 @@ export default function GroupScraper() {
       
       const { data } = await API.get(`/sessions/${sessionId}/export`, {
         params: { format },
-        responseType: 'blob'
+        responseType: 'blob',
+        timeout: 120000
       });
       
       const filename = `contacts-${selectedSession.name || sessionId}.${format}`;
