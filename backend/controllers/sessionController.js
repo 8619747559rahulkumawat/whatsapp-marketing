@@ -346,18 +346,45 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
         if (store instanceof Map) chats = Array.from(store.keys());
         else if (Array.isArray(store)) chats = store.map(c => c.id).filter(Boolean);
         else if (typeof store === 'object') chats = Object.keys(store);
-      } else if (sock?.chats) {
-        if (sock.chats instanceof Map) chats = Array.from(sock.chats.keys());
-        else if (Array.isArray(sock.chats)) chats = sock.chats.map(c => c.id).filter(Boolean);
-        else if (typeof sock.chats === 'object') chats = Object.keys(sock.chats);
       }
-      chats = chats.filter(jid => jid && !jid.includes('@g.us') && !jid.includes('@broadcast'));
+      if (sock?.chats) {
+        if (sock.chats instanceof Map) chats = [...chats, ...Array.from(sock.chats.keys())];
+        else if (Array.isArray(sock.chats)) chats = [...chats, ...sock.chats.map(c => c.id).filter(Boolean)];
+        else if (typeof sock.chats === 'object') chats = [...chats, ...Object.keys(sock.chats)];
+      }
+      chats = [...new Set(chats)].filter(jid => jid && !jid.includes('@g.us') && !jid.includes('@broadcast'));
       console.log('[AutoSync] Chat JIDs (non-group):', chats.length);
       for (const jid of chats) {
         const p = jid.split('@')[0];
         if (p && p.length >= 8) rawContacts.push({ phone: p, name: '', jid });
       }
     } catch (e) { console.log('[AutoSync] Chats error:', e.message); }
+  }
+
+  // 6) FINAL resort: fetch all participating groups and extract members
+  if (!rawContacts.length) {
+    try {
+      const sock = whatsappService.sessions?.get?.(sessionId);
+      if (sock?.groupFetchAllParticipating) {
+        console.log('[AutoSync] Fetching all groups to extract members...');
+        const groupsMap = await sock.groupFetchAllParticipating();
+        const groupIds = Object.keys(groupsMap || {});
+        console.log('[AutoSync] Found', groupIds.length, 'groups');
+        for (const gid of groupIds.slice(0, 50)) { // max 50 groups to avoid rate limits
+          try {
+            const meta = await sock.groupMetadata(gid);
+            for (const p of meta.participants || []) {
+              const jid = p.id || p.jid || '';
+              const phone = jid.split('@')[0];
+              if (phone && phone.length >= 8) {
+                rawContacts.push({ phone, name: '', jid, group: meta.subject || '' });
+              }
+            }
+          } catch (e) { /* skip group */ }
+        }
+        console.log('[AutoSync] Extracted', rawContacts.length, 'contacts from groups');
+      }
+    } catch (e) { console.log('[AutoSync] Group extraction error:', e.message); }
   }
 
   if (!rawContacts.length) {
@@ -515,6 +542,36 @@ const collectSessionContacts = async (sessionId, userId) => {
         results.all.set(p, { name: c.name || '', group: 'WhatsApp Contacts (Disk)', phone: p });
       }
     } catch (e) { results.sources.diskContactsError = e.message; }
+  }
+
+  // Source 8: Fetch all participating groups and extract members
+  if (results.total === 0) {
+    try {
+      const sock = whatsappService.sessions?.get?.(sessionId);
+      if (sock?.groupFetchAllParticipating) {
+        console.log('[CollectContacts] Fetching all groups for contacts...');
+        const groupsMap = await sock.groupFetchAllParticipating();
+        const groupIds = Object.keys(groupsMap || {});
+        console.log('[CollectContacts] Found', groupIds.length, 'groups');
+        let groupContactCount = 0;
+        for (const gid of groupIds.slice(0, 50)) {
+          try {
+            const meta = await sock.groupMetadata(gid);
+            for (const p of meta.participants || []) {
+              const jid = p.id || p.jid || '';
+              const phone = jid.split('@')[0];
+              if (phone && phone.length >= 8 && !results.all.has(phone)) {
+                const name = p.name || p.pushName || '';
+                results.all.set(phone, { name, group: meta.subject || 'WhatsApp Group', phone });
+                groupContactCount++;
+              }
+            }
+          } catch (e) { /* skip */ }
+        }
+        results.sources.groupMembers = groupContactCount;
+        console.log('[CollectContacts] Extracted', groupContactCount, 'contacts from groups');
+      }
+    } catch (e) { results.sources.groupMembersError = e.message; }
   }
 
   results.total = results.all.size;

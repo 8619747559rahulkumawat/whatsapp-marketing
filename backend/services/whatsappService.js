@@ -341,31 +341,31 @@ const connectSession = async (sessionId, io) => {
           }
           console.log(`[Baileys] Session ${sessionId} connected!`);
 
-          // Populate contacts from sock.contacts after connection
-          setTimeout(async () => {
-            try {
-              const s = sessions.get(sessionId);
-              if (!s || !s.contacts) return;
+          // Populate contacts from sock.contacts immediately after connection
+          try {
+            const s = sessions.get(sessionId);
+            if (s?.contacts) {
               const cmap = sessionsContactMap.get(sessionId);
-              if (!cmap) return;
-              let entries = [];
-              if (s.contacts instanceof Map) {
-                for (const [jid, c] of s.contacts) {
-                  if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
+              if (cmap) {
+                let entries = [];
+                if (s.contacts instanceof Map) {
+                  for (const [jid, c] of s.contacts) {
+                    if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
+                  }
+                } else if (typeof s.contacts === 'object') {
+                  entries = Object.entries(s.contacts).filter(([jid]) => jid && !jid.includes('@g.us'));
                 }
-              } else if (typeof s.contacts === 'object') {
-                entries = Object.entries(s.contacts).filter(([jid]) => jid && !jid.includes('@g.us'));
+                for (const [jid, c] of entries) cmap.set(jid, c);
+                if (entries.length > 0) {
+                  const cFile = path.join(getSessionDir(sessionId), 'contacts.json');
+                  const existing = fs.existsSync(cFile) ? JSON.parse(fs.readFileSync(cFile, 'utf8')) : {};
+                  for (const [jid, c] of entries) existing[jid] = c;
+                  fs.writeFileSync(cFile, JSON.stringify(existing));
+                  console.log(`[Baileys] Immediately populated ${entries.length} contacts for ${sessionId} from sock.contacts`);
+                }
               }
-              for (const [jid, c] of entries) cmap.set(jid, c);
-              if (entries.length > 0) {
-                const cFile = path.join(getSessionDir(sessionId), 'contacts.json');
-                const existing = fs.existsSync(cFile) ? JSON.parse(fs.readFileSync(cFile, 'utf8')) : {};
-                for (const [jid, c] of entries) existing[jid] = c;
-                fs.writeFileSync(cFile, JSON.stringify(existing));
-                console.log(`[Baileys] Populated ${entries.length} contacts for ${sessionId} from sock.contacts`);
-              }
-            } catch (e) { console.error('[Baileys] Contact population error:', e.message); }
-          }, 5000);
+            }
+          } catch (e) { console.error('[Baileys] Contact population error:', e.message); }
 
           if (!healthCheckers.has(sessionId)) {
             healthCheckers.set(sessionId, setInterval(async () => {
