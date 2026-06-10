@@ -1156,6 +1156,31 @@ const getAllContacts = async (sessionId) => {
   }
 };
 
+/**
+ * Wait for Baileys contacts to sync (via contacts.upsert events).
+ * Polls sessionsContactMap until minContacts reached or timeout.
+ */
+const waitForContactSync = async (sessionId, minContacts = 10, timeoutMs = 20000) => {
+  const start = Date.now();
+  let lastCount = 0;
+  while (Date.now() - start < timeoutMs) {
+    const cmap = sessionsContactMap.get(sessionId);
+    const count = cmap?.size || 0;
+    if (count >= minContacts) {
+      console.log(`[waitForContactSync] ${sessionId}: ${count} contacts synced in ${Date.now() - start}ms`);
+      return count;
+    }
+    if (count !== lastCount) {
+      console.log(`[waitForContactSync] ${sessionId}: ${count} contacts so far...`);
+      lastCount = count;
+    }
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  const final = sessionsContactMap.get(sessionId)?.size || 0;
+  console.log(`[waitForContactSync] ${sessionId}: timeout reached, final count: ${final}`);
+  return final;
+};
+
 const createPairingSession = async (sessionId, phoneNumber, io) => {
   try {
     // Clean up any existing socket first
@@ -1282,7 +1307,7 @@ const getSavedVersion = () => savedVersion;
 module.exports = {
   connectSession, disconnectSession, removeSession,
   sendTextMessage, sendMediaMessage, sendButtonMessage, sendGroupMessage, getGroups,
-  getConnectionStatus, isSessionConnected, isSessionReady, restoreSessions, sessions,
+  getConnectionStatus, isSessionConnected, isSessionReady, restoreSessions, sessions, sessionsContactMap,
   fetchProfilePic, fetchContactName, getReadySocket, getAllContacts, createPairingSession, waitForSessionQr,
-  randomDelay, getSavedVersion
+  randomDelay, getSavedVersion, waitForContactSync
 };

@@ -675,6 +675,13 @@ exports.exportContacts = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Session not found or access denied' });
     }
 
+    // Phase 0: Wait for Baileys to sync contacts (up to 20s, need at least 5 contacts)
+    if (session.status === 'connected') {
+      console.log('[ExportContacts] Phase 0: waiting for contact sync...');
+      const syncedCount = await whatsappService.waitForContactSync(sessionId, 5, 20000);
+      console.log('[ExportContacts] Phase 0 done:', syncedCount, 'contacts synced');
+    }
+
     // Phase 1: collect from all existing sources (DB + scrapes + in-memory)
     let collected = await collectSessionContacts(sessionId, req.user._id);
     console.log('[ExportContacts] Phase 1 collection:', collected.total, 'sources:', collected.sources);
