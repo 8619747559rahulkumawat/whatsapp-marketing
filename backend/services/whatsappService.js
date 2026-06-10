@@ -1134,55 +1134,76 @@ const getAllContacts = async (sessionId) => {
     const sock = await getReadySocket(sessionId);
     if (!sock || !sock.user) throw new Error('WhatsApp session not connected.');
 
-    let cmap = null;
+    const combined = new Map();
+    const isRealPhone = (jid) => {
+      const n = (jid || '').split('@')[0].replace(/[^0-9]/g, '');
+      return n.length >= 10 && n.length <= 13;
+    };
 
-    // Priority 1: Direct read from sock.contacts (most authoritative)
-    const sockContacts = sock.contacts;
-    if (sockContacts) {
-      let entries = [];
-      const isRealPhone = (jid) => {
-        const n = (jid || '').split('@')[0].replace(/[^0-9]/g, '');
-        return n.length >= 10 && n.length <= 13;
-      };
-      if (sockContacts instanceof Map) {
-        for (const [jid, c] of sockContacts) {
-          if (jid && !jid.includes('@g.us') && isRealPhone(jid)) entries.push([jid, c]);
-        }
-      } else if (typeof sockContacts === 'object') {
-        entries = Object.entries(sockContacts).filter(([jid]) => jid && !jid.includes('@g.us') && isRealPhone(jid));
-      }
-      if (entries.length > 0) {
-        cmap = new Map(entries);
-        console.log(`[getAllContacts] ${sessionId}: ${entries.length} real phone contacts from sock.contacts`);
-      }
-    }
-
-    // Priority 2: Event-driven sessionsContactMap (may have richer contact info)
-    if (!cmap || cmap.size === 0) {
-      cmap = sessionsContactMap.get(sessionId);
-      if (!cmap || cmap.size === 0) {
-        for (let i = 0; i < 10; i++) {
-          await new Promise(r => setTimeout(r, 1500));
-          cmap = sessionsContactMap.get(sessionId);
-          if (cmap && cmap.size > 0) break;
+    // Source A: Event-driven sessionsContactMap (populated by messaging-history.set — FULL address book)
+    const eventMap = sessionsContactMap.get(sessionId);
+    if (eventMap && eventMap.size > 0) {
+      let added = 0;
+      for (const [jid, c] of eventMap) {
+        if (jid && !jid.includes('@g.us') && isRealPhone(jid) && !combined.has(jid)) {
+          combined.set(jid, c);
+          added++;
         }
       }
+      console.log(`[getAllContacts] ${sessionId}: ${added} contacts from event map`);
     }
 
-    // Priority 3: Persisted contacts.json
-    if (!cmap || cmap.size === 0) {
-      try {
-        const contactFile = path.join(getSessionDir(sessionId), 'contacts.json');
-        if (fs.existsSync(contactFile)) {
-          const persisted = JSON.parse(fs.readFileSync(contactFile, 'utf8'));
-          const loadedMap = new Map(Object.entries(persisted));
-          if (loadedMap.size > 0) cmap = loadedMap;
+    // Source B: Direct read from sock.contacts (auth state — partial but may have richer names)
+    if (sock?.contacts) {
+      let added = 0;
+      if (sock.contacts instanceof Map) {
+        for (const [jid, c] of sock.contacts) {
+          if (jid && !jid.includes('@g.us') && isRealPhone(jid)) {
+            if (combined.has(jid)) {
+              const ex = combined.get(jid);
+              if (c.name && !ex.name) ex.name = c.name;
+              if (c.notify && !ex.notify) ex.notify = c.notify;
+            } else {
+              combined.set(jid, c);
+              added++;
+            }
+          }
         }
-      } catch (e) { console.error('[Baileys] Contact file load error:', e.message); }
+      } else if (typeof sock.contacts === 'object') {
+        for (const [jid, c] of Object.entries(sock.contacts)) {
+          if (jid && !jid.includes('@g.us') && isRealPhone(jid)) {
+            if (combined.has(jid)) {
+              const ex = combined.get(jid);
+              if (c.name && !ex.name) ex.name = c.name;
+              if (c.notify && !ex.notify) ex.notify = c.notify;
+            } else {
+              combined.set(jid, c);
+              added++;
+            }
+          }
+        }
+      }
+      console.log(`[getAllContacts] ${sessionId}: ${added} extra from sock.contacts`);
     }
 
-    if (!cmap || cmap.size === 0) return [];
-    return Array.from(cmap.values()).filter(c => c.id && typeof c.id === 'string' && !c.id.includes('@g.us')).map(c => ({
+    // Source C: Persisted contacts.json
+    try {
+      const contactFile = path.join(getSessionDir(sessionId), 'contacts.json');
+      if (fs.existsSync(contactFile)) {
+        const persisted = JSON.parse(fs.readFileSync(contactFile, 'utf8'));
+        let added = 0;
+        for (const [jid, c] of Object.entries(persisted)) {
+          if (jid && !jid.includes('@g.us') && isRealPhone(jid) && !combined.has(jid)) {
+            combined.set(jid, c);
+            added++;
+          }
+        }
+        if (added > 0) console.log(`[getAllContacts] ${sessionId}: ${added} extra from disk`);
+      }
+    } catch (e) { console.error('[Baileys] Contact file load error:', e.message); }
+
+    if (combined.size === 0) return [];
+    return Array.from(combined.values()).filter(c => c.id && typeof c.id === 'string' && !c.id.includes('@g.us') && isRealPhone(c.id)).map(c => ({
       jid: c.id,
       name: c.name || c.notify || c.verifiedName || '',
       phone: (c.id.split('@')[0]).slice(-10),
