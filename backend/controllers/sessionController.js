@@ -255,7 +255,7 @@ const readContactsFromDisk = (sessionId) => {
         pushName: c.name || '',
         verifiedName: c.verifiedName || '',
         isBusiness: !!c.business
-      })).filter(c => c.phone.length >= 8);
+      })).filter(c => { const n = c.phone.replace(/[^0-9]/g, ''); return n.length >= 10 && n.length <= 13; });
     } catch (e) {
       console.log('[DiskContacts] Parse error:', e.message);
     }
@@ -278,113 +278,107 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
     const waContacts = await whatsappService.getAllContacts(sessionId);
     console.log('[AutoSync] getAllContacts returned', waContacts.length);
     for (const c of waContacts) {
-      if (c.phone && c.phone.length >= 8) rawContacts.push({ phone: c.phone, name: c.name || '', jid: c.jid || '' });
+      if (c.phone && c.phone.length >= 10 && c.phone.length <= 13) rawContacts.push({ phone: c.phone, name: c.name || '', jid: c.jid || '' });
     }
   } catch (e) { console.log('[AutoSync] getAllContacts error:', e.message); }
 
   // 2) Direct socket contacts
-  if (!rawContacts.length) {
-    try {
-      const sock = whatsappService.sessions?.get?.(sessionId);
-      if (sock?.contacts) {
-        let entries = [];
-        if (sock.contacts instanceof Map) {
-          for (const [jid, c] of sock.contacts) {
-            if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
-          }
-        } else if (typeof sock.contacts === 'object') {
-          entries = Object.entries(sock.contacts).filter(([j]) => j && !j.includes('@g.us'));
+  try {
+    const sock = whatsappService.sessions?.get?.(sessionId);
+    if (sock?.contacts) {
+      let entries = [];
+      if (sock.contacts instanceof Map) {
+        for (const [jid, c] of sock.contacts) {
+          if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
         }
-        console.log('[AutoSync] Socket contacts:', entries.length);
-        for (const [, c] of entries) {
-          const p = c.id?.split('@')[0] || '';
-          if (p && p.length >= 8) rawContacts.push({ phone: p, name: c.name || c.notify || c.verifiedName || '', jid: c.id || '' });
-        }
+      } else if (typeof sock.contacts === 'object') {
+        entries = Object.entries(sock.contacts).filter(([j]) => j && !j.includes('@g.us'));
       }
-    } catch (e) { console.log('[AutoSync] Socket error:', e.message); }
-  }
+      console.log('[AutoSync] Socket contacts:', entries.length);
+      for (const [jid, c] of entries) {
+        const raw = (c.id || jid).split('@')[0].replace(/[^0-9]/g, '');
+        if (raw.length >= 10 && raw.length <= 13) rawContacts.push({ phone: raw, name: c.name || c.notify || c.verifiedName || '', jid: c.id || jid || '' });
+      }
+    }
+  } catch (e) { console.log('[AutoSync] Socket error:', e.message); }
 
   // 3) Baileys store contacts
-  if (!rawContacts.length) {
-    try {
-      const sock = whatsappService.sessions?.get?.(sessionId);
-      if (sock?.store?.contacts) {
-        const store = sock.store.contacts;
-        let entries = [];
-        if (store instanceof Map) {
-          for (const [jid, c] of store) {
-            if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
-          }
-        } else if (typeof store === 'object') {
-          entries = Object.entries(store).filter(([j]) => j && !j.includes('@g.us'));
+  try {
+    const sock = whatsappService.sessions?.get?.(sessionId);
+    if (sock?.store?.contacts) {
+      const store = sock.store.contacts;
+      let entries = [];
+      if (store instanceof Map) {
+        for (const [jid, c] of store) {
+          if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
         }
-        console.log('[AutoSync] Store contacts:', entries.length);
-        for (const [, c] of entries) {
-          const p = c.id?.split('@')[0] || '';
-          if (p && p.length >= 8) rawContacts.push({ phone: p, name: c.name || c.notify || c.verifiedName || '', jid: c.id || '' });
-        }
+      } else if (typeof store === 'object') {
+        entries = Object.entries(store).filter(([j]) => j && !j.includes('@g.us'));
       }
-    } catch (e) { console.log('[AutoSync] Store error:', e.message); }
-  }
+      console.log('[AutoSync] Store contacts:', entries.length);
+      for (const [jid, c] of entries) {
+        const raw = (c.id || jid).split('@')[0].replace(/[^0-9]/g, '');
+        if (raw.length >= 10 && raw.length <= 13) rawContacts.push({ phone: raw, name: c.name || c.notify || c.verifiedName || '', jid: c.id || jid || '' });
+      }
+    }
+  } catch (e) { console.log('[AutoSync] Store error:', e.message); }
 
   // 4) Read contacts.json from disk directly
-  if (!rawContacts.length) {
+  try {
     const diskContacts = readContactsFromDisk(sessionId);
     console.log('[AutoSync] Disk contacts:', diskContacts.length);
     for (const c of diskContacts) {
-      if (c.phone && c.phone.length >= 8) rawContacts.push(c);
+      if (c.phone) rawContacts.push(c);
     }
-  }
+  } catch (e) { console.log('[AutoSync] Disk error:', e.message); }
 
-  // 5) Last resort: try to extract from sock.chats / store.chats (JID -> phone)
-  if (!rawContacts.length) {
-    try {
-      const sock = whatsappService.sessions?.get?.(sessionId);
-      let chats = [];
-      if (sock?.store?.chats) {
-        const store = sock.store.chats;
-        if (store instanceof Map) chats = Array.from(store.keys());
-        else if (Array.isArray(store)) chats = store.map(c => c.id).filter(Boolean);
-        else if (typeof store === 'object') chats = Object.keys(store);
-      }
-      if (sock?.chats) {
-        if (sock.chats instanceof Map) chats = [...chats, ...Array.from(sock.chats.keys())];
-        else if (Array.isArray(sock.chats)) chats = [...chats, ...sock.chats.map(c => c.id).filter(Boolean)];
-        else if (typeof sock.chats === 'object') chats = [...chats, ...Object.keys(sock.chats)];
-      }
-      chats = [...new Set(chats)].filter(jid => jid && !jid.includes('@g.us') && !jid.includes('@broadcast'));
-      console.log('[AutoSync] Chat JIDs (non-group):', chats.length);
-      for (const jid of chats) {
-        const p = jid.split('@')[0];
-        if (p && p.length >= 8) rawContacts.push({ phone: p, name: '', jid });
-      }
-    } catch (e) { console.log('[AutoSync] Chats error:', e.message); }
-  }
+  // 5) Extract from sock.chats / store.chats (catches non-saved numbers who've messaged the user)
+  try {
+    const sock = whatsappService.sessions?.get?.(sessionId);
+    let chats = [];
+    if (sock?.store?.chats) {
+      const store = sock.store.chats;
+      if (store instanceof Map) chats = Array.from(store.keys());
+      else if (Array.isArray(store)) chats = store.map(c => c.id).filter(Boolean);
+      else if (typeof store === 'object') chats = Object.keys(store);
+    }
+    if (sock?.chats) {
+      if (sock.chats instanceof Map) chats = [...chats, ...Array.from(sock.chats.keys())];
+      else if (Array.isArray(sock.chats)) chats = [...chats, ...sock.chats.map(c => c.id).filter(Boolean)];
+      else if (typeof sock.chats === 'object') chats = [...chats, ...Object.keys(sock.chats)];
+    }
+    chats = [...new Set(chats)].filter(j => j && !j.includes('@g.us') && !j.includes('@broadcast') && j.split('@')[0].replace(/[^0-9]/g, '').length >= 10);
+    console.log('[AutoSync] Chat JIDs:', chats.length);
+    for (const jid of chats) {
+      const raw = jid.split('@')[0].replace(/[^0-9]/g, '');
+      if (raw.length >= 10 && raw.length <= 13) rawContacts.push({ phone: raw, name: '', jid });
+    }
+  } catch (e) { console.log('[AutoSync] Chats error:', e.message); }
 
-  // 6) FINAL resort: fetch all participating groups and extract members (concurrent, max 20)
-  if (!rawContacts.length) {
-    try {
-      const sock = whatsappService.sessions?.get?.(sessionId);
-      if (sock?.groupFetchAllParticipating) {
-        console.log('[AutoSync] Fetching all groups to extract members...');
-        const groupsMap = await sock.groupFetchAllParticipating();
-        const groupIds = Object.keys(groupsMap || {}).slice(0, 20);
-        console.log('[AutoSync] Found', Object.keys(groupsMap || {}).length, 'groups, processing', groupIds.length);
-        await Promise.allSettled(groupIds.map(gid =>
-          sock.groupMetadata(gid).then(meta => {
-            for (const p of meta.participants || []) {
-              const jid = p.id || p.jid || '';
-              const phone = jid.split('@')[0];
-              if (phone && phone.length >= 8) {
-                rawContacts.push({ phone, name: p.name || p.pushName || '', jid, group: meta.subject || '' });
-              }
+  // 6) Fetch all participating groups and extract members (concurrent, max 20)
+  try {
+    const sock = whatsappService.sessions?.get?.(sessionId);
+    if (sock?.groupFetchAllParticipating) {
+      console.log('[AutoSync] Fetching all groups to extract members...');
+      const groupsMap = await sock.groupFetchAllParticipating();
+      const groupIds = Object.keys(groupsMap || {}).slice(0, 20);
+      console.log('[AutoSync] Found', Object.keys(groupsMap || {}).length, 'groups, processing', groupIds.length);
+      let added = 0;
+      await Promise.allSettled(groupIds.map(gid =>
+        sock.groupMetadata(gid).then(meta => {
+          for (const p of meta.participants || []) {
+            const jid = p.id || p.jid || '';
+            const raw = jid.split('@')[0].replace(/[^0-9]/g, '');
+            if (raw.length >= 10 && raw.length <= 13) {
+              rawContacts.push({ phone: raw, name: p.name || p.pushName || '', jid, group: meta.subject || '' });
+              added++;
             }
-          }).catch(() => {})
-        ));
-        console.log('[AutoSync] Extracted', rawContacts.length, 'contacts from groups');
-      }
-    } catch (e) { console.log('[AutoSync] Group extraction error:', e.message); }
-  }
+          }
+        }).catch(() => {})
+      ));
+      console.log('[AutoSync] Extracted', added, 'contacts from groups');
+    }
+  } catch (e) { console.log('[AutoSync] Group extraction error:', e.message); }
 
   if (!rawContacts.length) {
     console.log('[AutoSync] No raw contacts found from ANY source');
@@ -429,6 +423,11 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
 // ---------------------------------------------------------------------------
 // Collect contacts from ALL possible sources (read-only, no DB writes)
 // ---------------------------------------------------------------------------
+const isRealPhone = (jid) => {
+  const n = (jid || '').split('@')[0].replace(/[^0-9]/g, '');
+  return n.length >= 10 && n.length <= 13;
+};
+
 const collectSessionContacts = async (sessionId, userId) => {
   const results = { sources: {}, all: new Map() };
 
@@ -440,10 +439,10 @@ const collectSessionContacts = async (sessionId, userId) => {
       let entries = [];
       if (sock.contacts instanceof Map) {
         for (const [jid, c] of sock.contacts) {
-          if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
+          if (jid && !jid.includes('@g.us') && isRealPhone(jid)) entries.push([jid, c]);
         }
       } else if (typeof sock.contacts === 'object') {
-        entries = Object.entries(sock.contacts).filter(([j]) => j && !j.includes('@g.us'));
+        entries = Object.entries(sock.contacts).filter(([j]) => j && !j.includes('@g.us') && isRealPhone(j));
       }
       results.sources.socketContacts = entries.length;
       for (const [, c] of entries) {
@@ -489,10 +488,10 @@ const collectSessionContacts = async (sessionId, userId) => {
       let entries = [];
       if (store instanceof Map) {
         for (const [jid, c] of store) {
-          if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
+          if (jid && !jid.includes('@g.us') && isRealPhone(jid)) entries.push([jid, c]);
         }
       } else if (typeof store === 'object') {
-        entries = Object.entries(store).filter(([j]) => j && !j.includes('@g.us'));
+        entries = Object.entries(store).filter(([j]) => j && !j.includes('@g.us') && isRealPhone(j));
       }
       results.sources.storeContacts = entries.length;
       for (const [, c] of entries) {
@@ -532,46 +531,70 @@ const collectSessionContacts = async (sessionId, userId) => {
   } catch (e) { /* skip */ }
 
   // Source 7: contacts.json from disk (persisted by Baileys events)
-  if (results.total === 0) {
-    try {
-      const diskContacts = readContactsFromDisk(sessionId);
-      results.sources.diskContacts = diskContacts.length;
-      for (const c of diskContacts) {
-        const p = c.phone;
-        if (!p || results.all.has(p)) continue;
-        results.all.set(p, { name: c.name || '', group: 'WhatsApp Contacts (Disk)', phone: p });
-      }
-    } catch (e) { results.sources.diskContactsError = e.message; }
-  }
+  try {
+    const diskContacts = readContactsFromDisk(sessionId);
+    results.sources.diskContacts = diskContacts.length;
+    for (const c of diskContacts) {
+      const p = c.phone;
+      if (!p || results.all.has(p) || !isRealPhone(p)) continue;
+      results.all.set(p, { name: c.name || '', group: 'WhatsApp Contacts (Disk)', phone: p });
+    }
+  } catch (e) { results.sources.diskContactsError = e.message; }
 
   // Source 8: Fetch all participating groups and extract members (concurrent, max 20 groups)
-  if (results.total === 0) {
-    try {
-      const sock = whatsappService.sessions?.get?.(sessionId);
-      if (sock?.groupFetchAllParticipating) {
-        console.log('[CollectContacts] Fetching all groups for contacts...');
-        const groupsMap = await sock.groupFetchAllParticipating();
-        const groupIds = Object.keys(groupsMap || {}).slice(0, 20);
-        console.log('[CollectContacts] Found', Object.keys(groupsMap || {}).length, 'groups, processing', groupIds.length);
-        let groupContactCount = 0;
-        await Promise.allSettled(groupIds.map(gid =>
-          sock.groupMetadata(gid).then(meta => {
-            for (const p of meta.participants || []) {
-              const jid = p.id || p.jid || '';
-              const phone = jid.split('@')[0];
-              if (phone && phone.length >= 8 && !results.all.has(phone)) {
-                const name = p.name || p.pushName || '';
-                results.all.set(phone, { name, group: meta.subject || 'WhatsApp Group', phone });
-                groupContactCount++;
-              }
+  try {
+    const sock = whatsappService.sessions?.get?.(sessionId);
+    if (sock?.groupFetchAllParticipating) {
+      console.log('[CollectContacts] Fetching all groups for contacts...');
+      const groupsMap = await sock.groupFetchAllParticipating();
+      const groupIds = Object.keys(groupsMap || {}).slice(0, 20);
+      console.log('[CollectContacts] Found', Object.keys(groupsMap || {}).length, 'groups, processing', groupIds.length);
+      let groupContactCount = 0;
+      await Promise.allSettled(groupIds.map(gid =>
+        sock.groupMetadata(gid).then(meta => {
+          for (const p of meta.participants || []) {
+            const jid = p.id || p.jid || '';
+            const phone = jid.split('@')[0];
+            if (phone && isRealPhone(phone) && !results.all.has(phone)) {
+              const name = p.name || p.pushName || '';
+              results.all.set(phone, { name, group: meta.subject || 'WhatsApp Group', phone });
+              groupContactCount++;
             }
-          }).catch(() => {})
-        ));
-        results.sources.groupMembers = groupContactCount;
-        console.log('[CollectContacts] Extracted', groupContactCount, 'contacts from groups');
-      }
-    } catch (e) { results.sources.groupMembersError = e.message; }
-  }
+          }
+        }).catch(() => {})
+      ));
+      results.sources.groupMembers = groupContactCount;
+      console.log('[CollectContacts] Extracted', groupContactCount, 'contacts from groups');
+    }
+  } catch (e) { results.sources.groupMembersError = e.message; }
+
+  // Source 9: Extract from recent chats (catches non-saved numbers who've messaged the user)
+  try {
+    const sock = whatsappService.sessions?.get?.(sessionId);
+    let chatJids = [];
+    if (sock?.store?.chats) {
+      const store = sock.store.chats;
+      if (store instanceof Map) chatJids = Array.from(store.keys());
+      else if (Array.isArray(store)) chatJids = store.map(c => c.id).filter(Boolean);
+      else if (typeof store === 'object') chatJids = Object.keys(store);
+    }
+    if (sock?.chats) {
+      if (sock.chats instanceof Map) chatJids = [...chatJids, ...Array.from(sock.chats.keys())];
+      else if (Array.isArray(sock.chats)) chatJids = [...chatJids, ...sock.chats.map(c => c.id).filter(Boolean)];
+      else if (typeof sock.chats === 'object') chatJids = [...chatJids, ...Object.keys(sock.chats)];
+    }
+    chatJids = [...new Set(chatJids)].filter(j => j && !j.includes('@g.us') && !j.includes('@broadcast') && isRealPhone(j));
+    results.sources.chatJids = chatJids.length;
+    let chatAdded = 0;
+    for (const jid of chatJids) {
+      const p = jid.split('@')[0];
+      if (!p || results.all.has(p)) continue;
+      const name = sock?.store?.contacts?.get?.(jid)?.name || sock?.contacts?.get?.(jid)?.name || '';
+      results.all.set(p, { name: name || '', group: 'From Chats', phone: p });
+      chatAdded++;
+    }
+    if (chatAdded > 0) console.log('[CollectContacts] Added', chatAdded, 'contacts from recent chats');
+  } catch (e) { results.sources.chatJidsError = e.message; }
 
   results.total = results.all.size;
   return results;
@@ -710,7 +733,7 @@ exports.exportContacts = async (req, res) => {
         const contacts = sock.contacts instanceof Map ? sock.contacts : typeof sock.contacts === 'object' ? Object.entries(sock.contacts) : [];
         if (sock.contacts instanceof Map) {
           for (const [jid, c] of sock.contacts) {
-            if (jid && !jid.includes('@g.us')) {
+            if (jid && !jid.includes('@g.us') && isRealPhone(jid)) {
               const p = c.id?.split('@')[0] || jid.split('@')[0];
               if (!p || collected.all.has(p)) continue;
               collected.all.set(p, { name: c.name || c.notify || c.verifiedName || '', group: 'WhatsApp Contacts', phone: p, admin: '-', sessionId, groupJid: jid, scrapedAt: '', address: '' });
@@ -719,7 +742,7 @@ exports.exportContacts = async (req, res) => {
           }
         } else if (typeof sock.contacts === 'object') {
           for (const [jid, c] of Object.entries(sock.contacts)) {
-            if (jid && !jid.includes('@g.us')) {
+            if (jid && !jid.includes('@g.us') && isRealPhone(jid)) {
               const p = c.id?.split('@')[0] || jid.split('@')[0];
               if (!p || collected.all.has(p)) continue;
               collected.all.set(p, { name: c.name || c.notify || c.verifiedName || '', group: 'WhatsApp Contacts', phone: p, admin: '-', sessionId, groupJid: jid, scrapedAt: '', address: '' });
@@ -734,7 +757,7 @@ exports.exportContacts = async (req, res) => {
         const store = sock.store.contacts;
         const entries = store instanceof Map ? [...store] : typeof store === 'object' ? Object.entries(store) : [];
         for (const [jid, c] of entries) {
-          if (!jid || jid.includes('@g.us')) continue;
+          if (!jid || jid.includes('@g.us') || !isRealPhone(jid)) continue;
           const p = c.id?.split('@')[0] || jid.split('@')[0];
           if (!p || collected.all.has(p)) continue;
           collected.all.set(p, { name: c.name || c.notify || c.verifiedName || '', group: 'WhatsApp Contacts', phone: p, admin: '-', sessionId, groupJid: jid, scrapedAt: '', address: '' });
