@@ -281,7 +281,8 @@ const connectSession = async (sessionId, io) => {
       logger: pino({ level: 'warn' }),
       printQRInTerminal: false,
       markOnlineOnConnect: false,
-      syncFullHistory: false,
+      syncFullHistory: true,
+      shouldSyncHistoryMessage: () => false,
       generateHighQualityLinkPreview: false,
       version,
       keepAliveIntervalMs: 10000,
@@ -468,9 +469,9 @@ const connectSession = async (sessionId, io) => {
       }
     });
 
-    sock.ev.on('messaging-history.set', ({ contacts }) => {
+    sock.ev.on('messaging-history.set', async ({ contacts, chats, messages, isLatest }) => {
       if (contacts && contacts.length > 0) {
-        console.log(`[Baileys] History set for ${sessionId}: ${contacts.length} contacts`);
+        console.log(`[Baileys] History set for ${sessionId}: ${contacts.length} contacts (isLatest:${isLatest})`);
         const cmap = sessionsContactMap.get(sessionId);
         if (cmap) {
           for (const c of contacts) {
@@ -485,6 +486,30 @@ const connectSession = async (sessionId, io) => {
           }
           fs.writeFileSync(contactFile, JSON.stringify(existing));
         } catch (e) { console.error('[Baileys] History contacts persist error:', e.message); }
+        // Also auto-sync history contacts to MongoDB
+        try {
+          const Contact = require('../models/Contact');
+          const sess = await Session.findOne({ sessionId });
+          if (sess?.userId) {
+            const bulkOps = [];
+            for (const c of contacts) {
+              if (!c.id) continue;
+              const phone = c.id.split('@')[0].replace(/[^0-9]/g, '').slice(-10);
+              if (!phone) continue;
+              bulkOps.push({
+                updateOne: {
+                  filter: { userId: sess.userId, phone },
+                  upsert: true,
+                  update: { $set: { name: c.name || c.notify || c.verifiedName || '', phone, source: 'baileys_history', sessionId } }
+                }
+              });
+            }
+            if (bulkOps.length > 0) {
+              await Contact.bulkWrite(bulkOps);
+              console.log(`[Baileys] Synced ${bulkOps.length} history contacts to MongoDB for ${sessionId}`);
+            }
+          }
+        } catch (e) { console.error('[Baileys] History contacts MongoDB sync error:', e.message); }
       }
     });
 
@@ -1236,7 +1261,8 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
       logger: pino({ level: 'warn' }),
       printQRInTerminal: false,
       markOnlineOnConnect: false,
-      syncFullHistory: false,
+      syncFullHistory: true,
+      shouldSyncHistoryMessage: () => false,
       generateHighQualityLinkPreview: false,
       mobile: false,
       version,
