@@ -18,6 +18,62 @@ const escapeCsvValue = (value) => {
   return `"${text.replace(/"/g, '""')}"`;
 };
 
+const normalizePhone10 = (value) => {
+  const digits = String(value || '').split('@')[0].replace(/[^0-9]/g, '');
+  return digits.length >= 10 ? digits.slice(-10) : '';
+};
+
+const cleanContactName = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+
+const isUsableContactName = (value) => {
+  const name = cleanContactName(value);
+  if (!name) return false;
+  const digits = name.replace(/[^0-9]/g, '');
+  return !(digits.length >= 10 && digits === name.replace(/[^0-9]/g, ''));
+};
+
+const normalizeContactExportRows = (rows = [], { requireName = false } = {}) => {
+  const byPhone = new Map();
+
+  for (const row of rows) {
+    const phone = normalizePhone10(row.phone || row.Phone || row.jid);
+    if (!phone) continue;
+
+    const name = cleanContactName(row.name || row.Name);
+    if (requireName && !isUsableContactName(name)) continue;
+
+    const normalized = {
+      ...row,
+      name,
+      phone,
+      address: cleanContactName(row.address || row.Address || row.city),
+      group: cleanContactName(row.group || row.Group),
+      admin: row.admin || row.Admin || '',
+      sessionId: row.sessionId || row['Session ID'] || '',
+      groupJid: row.groupJid || row['Group JID'] || '',
+      scrapedAt: row.scrapedAt || row['Scraped At'] || ''
+    };
+
+    const existing = byPhone.get(phone);
+    if (!existing) {
+      byPhone.set(phone, normalized);
+      continue;
+    }
+
+    if (!existing.name && normalized.name) existing.name = normalized.name;
+    if (!existing.address && normalized.address) existing.address = normalized.address;
+    if (normalized.group && !String(existing.group || '').split('; ').includes(normalized.group)) {
+      existing.group = existing.group ? `${existing.group}; ${normalized.group}` : normalized.group;
+    }
+    if (normalized.admin === 'Yes') existing.admin = 'Yes';
+    if (!existing.sessionId && normalized.sessionId) existing.sessionId = normalized.sessionId;
+    if (!existing.groupJid && normalized.groupJid) existing.groupJid = normalized.groupJid;
+    if (!existing.scrapedAt && normalized.scrapedAt) existing.scrapedAt = normalized.scrapedAt;
+  }
+
+  return Array.from(byPhone.values());
+};
+
 const toCsv = (rows) => {
   const headers = ['Name', 'Phone', 'Address', 'Group', 'Admin', 'Session ID', 'Group JID', 'Scraped At'];
   const keys = ['name', 'phone', 'address', 'group', 'admin', 'sessionId', 'groupJid', 'scrapedAt'];
@@ -81,24 +137,25 @@ const buildGroupScrapeRows = (scrapes = [], contacts = []) => {
   return Array.from(rowsByPhone.values());
 };
 
-const sendContactExport = async (res, rows, { format = 'xlsx', filenameBase = 'contacts' } = {}) => {
+const sendContactExport = async (res, rows, { format = 'xlsx', filenameBase = 'contacts', requireName = false } = {}) => {
   const normalizedFormat = normalizeExportFormat(format);
   const filename = `${filenameBase}.${normalizedFormat}`;
+  const exportRows = normalizeContactExportRows(rows, { requireName });
 
   res.setHeader('Content-Type', getExportContentType(normalizedFormat));
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
   try {
     if (normalizedFormat === 'json') {
-      return res.send(JSON.stringify({ success: true, count: rows.length, contacts: rows }, null, 2));
+      return res.send(JSON.stringify({ success: true, count: exportRows.length, contacts: exportRows }, null, 2));
     }
 
     if (normalizedFormat === 'csv') {
-      return res.send(toCsv(rows));
+      return res.send(toCsv(exportRows));
     }
 
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Group Members');
+    const ws = wb.addWorksheet(requireName ? 'Phone Contacts' : 'Group Members');
     ws.columns = [
       { header: 'Name', key: 'name', width: 30 },
       { header: 'Phone', key: 'phone', width: 18 },
@@ -110,13 +167,13 @@ const sendContactExport = async (res, rows, { format = 'xlsx', filenameBase = 'c
       { header: 'Scraped At', key: 'scrapedAt', width: 24 }
     ];
     ws.getRow(1).font = { bold: true };
-    ws.addRows(rows);
+    ws.addRows(exportRows);
     await wb.xlsx.write(res);
     return res.end();
   } catch (err) {
     console.error('[sendContactExport] Error generating export', {
       format: normalizedFormat,
-      rowCount: rows.length,
+      rowCount: exportRows.length,
       error: err.message,
       stack: err.stack
     });
@@ -128,6 +185,10 @@ const sendContactExport = async (res, rows, { format = 'xlsx', filenameBase = 'c
 
 module.exports = {
   buildGroupScrapeRows,
+  cleanContactName,
+  isUsableContactName,
+  normalizeContactExportRows,
+  normalizePhone10,
   normalizeExportFormat,
   sendContactExport
 };

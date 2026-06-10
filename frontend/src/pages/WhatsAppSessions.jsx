@@ -17,6 +17,7 @@ export default function WhatsAppSessions() {
   const [pairingPhone, setPairingPhone] = useState('');
   const [pairingCode, setPairingCode] = useState('');
   const [pairingLoading, setPairingLoading] = useState(false);
+  const [exportingSessionId, setExportingSessionId] = useState('');
   
   const [qrError, setQrError] = useState(null);
   // Sockets aur timers ke liye Refs (Anti-leak)
@@ -324,6 +325,54 @@ export default function WhatsAppSessions() {
     } catch (err) { alert('Export failed'); }
   };
 
+  const getBlobErrorMessage = async (err, fallback = 'Export failed') => {
+    const blob = err.response?.data;
+    if (blob instanceof Blob) {
+      try {
+        const text = await blob.text();
+        const parsed = JSON.parse(text);
+        return parsed.message || fallback;
+      } catch {
+        return fallback;
+      }
+    }
+    return err.response?.data?.message || err.message || fallback;
+  };
+
+  const downloadBlob = (data, filename) => {
+    const blob = data instanceof Blob ? data : new Blob([data]);
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const exportPhoneContacts = async (session) => {
+    if (!session?.sessionId || session.status !== 'connected') {
+      alert('WhatsApp session connected nahi hai.');
+      return;
+    }
+
+    setExportingSessionId(session.sessionId);
+    try {
+      const { data } = await API.get(`/sessions/${session.sessionId}/export`, {
+        params: { format: 'xlsx' },
+        responseType: 'blob',
+        timeout: 120000
+      });
+      const safeName = String(session.name || session.sessionId).replace(/[^a-z0-9_-]+/gi, '-');
+      downloadBlob(data, `phone-contacts-${safeName}.xlsx`);
+    } catch (err) {
+      alert(await getBlobErrorMessage(err, 'No named phone contacts found to export.'));
+    } finally {
+      setExportingSessionId('');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -416,19 +465,23 @@ export default function WhatsAppSessions() {
                 </div>
               )}
 
-              <div className="flex items-center gap-2 mt-2">
+              <div className="flex flex-wrap items-center gap-2 mt-2">
                 {session.status === 'connected' && (
                   <>
+                    <button onClick={() => exportPhoneContacts(session)} disabled={exportingSessionId === session.sessionId}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-sm font-medium transition-all disabled:opacity-50">
+                      <HiOutlineDownload size={16} /> {exportingSessionId === session.sessionId ? 'Exporting...' : 'Export Contacts'}
+                    </button>
                     <button onClick={() => { setChatSession(session.sessionId); setChatPhone(''); setChatMessages([]); }}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 text-sm font-medium transition-all">
+                      className="flex-1 min-w-[80px] flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 text-sm font-medium transition-all">
                       <FaWhatsapp size={14} /> Chat
                     </button>
                     <button onClick={() => { setCallSession(session); setCallType('audio'); setCallPhone(''); }}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 text-sm font-medium transition-all">
+                      className="flex-1 min-w-[80px] flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 text-sm font-medium transition-all">
                       <FaPhone size={14} /> Audio
                     </button>
                     <button onClick={() => { setCallSession(session); setCallType('video'); setCallPhone(''); }}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 text-sm font-medium transition-all">
+                      className="flex-1 min-w-[80px] flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 text-sm font-medium transition-all">
                       <FaVideo size={14} /> Video
                     </button>
                     <button onClick={() => disconnectSession(session.sessionId)}

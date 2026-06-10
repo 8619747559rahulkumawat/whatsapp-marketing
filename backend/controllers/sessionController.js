@@ -5,7 +5,7 @@ const Contact = require('../models/Contact');
 const GroupScrape = require('../models/GroupScrape');
 const whatsappService = require('../services/whatsappService');
 const { generateSessionId } = require('../utils/helpers');
-const { buildGroupScrapeRows, normalizeExportFormat, sendContactExport } = require('../utils/contactExport');
+const { buildGroupScrapeRows, normalizeContactExportRows, normalizeExportFormat, sendContactExport } = require('../utils/contactExport');
 const mongoose = require('mongoose');
 
 exports.getSessions = async (req, res) => {
@@ -678,6 +678,7 @@ exports.exportContacts = async (req, res) => {
 
   console.log('[ExportContacts] ====== START ======', { sessionId, format, userId: req.user?._id?.toString() });
 
+  try {
   // Overall timeout: 55s so frontend 120s timeout doesn't fire first
   const timeoutPromise = new Promise((_, reject) =>
     setTimeout(() => reject(new Error('Export timed out after 55s')), 55000)
@@ -773,23 +774,23 @@ exports.exportContacts = async (req, res) => {
       }
     }
 
-    const finalContacts = Array.from(collected.all.values()).map(c => ({
+    const finalContacts = normalizeContactExportRows(Array.from(collected.all.values()).map(c => ({
       ...c, admin: c.admin || '-', sessionId, groupJid: c.groupJid || '', scrapedAt: c.scrapedAt || '', address: c.address || ''
-    }));
+    })), { requireName: true });
 
-    console.log('[ExportContacts] Final contacts count:', finalContacts.length, 'Session:', sessionId);
+    console.log('[ExportContacts] Final named 10-digit contacts count:', finalContacts.length, 'Session:', sessionId);
 
     if (!finalContacts.length) {
       console.log('[ExportContacts] No contacts from ANY source after all fallbacks');
       return res.status(404).json({
         success: false,
-        message: 'No contacts found to export after checking all sources (DB, scrapes, Baileys store, socket).',
+        message: 'No named 10-digit phone contacts found to export after checking all sources.',
         diagnostics: collected.sources
       });
     }
 
     console.log('[ExportContacts] Generating', format, 'file for', finalContacts.length, 'contacts');
-    await sendContactExport(res, finalContacts, { format, filenameBase: `contacts-${sessionId}` });
+    await sendContactExport(res, finalContacts, { format, filenameBase: `contacts-${sessionId}`, requireName: true });
 
     console.log('[ExportContacts] ====== SUCCESS ======', {
       sessionId, format, contactCount: finalContacts.length, durationMs: Date.now() - startTime
