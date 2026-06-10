@@ -1107,32 +1107,36 @@ const getAllContacts = async (sessionId) => {
     const sock = await getReadySocket(sessionId);
     if (!sock || !sock.user) throw new Error('WhatsApp session not connected.');
 
-    let cmap = sessionsContactMap.get(sessionId);
-    if (!cmap || cmap.size === 0) {
-      for (let i = 0; i < 5; i++) {
-        await new Promise(r => setTimeout(r, 1000));
-        cmap = sessionsContactMap.get(sessionId);
-        if (cmap && cmap.size > 0) break;
-      }
-    }
+    let cmap = null;
 
-    if (!cmap || cmap.size === 0) {
-      const sockContacts = sock.contacts;
-      if (sockContacts) {
-        let entries = [];
-        if (sockContacts instanceof Map) {
-          for (const [jid, c] of sockContacts) {
-            if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
-          }
-        } else if (typeof sockContacts === 'object') {
-          entries = Object.entries(sockContacts).filter(([jid]) => jid && !jid.includes('@g.us'));
+    // Priority 1: Direct read from sock.contacts (most authoritative)
+    const sockContacts = sock.contacts;
+    if (sockContacts) {
+      let entries = [];
+      if (sockContacts instanceof Map) {
+        for (const [jid, c] of sockContacts) {
+          if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
         }
-        if (entries.length > 0) cmap = new Map(entries);
+      } else if (typeof sockContacts === 'object') {
+        entries = Object.entries(sockContacts).filter(([jid]) => jid && !jid.includes('@g.us'));
+      }
+      if (entries.length > 0) cmap = new Map(entries);
+    }
+
+    // Priority 2: Event-driven sessionsContactMap (may have richer contact info)
+    if (!cmap || cmap.size === 0) {
+      cmap = sessionsContactMap.get(sessionId);
+      if (!cmap || cmap.size === 0) {
+        for (let i = 0; i < 10; i++) {
+          await new Promise(r => setTimeout(r, 1500));
+          cmap = sessionsContactMap.get(sessionId);
+          if (cmap && cmap.size > 0) break;
+        }
       }
     }
 
+    // Priority 3: Persisted contacts.json
     if (!cmap || cmap.size === 0) {
-      // Try loading from persisted contacts file
       try {
         const contactFile = path.join(getSessionDir(sessionId), 'contacts.json');
         if (fs.existsSync(contactFile)) {
@@ -1157,28 +1161,54 @@ const getAllContacts = async (sessionId) => {
 };
 
 /**
- * Wait for Baileys contacts to sync (via contacts.upsert events).
- * Polls sessionsContactMap until minContacts reached or timeout.
+ * Wait for Baileys contacts to sync AND also check sock.contacts directly.
+ * Polls both sessionsContactMap and sock.contacts until stable or timeout.
  */
-const waitForContactSync = async (sessionId, minContacts = 10, timeoutMs = 20000) => {
+const waitForContactSync = async (sessionId, minContacts = 5, timeoutMs = 30000) => {
   const start = Date.now();
-  let lastCount = 0;
+  let lastEventCount = 0;
+  let lastDirectCount = 0;
+  let stableMs = 0;
+
   while (Date.now() - start < timeoutMs) {
     const cmap = sessionsContactMap.get(sessionId);
-    const count = cmap?.size || 0;
-    if (count >= minContacts) {
-      console.log(`[waitForContactSync] ${sessionId}: ${count} contacts synced in ${Date.now() - start}ms`);
-      return count;
+    const eventCount = cmap?.size || 0;
+    const sock = sessions.get(sessionId);
+    let directCount = 0;
+    if (sock?.contacts) {
+      if (sock.contacts instanceof Map) directCount = sock.contacts.size;
+      else if (typeof sock.contacts === 'object') directCount = Object.keys(sock.contacts).length;
     }
-    if (count !== lastCount) {
-      console.log(`[waitForContactSync] ${sessionId}: ${count} contacts so far...`);
-      lastCount = count;
+
+    // Use whichever is larger
+    const effectiveCount = Math.max(eventCount, directCount);
+    if (effectiveCount >= minContacts) {
+      // Check if count is stable (no new contacts for 5s)
+      if (effectiveCount === Math.max(lastEventCount, lastDirectCount)) {
+        stableMs += 1500;
+        if (stableMs >= 5000) {
+          console.log(`[waitForContactSync] ${sessionId}: stable at ${effectiveCount} (event:${eventCount}, direct:${directCount}) contacts in ${Date.now() - start}ms`);
+          return effectiveCount;
+        }
+      } else {
+        stableMs = 0;
+      }
+    }
+
+    if (eventCount !== lastEventCount || directCount !== lastDirectCount) {
+      console.log(`[waitForContactSync] ${sessionId}: event:${eventCount}, direct:${directCount}`);
+      lastEventCount = eventCount;
+      lastDirectCount = directCount;
     }
     await new Promise(r => setTimeout(r, 1500));
   }
-  const final = sessionsContactMap.get(sessionId)?.size || 0;
-  console.log(`[waitForContactSync] ${sessionId}: timeout reached, final count: ${final}`);
-  return final;
+
+  const cmap = sessionsContactMap.get(sessionId);
+  const sock = sessions.get(sessionId);
+  const finalEvent = cmap?.size || 0;
+  const finalDirect = sock?.contacts ? (sock.contacts instanceof Map ? sock.contacts.size : Object.keys(sock.contacts).length) : 0;
+  console.log(`[waitForContactSync] ${sessionId}: timeout, final event:${finalEvent}, direct:${finalDirect}`);
+  return Math.max(finalEvent, finalDirect);
 };
 
 const createPairingSession = async (sessionId, phoneNumber, io) => {
