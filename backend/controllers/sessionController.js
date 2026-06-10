@@ -776,21 +776,21 @@ exports.exportContacts = async (req, res) => {
 
     const finalContacts = normalizeContactExportRows(Array.from(collected.all.values()).map(c => ({
       ...c, admin: c.admin || '-', sessionId, groupJid: c.groupJid || '', scrapedAt: c.scrapedAt || '', address: c.address || ''
-    })), { requireName: true });
+    })));
 
-    console.log('[ExportContacts] Final named 10-digit contacts count:', finalContacts.length, 'Session:', sessionId);
+    console.log('[ExportContacts] Final 10-digit contacts count:', finalContacts.length, 'Session:', sessionId);
 
     if (!finalContacts.length) {
       console.log('[ExportContacts] No contacts from ANY source after all fallbacks');
       return res.status(404).json({
         success: false,
-        message: 'No named 10-digit phone contacts found to export after checking all sources.',
+        message: 'No 10-digit phone contacts found to export after checking all sources.',
         diagnostics: collected.sources
       });
     }
 
     console.log('[ExportContacts] Generating', format, 'file for', finalContacts.length, 'contacts');
-    await sendContactExport(res, finalContacts, { format, filenameBase: `contacts-${sessionId}`, requireName: true });
+    await sendContactExport(res, finalContacts, { format, filenameBase: `contacts-${sessionId}` });
 
     console.log('[ExportContacts] ====== SUCCESS ======', {
       sessionId, format, contactCount: finalContacts.length, durationMs: Date.now() - startTime
