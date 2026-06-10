@@ -486,15 +486,17 @@ const connectSession = async (sessionId, io) => {
           }
           fs.writeFileSync(contactFile, JSON.stringify(existing));
         } catch (e) { console.error('[Baileys] History contacts persist error:', e.message); }
-        // Also auto-sync history contacts to MongoDB
+        // Also auto-sync history contacts to MongoDB (skip LIDs)
         try {
           const Contact = require('../models/Contact');
           const sess = await Session.findOne({ sessionId });
           if (sess?.userId) {
             const bulkOps = [];
             for (const c of contacts) {
-              if (!c.id) continue;
-              const phone = c.id.split('@')[0].replace(/[^0-9]/g, '').slice(-10);
+              if (!c.id || c.id.includes('@lid') || c.id.includes('@g.us')) continue;
+              const raw = c.id.split('@')[0].replace(/[^0-9]/g, '');
+              if (raw.length > 13 || raw.length < 10) continue; // skip LIDs
+              const phone = raw.slice(-10);
               if (!phone) continue;
               bulkOps.push({
                 updateOne: {
@@ -1138,14 +1140,21 @@ const getAllContacts = async (sessionId) => {
     const sockContacts = sock.contacts;
     if (sockContacts) {
       let entries = [];
+      const isRealPhone = (jid) => {
+        const n = (jid || '').split('@')[0].replace(/[^0-9]/g, '');
+        return n.length >= 10 && n.length <= 13;
+      };
       if (sockContacts instanceof Map) {
         for (const [jid, c] of sockContacts) {
-          if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
+          if (jid && !jid.includes('@g.us') && isRealPhone(jid)) entries.push([jid, c]);
         }
       } else if (typeof sockContacts === 'object') {
-        entries = Object.entries(sockContacts).filter(([jid]) => jid && !jid.includes('@g.us'));
+        entries = Object.entries(sockContacts).filter(([jid]) => jid && !jid.includes('@g.us') && isRealPhone(jid));
       }
-      if (entries.length > 0) cmap = new Map(entries);
+      if (entries.length > 0) {
+        cmap = new Map(entries);
+        console.log(`[getAllContacts] ${sessionId}: ${entries.length} real phone contacts from sock.contacts`);
+      }
     }
 
     // Priority 2: Event-driven sessionsContactMap (may have richer contact info)
