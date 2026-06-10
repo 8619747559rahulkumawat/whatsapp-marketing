@@ -700,6 +700,24 @@ exports.exportContacts = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Session not found or access denied' });
     }
 
+    const exportUserId = session.userId || req.user._id;
+    const savedContacts = await Contact.find({ userId: exportUserId }).lean();
+    const savedRows = normalizeContactExportRows(savedContacts.map(c => ({
+      name: c.name || '',
+      phone: c.phone || '',
+      address: c.address || c.city || '',
+      group: 'Saved Contacts',
+      admin: '-',
+      sessionId,
+      groupJid: '',
+      scrapedAt: ''
+    })));
+
+    if (savedRows.length) {
+      console.log('[ExportContacts] Fast DB export:', savedRows.length, 'contacts for session', sessionId);
+      return sendContactExport(res, savedRows, { format, filenameBase: `contacts-${sessionId}` });
+    }
+
     // Phase 0: Wait for Baileys to sync contacts (up to 20s, need at least 5 contacts)
     if (session.status === 'connected') {
       console.log('[ExportContacts] Phase 0: waiting for contact sync...');
@@ -708,16 +726,16 @@ exports.exportContacts = async (req, res) => {
     }
 
     // Phase 1: collect from all existing sources (DB + scrapes + in-memory)
-    let collected = await collectSessionContacts(sessionId, req.user._id);
+    let collected = await collectSessionContacts(sessionId, exportUserId);
     console.log('[ExportContacts] Phase 1 collection:', collected.total, 'sources:', collected.sources);
 
     // Phase 2: if empty and connected, auto-sync Baileys store contacts to MongoDB
     if (collected.total === 0 && session.status === 'connected') {
       console.log('[ExportContacts] Phase 2: auto-syncing Baileys contacts to MongoDB...');
-      const synced = await autoSyncContactsToDb(sessionId, req.user._id, tenantId);
+      const synced = await autoSyncContactsToDb(sessionId, exportUserId, tenantId);
       console.log('[ExportContacts] Auto-sync result:', synced, 'contacts saved');
       if (synced > 0) {
-        collected = await collectSessionContacts(sessionId, req.user._id);
+        collected = await collectSessionContacts(sessionId, exportUserId);
         console.log('[ExportContacts] Phase 2 collection after sync:', collected.total);
       }
     }
