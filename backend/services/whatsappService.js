@@ -715,8 +715,9 @@ const connectSession = async (sessionId, io) => {
           console.error(`[Baileys] Error processing incoming message from ${msg.key.remoteJid}:`, e.message);
         }
       }
-      if (io && msg.key.remoteJid && !msg.key.remoteJid.endsWith('@g.us') && !msg.key.remoteJid.endsWith('@broadcast')) {
-        io.to(`session_${sessionId}`).emit('message:incoming', {
+      const eventIo = io || globalIo;
+      if (eventIo && msg.key.remoteJid && !msg.key.remoteJid.endsWith('@g.us') && !msg.key.remoteJid.endsWith('@broadcast')) {
+        eventIo.to(`session_${sessionId}`).emit('message:incoming', {
           sessionId,
           from: msg.key.remoteJid,
           body: msg.message?.conversation || msg.message?.extendedTextMessage?.text || ''

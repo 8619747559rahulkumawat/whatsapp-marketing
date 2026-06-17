@@ -22,7 +22,6 @@ const sessionSchema = new mongoose.Schema({
   version: { type: String, default: '' },
   description: { type: String, default: '' },
   uptime: { type: Number, default: 0 },
-  id: { type: String, default: '' },
   pushname: { type: String, default: '' },
   skeleton: { type: String, default: '' },
   platform: { type: String, default: '' },

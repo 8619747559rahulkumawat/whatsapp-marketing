@@ -41,7 +41,7 @@ const Header = memo(function Header({ setSidebarOpen, collapsed }) {
           });
         }
       } catch {}
-      return () => clearInterval(interval);
+      return () => { clearInterval(interval); if (socket) socket.off('notification:new'); };
     }
   }, [token, fetchNotifs]);
 
@@ -101,7 +101,7 @@ const Header = memo(function Header({ setSidebarOpen, collapsed }) {
             <span className="text-gray-500">|</span>
             <span className="text-gray-400 text-xs">SMART CRM</span>
             <span className="text-gray-600">|</span>
-            <a href="tel:+918617559759" className="flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition-colors font-medium">
+            <a href="tel:+918619747559" className="flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition-colors font-medium">
               <HiOutlinePhone size={14} /> +91 8619747559
             </a>
           </div>

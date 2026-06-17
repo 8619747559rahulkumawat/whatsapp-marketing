@@ -63,9 +63,9 @@ export default function Campaigns() {
     setDraftIndicator(false);
     const timer = setTimeout(() => {
       setDraftIndicator(true);
-      setTimeout(() => setDraftIndicator(false), 2000);
     }, 2000);
-    return () => { clearTimeout(timer); setDraftIndicator(false); };
+    const innerTimer = setTimeout(() => setDraftIndicator(false), 4000);
+    return () => { clearTimeout(timer); clearTimeout(innerTimer); setDraftIndicator(false); };
   }, [form, showModal]);
 
   const fetchData = async () => {

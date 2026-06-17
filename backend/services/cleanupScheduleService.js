@@ -39,11 +39,16 @@ const runCleanup = async () => {
     { name: 'KnowledgeBase', model: require('../models/KnowledgeBase') },
   ];
 
+  const retentionDays = parseInt(process.env.CLEANUP_RETENTION_DAYS || '90');
+  const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
   const results = {};
 
   for (const { name, model } of models) {
     try {
-      const d = await model.deleteMany({});
+      const filter = name === 'Setting' || name === 'ApiKey' || name === 'Subscriber'
+        ? { updatedAt: { $lt: cutoffDate } }
+        : { createdAt: { $lt: cutoffDate } };
+      const d = await model.deleteMany(filter);
       results[name] = d.deletedCount;
     } catch (err) {
       results[name] = `ERROR: ${err.message}`;

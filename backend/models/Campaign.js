@@ -12,7 +12,7 @@ const campaignSchema = new mongoose.Schema({
   sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Session' },
   status: {
     type: String,
-    enum: ['draft', 'running', 'paused', 'completed', 'failed', 'cancelled'],
+    enum: ['draft', 'running', 'paused', 'completed', 'failed', 'cancelled', 'scheduled'],
     default: 'draft'
   },
   messageType: {
@@ -60,5 +60,7 @@ const campaignSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
+
+campaignSchema.index({ tenantId: 1, status: 1 });
 
 module.exports = mongoose.model('Campaign', campaignSchema);

@@ -13,4 +13,6 @@ const emailTemplateSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+emailTemplateSchema.index({ tenantId: 1, category: 1 });
+
 module.exports = mongoose.model('EmailTemplate', emailTemplateSchema);

@@ -231,7 +231,7 @@ const AutomationBuilder = () => {
               {isSaving ? 'Saving...' : 'Save Flow'}
             </button>
           </div>
-        </aside>
+          </div>
       </aside>
       
       {/* Main Canvas */}

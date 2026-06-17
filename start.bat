@@ -3,13 +3,17 @@ echo Starting RSendix.pro - SMART BULK MESSAGING PLATFORM...
 echo.
 
 echo Starting Backend Server...
-start "WhatsApp Backend" cmd /k "cd /d "%~dp0backend" && npm run dev"
+pushd "%~dp0backend"
+start "WhatsApp Backend" cmd /k "npm run dev"
+popd
 
 echo Waiting for backend to start...
 timeout /t 3 /nobreak >nul
 
 echo Starting Frontend Server...
-start "WhatsApp Frontend" cmd /k "cd /d "%~dp0frontend" && npm run dev"
+pushd "%~dp0frontend"
+start "WhatsApp Frontend" cmd /k "npm run dev"
+popd
 
 echo.
 echo ========================================

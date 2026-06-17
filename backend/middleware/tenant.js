@@ -29,8 +29,9 @@ const tenantMiddleware = async (req, res, next) => {
           details: { targetTenant: tenant.name, path: req.originalUrl }
         }).catch(() => {});
       } else if (req.user.tenantId) {
-        // Use the super admin's own tenant if no specific tenant requested
-        req.tenant = req.user.tenantId;
+        const tenant = await Tenant.findById(req.user.tenantId);
+        if (tenant) req.tenant = tenant;
+        else req.tenant = req.user.tenantId;
       }
       next();
       return;

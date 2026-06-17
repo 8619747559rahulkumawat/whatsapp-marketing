@@ -17,4 +17,6 @@ const smsCampaignSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+smsCampaignSchema.index({ tenantId: 1, status: 1 });
+
 module.exports = mongoose.model('SmsCampaign', smsCampaignSchema);

@@ -42,6 +42,17 @@ export default function WebForms() {
     } catch (err) { toast.error(err.response?.data?.message || 'Error'); }
   };
 
+  const handleDelete = async (id) => {
+    if (!confirm('Delete this form permanently?')) return;
+    try {
+      await API.delete(`/webforms/${id}`);
+      toast.success('Form deleted');
+      fetchForms();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error deleting form');
+    }
+  };
+
   const viewEmbed = (form) => {
     const code = `<form action="${window.location.origin}/f/${form.slug}" method="POST" style="max-width:500px;margin:0 auto;padding:20px;background:${form.theme?.bgColor || '#fff'};border-radius:12px;color:${form.theme?.textColor || '#333'}">
   ${form.fields.map(f => `<div style="margin-bottom:15px">

@@ -25,3 +25,15 @@ services:
         value: https://whatsapp-marketing-c1qj.onrender.com
       - key: CLEANUP_ENABLED
         value: "false"
+      - key: DATA_RETENTION_ENABLED
+        value: "true"
+      - key: CHAT_RETENTION_DAYS
+        value: "90"
+      - key: MESSAGE_RETENTION_DAYS
+        value: "180"
+      - key: AI_CHAT_RETENTION_DAYS
+        value: "30"
+      - key: AUDIT_LOG_RETENTION_DAYS
+        value: "180"
+      - key: GEMINI_API_KEY
+        sync: false

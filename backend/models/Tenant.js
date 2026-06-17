@@ -40,5 +40,6 @@ const tenantSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+tenantSchema.index({ status: 1 });
 
 module.exports = mongoose.model('Tenant', tenantSchema);

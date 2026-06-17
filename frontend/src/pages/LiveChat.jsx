@@ -83,7 +83,7 @@ export default function LiveChat() {
      });
      const visibilityHandler = () => { if (!document.hidden) fetchData(); };
      document.addEventListener('visibilitychange', visibilityHandler);
-     return () => { socket.off('chat:new', fetchData); socket.off('chat:read:update'); socket.off('connect', handleConnect); document.removeEventListener('visibilitychange', visibilityHandler); };
+      return () => { socket.off('chat:new', fetchData); socket.off('chat:read:update'); socket.off('connect', handleConnect); socket.off('call:incoming'); socket.off('call:accepted'); socket.off('call:ended'); socket.off('call:ringing'); document.removeEventListener('visibilitychange', visibilityHandler); };
    }, [user?._id]);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [selectedConv]);

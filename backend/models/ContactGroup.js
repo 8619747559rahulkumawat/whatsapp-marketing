@@ -10,4 +10,6 @@ const contactGroupSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+contactGroupSchema.index({ tenantId: 1 });
+
 module.exports = mongoose.model('ContactGroup', contactGroupSchema);

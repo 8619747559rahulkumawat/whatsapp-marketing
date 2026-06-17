@@ -21,6 +21,6 @@ const contactSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
-contactSchema.index({ userId: 1, phone: 1 }, { unique: true });
+contactSchema.index({ tenantId: 1, phone: 1 }, { unique: true });
 
 module.exports = mongoose.model('Contact', contactSchema);

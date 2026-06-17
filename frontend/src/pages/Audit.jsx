@@ -102,7 +102,7 @@ export default function Audit() {
             <option value="User">User</option>
             <option value="Webhook">Webhook</option>
           </select>
-          <select className="input-field w-auto text-sm" value={filter.days} onChange={e => setFilter({ ...filter, days: e.target.value })}>
+          <select className="input-field w-auto text-sm" value={filter.days} onChange={e => setFilter({ ...filter, days: Number(e.target.value) })}>
             <option value={1}>Last 24 hours</option>
             <option value={7}>Last 7 days</option>
             <option value={30}>Last 30 days</option>

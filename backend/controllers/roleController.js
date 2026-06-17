@@ -12,7 +12,7 @@ exports.getTeamMembers = async (req, res) => {
 exports.updateUserRole = async (req, res) => {
   try {
     const { role, permissions } = req.body;
-    const allowedRoles = ['admin', 'manager', 'agent', 'user'];
+    const allowedRoles = ['admin', 'reseller', 'user', 'super_admin'];
     if (!allowedRoles.includes(role)) {
       return res.status(400).json({ success: false, message: 'Invalid role' });
     }

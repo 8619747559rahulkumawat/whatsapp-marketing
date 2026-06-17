@@ -25,17 +25,12 @@ const compressImage = async (filePath, mimetype) => {
     if (stat.size < 1024 * 100) return;
   }
 
-  let formatOpts = {};
-  if (mimetype === 'image/jpeg') {
-    formatOpts = { ...resizeOpts, jpeg: { quality: 75, mozjpeg: true } };
-  } else if (mimetype === 'image/png') {
-    formatOpts = { ...resizeOpts, png: { quality: 75, compressionLevel: 9 } };
-  } else if (mimetype === 'image/webp') {
-    formatOpts = { ...resizeOpts, webp: { quality: 70 } };
-  }
-
   const tmpPath = filePath + '.tmp';
-  await image.resize(formatOpts).toFile(tmpPath);
+  let pipeline = image.resize(resizeOpts);
+  if (mimetype === 'image/jpeg') pipeline = pipeline.jpeg({ quality: 75, mozjpeg: true });
+  else if (mimetype === 'image/png') pipeline = pipeline.png({ quality: 75, compressionLevel: 9 });
+  else if (mimetype === 'image/webp') pipeline = pipeline.webp({ quality: 70 });
+  await pipeline.toFile(tmpPath);
   fs.unlinkSync(filePath);
   fs.renameSync(tmpPath, filePath);
 };

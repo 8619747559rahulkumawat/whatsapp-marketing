@@ -200,6 +200,18 @@ exports.exportContacts = async (req, res) => {
 exports.bulkDelete = async (req, res) => {
   try {
     const { ids } = req.body;
+    const contacts = await Contact.find({ _id: { $in: ids }, userId: req.user._id });
+    const groupUpdates = {};
+    for (const contact of contacts) {
+      if (contact.groups && contact.groups.length > 0) {
+        for (const gId of contact.groups) {
+          groupUpdates[gId] = (groupUpdates[gId] || 0) + 1;
+        }
+      }
+    }
+    for (const [gId, count] of Object.entries(groupUpdates)) {
+      await ContactGroup.findByIdAndUpdate(gId, { $inc: { contactCount: -count } });
+    }
     await Contact.deleteMany({ _id: { $in: ids }, userId: req.user._id });
     res.json({ success: true, message: `${ids.length} contacts deleted` });
   } catch (err) {

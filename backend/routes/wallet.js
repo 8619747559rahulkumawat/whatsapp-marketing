@@ -2,10 +2,13 @@ const express = require('express');
 const router = express.Router();
 const walletController = require('../controllers/walletController');
 const { auth, adminOnly } = require('../middleware/auth');
+const { tenantMiddleware } = require('../middleware/tenant');
 
-router.get('/balance', auth, walletController.getBalance);
-router.get('/transactions', auth, walletController.getTransactions);
-router.post('/add', auth, adminOnly, walletController.addCredits);
-router.post('/deduct', auth, adminOnly, walletController.deductCredits);
+router.use(auth, tenantMiddleware);
+
+router.get('/balance', walletController.getBalance);
+router.get('/transactions', walletController.getTransactions);
+router.post('/add', adminOnly, walletController.addCredits);
+router.post('/deduct', adminOnly, walletController.deductCredits);
 
 module.exports = router;

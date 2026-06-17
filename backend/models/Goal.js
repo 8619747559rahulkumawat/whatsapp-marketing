@@ -18,4 +18,6 @@ const goalSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+goalSchema.index({ tenantId: 1, status: 1 });
+
 module.exports = mongoose.model('Goal', goalSchema);

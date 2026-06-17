@@ -96,7 +96,7 @@ export default function Dashboard() {
                   <p className="text-2xl font-bold text-white mt-1">{card.value.toLocaleString()}</p>
                 </div>
                 <div className={`w-12 h-12 rounded-xl ${card.bg} flex items-center justify-center`}>
-                  <Icon className={`text-2xl text-${card.color.split(' ')[0].replace('from-', '')}`} />
+                  <Icon className={`text-2xl ${card.color}`} />
                 </div>
               </div>
             </motion.div>

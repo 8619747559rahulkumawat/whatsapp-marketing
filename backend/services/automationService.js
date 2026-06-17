@@ -9,6 +9,10 @@ const axios = require('axios');
 
 const runningAutomations = new Map();
 
+const safeParseJSON = (str) => {
+  try { return JSON.parse(str); } catch { return {}; }
+};
+
 const executeNode = async (node, context, io) => {
   const { type, data } = node;
 
@@ -66,7 +70,7 @@ const executeNode = async (node, context, io) => {
       switch (operator) {
         case 'equals': met = actualValue === value; break;
         case 'not_equals': met = actualValue !== value; break;
-        case 'contains': met = actualValue.includes(value); break;
+        case 'contains': met = String(actualValue).includes(value); break;
         case 'greater_than': met = parseFloat(actualValue) > parseFloat(value); break;
         case 'less_than': met = parseFloat(actualValue) < parseFloat(value); break;
         case 'is_set': met = !!actualValue; break;
@@ -82,7 +86,7 @@ const executeNode = async (node, context, io) => {
         method: method || 'POST',
         url,
         headers: { 'Content-Type': 'application/json', ...headers },
-        data: { ...context, ...(body ? JSON.parse(body) : {}) }
+        data: { ...context, ...(body ? safeParseJSON(body) : {}) }
       });
       break;
     }
@@ -93,7 +97,7 @@ const executeNode = async (node, context, io) => {
         method: method || 'GET',
         url,
         headers: { 'Content-Type': 'application/json', ...headers },
-        data: body ? JSON.parse(body) : undefined
+        data: body ? safeParseJSON(body) : undefined
       });
       context.apiResponse = response.data;
       break;

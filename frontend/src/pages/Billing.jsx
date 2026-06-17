@@ -15,6 +15,9 @@ export default function Billing() {
   const [processing, setProcessing] = useState(false);
   const [currentPlan, setCurrentPlan] = useState('free');
   const [subscribing, setSubscribing] = useState(null);
+  const [upiRef, setUpiRef] = useState('');
+  const [upiAmount, setUpiAmount] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     Promise.all([fetchPlans(), fetchInvoices(), fetchCurrentPlan()]);
@@ -67,9 +70,9 @@ export default function Billing() {
       }
       return;
     }
+    setSubscribing(plan._id);
     setActiveTab('qr');
     setUpiAmount(String(plan.price));
-    setSubscribing(null);
   };
 
   const handleUpiVerify = async () => {
@@ -132,10 +135,6 @@ export default function Billing() {
       setProcessing(false);
     }
   };
-
-  const [upiRef, setUpiRef] = useState('');
-  const [upiAmount, setUpiAmount] = useState('');
-  const [verifying, setVerifying] = useState(false);
 
   const handleDownloadPdf = (inv) => {
     const doc = new jsPDF();

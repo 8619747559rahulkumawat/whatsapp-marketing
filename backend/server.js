@@ -108,13 +108,13 @@ app.get('/api/debug/connectivity', async (req, res) => {
     const start = Date.now();
     dns.resolve(name, (dnsErr) => {
       if (dnsErr) { results.push({ target: name, dns: 'FAIL', dnsError: dnsErr.code, time: Date.now() - start }); resolve(); return; }
-      const req = https.get(`https://${name}/`, { timeout: 10000 }, (r) => {
+      const httpsReq = https.get(`https://${name}/`, { timeout: 10000 }, (r) => {
         results.push({ target: name, dns: 'OK', https: r.statusCode, time: Date.now() - start });
         r.destroy();
         resolve();
       });
-      req.on('error', (e) => { results.push({ target: name, dns: 'OK', https: 'FAIL', httpsError: e.message, time: Date.now() - start }); resolve(); });
-      req.on('timeout', () => { req.destroy(); results.push({ target: name, dns: 'OK', https: 'TIMEOUT', time: Date.now() - start }); resolve(); });
+      httpsReq.on('error', (e) => { results.push({ target: name, dns: 'OK', https: 'FAIL', httpsError: e.message, time: Date.now() - start }); resolve(); });
+      httpsReq.on('timeout', () => { httpsReq.destroy(); results.push({ target: name, dns: 'OK', https: 'TIMEOUT', time: Date.now() - start }); resolve(); });
     });
   });
   // Direct WebSocket test to wss://web.whatsapp.com/ws/chat

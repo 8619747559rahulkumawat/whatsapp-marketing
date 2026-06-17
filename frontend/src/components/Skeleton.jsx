@@ -1,6 +1,7 @@
 export function CardSkeleton({ count = 4, cols = 4 }) {
+  const colsMap = { 1: 'grid-cols-1', 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-2 lg:grid-cols-3', 4: 'sm:grid-cols-2 lg:grid-cols-4', 6: 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6' };
   return (
-    <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-${cols} gap-4`}>
+    <div className={`grid gap-4 ${colsMap[cols] || colsMap[4]}`}>
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="glass-card p-4 sm:p-6 animate-pulse">
           <div className="h-3 bg-white/10 rounded w-24 mb-3" />

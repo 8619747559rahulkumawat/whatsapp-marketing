@@ -43,4 +43,4 @@ export const disconnectSocket = () => {
 
 export const getSocket = () => SOCKET;
 
-export default SOCKET;
+export default getSocket;

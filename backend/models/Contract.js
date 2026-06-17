@@ -22,4 +22,6 @@ const contractSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+contractSchema.index({ tenantId: 1, status: 1 });
+
 module.exports = mongoose.model('Contract', contractSchema);

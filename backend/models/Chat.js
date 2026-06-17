@@ -15,6 +15,8 @@ const chatSchema = new mongoose.Schema({
   profilePic: { type: String, default: '' },
   read: { type: Boolean, default: false },
   timestamp: { type: Date, default: Date.now },
+  assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'TeamMember', default: null },
+  internalNotes: [{ text: String, addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, addedAt: { type: Date, default: Date.now } }],
   createdAt: { type: Date, default: Date.now }
 });
 
