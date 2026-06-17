@@ -1,6 +1,7 @@
 const Contact = require('../models/Contact');
 const ContactGroup = require('../models/ContactGroup');
 const GroupScrape = require('../models/GroupScrape');
+const Session = require('../models/Session');
 const whatsappService = require('../services/whatsappService');
 const { formatPhoneNumber, calculatePagination } = require('../utils/helpers');
 const { buildGroupScrapeRows, normalizeExportFormat, sendContactExport } = require('../utils/contactExport');
@@ -339,6 +340,8 @@ exports.startGroupScrape = async (req, res) => {
     if (!groupJid || !sessionId) {
       return res.status(400).json({ success: false, message: 'Group JID and session ID required' });
     }
+    const session = await Session.findOne({ sessionId, userId: req.user._id });
+    if (!session) return res.status(403).json({ success: false, message: 'Session not found or access denied' });
 
     const sock = await whatsappService.getReadySocket(sessionId);
     if (!sock || !sock.user) {
@@ -383,6 +386,8 @@ exports.scrapeAllGroups = async (req, res) => {
     if (!sessionId) {
       return res.status(400).json({ success: false, message: 'Session ID required' });
     }
+    const session = await Session.findOne({ sessionId, userId: req.user._id });
+    if (!session) return res.status(403).json({ success: false, message: 'Session not found or access denied' });
 
     const sock = await whatsappService.getReadySocket(sessionId);
     if (!sock || !sock.user) {
@@ -444,7 +449,7 @@ exports.scrapeAllGroups = async (req, res) => {
 
 exports.getGroupScrapeMembers = async (req, res) => {
   try {
-    const scrape = await GroupScrape.findOne({ _id: req.params.id, tenantId: req.tenant?._id || req.user?.tenantId });
+    const scrape = await GroupScrape.findOne({ _id: req.params.id, tenantId: req.tenant?._id || req.user?.tenantId, userId: req.user._id });
     if (!scrape) return res.status(404).json({ success: false, message: 'Scrape not found' });
     res.json({ success: true, members: scrape.participants || [] });
   } catch (err) {
@@ -515,12 +520,13 @@ exports.exportGroupScrape = async (req, res) => {
 
 exports.importGroupScrape = async (req, res) => {
   try {
-    const scrape = await GroupScrape.findOne({ _id: req.params.id, tenantId: req.tenant?._id || req.user?.tenantId });
+    const scrape = await GroupScrape.findOne({ _id: req.params.id, tenantId: req.tenant?._id || req.user?.tenantId, userId: req.user._id });
     if (!scrape) return res.status(404).json({ success: false, message: 'Scrape not found' });
     let imported = 0;
     for (const m of (scrape.participants || [])) {
-      const phone = m.phone || m.jid?.split('@')[0];
-      if (!phone) continue;
+      const rawPhone = m.phone || m.jid?.split('@')[0];
+      if (!rawPhone) continue;
+      const phone = formatPhoneNumber(rawPhone);
       const exists = await Contact.findOne({ userId: req.user._id, phone });
       if (!exists) {
         await Contact.create({
@@ -528,7 +534,7 @@ exports.importGroupScrape = async (req, res) => {
           tenantId: req.tenant?._id || req.user?.tenantId,
           name: m.name || '',
           phone,
-          source: 'group_scrape',
+          source: 'scrape',
           tags: scrape.groupName ? [scrape.groupName] : []
         });
         imported++;
@@ -543,7 +549,7 @@ exports.importGroupScrape = async (req, res) => {
 
 exports.deleteGroupScrape = async (req, res) => {
   try {
-    await GroupScrape.findOneAndDelete({ _id: req.params.id, tenantId: req.tenant?._id || req.user?.tenantId });
+    await GroupScrape.findOneAndDelete({ _id: req.params.id, tenantId: req.tenant?._id || req.user?.tenantId, userId: req.user._id });
     res.json({ success: true, message: 'Scrape deleted' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -556,12 +562,15 @@ exports.scrapeGroupMessages = async (req, res) => {
     if (!groupJid || !sessionId) {
       return res.status(400).json({ success: false, message: 'Group JID and session ID required' });
     }
+    const session = await Session.findOne({ sessionId, userId: req.user._id });
+    if (!session) return res.status(403).json({ success: false, message: 'Session not found or access denied' });
     const sock = await whatsappService.getReadySocket(sessionId);
     if (!sock || !sock.user) {
       return res.status(400).json({ success: false, message: 'WhatsApp session not connected' });
     }
-    const messages = await sock.loadMessages(groupJid, Math.min(msgLimit, 200));
-    const parsed = (messages || []).map(m => {
+    const rawMessages = await whatsappService.loadMessages(sessionId, groupJid, msgLimit);
+    const messages = Array.isArray(rawMessages) ? rawMessages : [];
+    const parsed = messages.map(m => {
       const key = m.key;
       const msg = m.message;
       let content = '';
@@ -591,12 +600,23 @@ exports.scrapeGroupMessages = async (req, res) => {
       };
     });
     parsed.sort((a, b) => a.timestamp - b.timestamp);
-    const filter = { groupJid, sessionId, tenantId: req.tenant?._id || req.user?.tenantId };
+    const filter = { groupJid, sessionId, tenantId: req.tenant?._id || req.user?.tenantId, userId: req.user._id };
     const existing = await GroupScrape.findOne(filter);
     if (existing) {
       existing.messages = parsed;
       existing.totalMessages = parsed.length;
       await existing.save();
+    } else {
+      await GroupScrape.create({
+        tenantId: req.tenant?._id || req.user?.tenantId,
+        userId: req.user._id,
+        sessionId,
+        groupJid,
+        groupName: req.body.groupName || '',
+        messages: parsed,
+        totalMessages: parsed.length,
+        status: 'completed'
+      });
     }
     res.json({ success: true, messages: parsed, total: parsed.length });
   } catch (err) {
@@ -606,7 +626,7 @@ exports.scrapeGroupMessages = async (req, res) => {
 
 exports.getScrapedMessages = async (req, res) => {
   try {
-    const scrape = await GroupScrape.findOne({ _id: req.params.id, tenantId: req.tenant?._id || req.user?.tenantId });
+    const scrape = await GroupScrape.findOne({ _id: req.params.id, tenantId: req.tenant?._id || req.user?.tenantId, userId: req.user._id });
     if (!scrape) return res.status(404).json({ success: false, message: 'Scrape not found' });
     res.json({ success: true, messages: scrape.messages || [], total: scrape.totalMessages || 0 });
   } catch (err) {
@@ -616,7 +636,7 @@ exports.getScrapedMessages = async (req, res) => {
 
 exports.exportGroupMessages = async (req, res) => {
   try {
-    const scrape = await GroupScrape.findOne({ _id: req.params.id, tenantId: req.tenant?._id || req.user?.tenantId });
+    const scrape = await GroupScrape.findOne({ _id: req.params.id, tenantId: req.tenant?._id || req.user?.tenantId, userId: req.user._id });
     if (!scrape) return res.status(404).json({ success: false, message: 'Scrape not found' });
     const msgs = scrape.messages || [];
     if (!msgs.length) return res.status(400).json({ success: false, message: 'No messages to export' });

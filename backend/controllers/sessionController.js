@@ -175,7 +175,7 @@ exports.getContactChat = async (req, res) => {
       return res.status(400).json({ success: false, message: 'WhatsApp session not connected' });
     }
     const contactJid = jid.includes('@') ? jid : `${jid}@s.whatsapp.net`;
-    const rawMessages = await sock.loadMessages(contactJid, Math.min(limit, 200));
+    const rawMessages = await whatsappService.loadMessages(id, contactJid, limit);
     const messages = (rawMessages || []).map(m => {
       const key = m.key;
       const msg = m.message;

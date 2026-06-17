@@ -51,6 +51,7 @@ checkConnectivity();
 
 const sessions = new Map();
 const sessionsContactMap = new Map();
+const messageStore = new Map(); // sessionId -> Map<jid, Message[]>
 const reconnectTimers = new Map();
 const reconnectAttempts = new Map();
 const healthCheckers = new Map();
@@ -242,6 +243,7 @@ const cleanupSession = (sessionId) => {
   healthFailures.delete(sessionId);
   reconnectPromises.delete(sessionId);
   sessionsContactMap.delete(sessionId);
+  messageStore.delete(sessionId);
   const oldSock = sessions.get(sessionId);
   if (oldSock) {
     try { oldSock.ev?.removeAllListeners?.(); } catch (err) { console.error("WhatsApp Error:", err); }
@@ -296,6 +298,7 @@ const connectSession = async (sessionId, io) => {
     savedVersion = version;
     sessions.set(sessionId, sock);
     sessionsContactMap.set(sessionId, new Map());
+    messageStore.set(sessionId, new Map());
     console.log(`[Baileys] Socket created for ${sessionId} (version: ${version.join('.')})`);
 
     // Register connection.update handler IMMEDIATELY after makeWASocket, before any await
@@ -555,6 +558,25 @@ const connectSession = async (sessionId, io) => {
 
     sock.ev.on('messages.upsert', async (m) => {
       const msg = m.messages[0];
+      if (msg?.key?.remoteJid) {
+        try {
+          const jid = msg.key.remoteJid;
+          if (!messageStore.has(sessionId)) messageStore.set(sessionId, new Map());
+          const chatStore = messageStore.get(sessionId);
+          if (!chatStore.has(jid)) chatStore.set(jid, []);
+          const arr = chatStore.get(jid);
+          arr.push({
+            msgId: msg.key.id || '',
+            key: msg.key,
+            message: msg.message,
+            messageTimestamp: msg.messageTimestamp,
+            pushName: msg.pushName
+          });
+          if (arr.length > 1000) arr.splice(0, arr.length - 1000);
+        } catch (e) {
+          console.error(`[Baileys] Message store error for ${sessionId}:`, e.message);
+        }
+      }
       if (!msg.key.fromMe && msg.key.remoteJid && !msg.key.remoteJid.endsWith('@g.us') && !msg.key.remoteJid.endsWith('@broadcast')) {
         try {
           const sess = await Session.findOne({ sessionId });
@@ -1005,7 +1027,7 @@ const sendGroupMessage = async (sessionId, groupJid, text) => {
   return { key: result?.key, id: msgId };
 };
 
-const getReadySocket = async (sessionId, timeoutMs = 15000) => {
+const getReadySocket = async (sessionId, timeoutMs = 60000) => {
   let sock = sessions.get(sessionId);
   if (sock && sock.user) return sock;
 
@@ -1389,6 +1411,19 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
   }
 };
 
+const loadMessages = async (sessionId, jid, limit = 50) => {
+  const store = messageStore.get(sessionId);
+  if (!store) return [];
+  const msgs = store.get(jid);
+  if (!msgs) return [];
+  return msgs.slice(-Math.min(limit, 200)).map(m => ({
+    key: m.key,
+    message: m.message,
+    messageTimestamp: m.messageTimestamp,
+    pushName: m.pushName
+  }));
+};
+
 const getSavedVersion = () => savedVersion;
 
 module.exports = {
@@ -1396,5 +1431,5 @@ module.exports = {
   sendTextMessage, sendMediaMessage, sendButtonMessage, sendGroupMessage, getGroups,
   getConnectionStatus, isSessionConnected, isSessionReady, restoreSessions, sessions, sessionsContactMap,
   fetchProfilePic, fetchContactName, getReadySocket, getAllContacts, createPairingSession, waitForSessionQr,
-  randomDelay, getSavedVersion, waitForContactSync
+  randomDelay, getSavedVersion, waitForContactSync, loadMessages
 };
