@@ -82,14 +82,16 @@ exports.apiSendMessage = async (req, res) => {
     if (!session) {
       return res.status(400).json({ success: false, message: 'No active WhatsApp session' });
     }
-    await whatsappService.sendTextMessage(session.sessionId, phone, message);
+    const result = await whatsappService.sendTextMessage(session.sessionId, phone, message);
+    const waId = result?.id || '';
     const msg = await Message.create({
       userId: user._id,
       tenantId: user.tenantId,
       sessionId: session._id,
       to: phone,
+      waMessageId: waId,
       content: message,
-      status: 'sent',
+      status: waId ? 'sent' : 'failed',
       sentAt: new Date()
     });
     user.credits -= 1;
@@ -119,9 +121,10 @@ exports.apiSendBulk = async (req, res) => {
     for (const contact of contacts) {
       try {
         const phone = formatPhoneNumber(contact.phone || contact);
-        await whatsappService.sendTextMessage(session.sessionId, phone, message);
-        await Message.create({ userId: user._id, tenantId: user.tenantId, sessionId: session._id, to: phone, content: message, status: 'sent', sentAt: new Date() });
-        results.push({ phone, status: 'sent' });
+        const result = await whatsappService.sendTextMessage(session.sessionId, phone, message);
+        const waId = result?.id || '';
+        await Message.create({ userId: user._id, tenantId: user.tenantId, sessionId: session._id, to: phone, waMessageId: waId, content: message, status: waId ? 'sent' : 'failed', sentAt: new Date() });
+        results.push({ phone, status: waId ? 'sent' : 'failed' });
       } catch (err) {
         results.push({ phone: contact.phone || contact, status: 'failed', error: err.message });
       }

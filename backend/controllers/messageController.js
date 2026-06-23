@@ -65,18 +65,22 @@ exports.sendBulk = async (req, res) => {
       } else {
         result = await whatsappService.sendTextMessage(sessionId, phone, message);
       }
+      const waId = result?.id || '';
+      const recipJid = result?.remoteJid || '';
       const msg = await Message.create({
         userId: req.user._id,
         tenantId: req.tenant?._id || req.user.tenantId,
         sessionId,
         to: phone,
+        waMessageId: waId,
+        recipientJid: recipJid,
         messageType: messageType || 'text',
         content: message,
         mediaUrl: mediaUrl || '',
-        status: 'sent',
+        status: waId ? 'sent' : 'failed',
         sentAt: new Date()
       });
-      return { phone, status: 'sent', messageId: msg._id };
+      return { phone, status: waId ? 'sent' : 'failed', messageId: msg._id };
     };
 
     for (let i = 0; i < contacts.length; i += BATCH_SIZE) {
@@ -142,23 +146,28 @@ exports.sendBulkWithImage = async (req, res) => {
 
     const sendOne = async (contact) => {
       const phone = formatPhoneNumber(contact.phone);
+      let result;
       if (mediaUrl) {
-        await whatsappService.sendMediaMessage(sessionId, phone, mediaUrl, 'image', message);
+        result = await whatsappService.sendMediaMessage(sessionId, phone, mediaUrl, 'image', message);
       } else {
-        await whatsappService.sendTextMessage(sessionId, phone, message);
+        result = await whatsappService.sendTextMessage(sessionId, phone, message);
       }
+      const waId = result?.id || '';
+      const recipJid = result?.remoteJid || '';
       const msg = await Message.create({
         userId: req.user._id,
         tenantId: req.tenant?._id || req.user.tenantId,
         sessionId,
         to: phone,
+        waMessageId: waId,
+        recipientJid: recipJid,
         messageType: mediaUrl ? 'image' : 'text',
         content: message,
         mediaUrl: mediaUrl || '',
-        status: 'sent',
+        status: waId ? 'sent' : 'failed',
         sentAt: new Date()
       });
-      return { phone, status: 'sent', messageId: msg._id };
+      return { phone, status: waId ? 'sent' : 'failed', messageId: msg._id };
     };
 
     const results = [];

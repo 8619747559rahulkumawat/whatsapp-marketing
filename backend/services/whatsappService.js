@@ -754,10 +754,10 @@ const connectSession = async (sessionId, io) => {
           if (key?.id) {
             const waStatus = update.status;
             let dbStatus = 'sent';
-            if (waStatus === 'read') dbStatus = 'read';
-            else if (waStatus === 'delivered') dbStatus = 'delivered';
-            else if (waStatus === 'played') dbStatus = 'played';
-            else if (waStatus === 'failed') dbStatus = 'failed';
+            if (waStatus === 4) dbStatus = 'read';
+            else if (waStatus === 3) dbStatus = 'delivered';
+            else if (waStatus === 5) dbStatus = 'played';
+            else if (waStatus === 0) dbStatus = 'failed';
             const Message = require('../models/Message');
             const updateFields = { status: dbStatus };
             if (dbStatus === 'delivered') updateFields.deliveredAt = new Date();
