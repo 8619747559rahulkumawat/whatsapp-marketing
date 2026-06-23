@@ -1,8 +1,10 @@
 const SmsCampaign = require('../models/SmsCampaign');
+const { getIoInstance } = require('../socket');
 
 const runningCampaigns = new Set();
 const MAX_SMS_RECIPIENTS = parseInt(process.env.SMS_CAMPAIGN_MAX_RECIPIENTS || '5000', 10);
-const SMS_SEND_DELAY_MS = parseInt(process.env.SMS_SEND_DELAY_MS || '150', 10);
+const BATCH_SIZE = parseInt(process.env.SMS_BATCH_SIZE || '5', 10);
+const BATCH_DELAY_MS = parseInt(process.env.SMS_BATCH_DELAY_MS || '30000', 10);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -36,6 +38,13 @@ const getTwilioClient = () => {
   return { client: twilio(accountSid, authToken), from };
 };
 
+const emitProgress = (campaignId, data) => {
+  try {
+    const io = getIoInstance();
+    if (io) io.to(`campaign_${campaignId}`).emit('sms:progress', { campaignId, ...data });
+  } catch {}
+};
+
 const sendTwilioCampaign = async (campaignId) => {
   if (runningCampaigns.has(campaignId.toString())) return;
   runningCampaigns.add(campaignId.toString());
@@ -54,6 +63,7 @@ const sendTwilioCampaign = async (campaignId) => {
     const { client, from } = getTwilioClient();
     let sent = campaign.stats?.sent || 0;
     let failed = campaign.stats?.failed || 0;
+    const total = (campaign.recipients || []).length;
     const startIndex = sent + failed;
 
     campaign.status = 'sending';
@@ -61,38 +71,51 @@ const sendTwilioCampaign = async (campaignId) => {
     campaign.error = '';
     await campaign.save();
 
-    for (let i = startIndex; i < (campaign.recipients || []).length; i++) {
+    emitProgress(campaignId, { status: 'sending', sent, failed, total });
+
+    for (let i = startIndex; i < total; i += BATCH_SIZE) {
       const latest = await SmsCampaign.findById(campaignId).select('status').lean();
       if (!latest || latest.status !== 'sending') return;
 
-      const recipient = campaign.recipients[i];
-      try {
-        await client.messages.create({
-          body: campaign.message,
-          from,
-          to: recipient.phone
-        });
-        sent++;
-      } catch (err) {
-        failed++;
-        console.error(`[SMS Campaign] Failed for ${recipient.phone}: ${err.message}`);
+      const batch = (campaign.recipients || []).slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map((recipient) =>
+          client.messages.create({ body: campaign.message, from, to: recipient.phone })
+            .then(() => ({ phone: recipient.phone, ok: true }))
+            .catch((err) => ({ phone: recipient.phone, ok: false, error: err.message }))
+        )
+      );
+
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value.ok) sent++;
+        else {
+          failed++;
+          const val = r.value || r.reason;
+          console.error(`[SMS Campaign] Failed for ${val?.phone || '?'}: ${val?.error || r.reason?.message || 'unknown'}`);
+        }
       }
 
+      const processed = sent + failed;
       await SmsCampaign.findByIdAndUpdate(campaignId, {
         stats: { sent, delivered: 0, failed },
         updatedAt: new Date()
       });
 
-      if (SMS_SEND_DELAY_MS > 0 && i < campaign.recipients.length - 1) {
-        await sleep(SMS_SEND_DELAY_MS);
+      emitProgress(campaignId, { sent, failed, total, processed });
+
+      if (BATCH_DELAY_MS > 0 && i + BATCH_SIZE < total) {
+        await sleep(BATCH_DELAY_MS);
       }
     }
 
+    const finalStatus = failed > 0 && sent === 0 ? 'failed' : 'sent';
     await SmsCampaign.findByIdAndUpdate(campaignId, {
-      status: failed > 0 && sent === 0 ? 'failed' : 'sent',
+      status: finalStatus,
       sentAt: new Date(),
       updatedAt: new Date()
     });
+
+    emitProgress(campaignId, { status: finalStatus, sent, failed, total });
   } catch (err) {
     console.error('[SMS Campaign] Send error:', err.message);
     await SmsCampaign.findByIdAndUpdate(campaignId, {
@@ -100,6 +123,7 @@ const sendTwilioCampaign = async (campaignId) => {
       error: err.message,
       updatedAt: new Date()
     });
+    emitProgress(campaignId, { status: 'failed', error: err.message });
   } finally {
     runningCampaigns.delete(campaignId.toString());
   }
@@ -194,8 +218,11 @@ exports.sendCampaign = async (req, res) => {
       });
     }
 
+    const isNew = campaign.status === 'draft';
     campaign.status = 'sending';
-    campaign.stats = { sent: 0, delivered: 0, failed: 0 };
+    if (isNew) {
+      campaign.stats = { sent: 0, delivered: 0, failed: 0 };
+    }
     campaign.error = '';
     await campaign.save();
     sendTwilioCampaign(campaign._id).catch((err) => console.error('[SMS Campaign] Background error:', err));

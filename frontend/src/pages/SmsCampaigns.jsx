@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import API from '../utils/api';
+import { getSocket } from '../utils/socket';
 import { HiOutlinePlus, HiOutlineTrash, HiOutlineX } from 'react-icons/hi';
 import { useToast } from '../contexts/ToastContext';
 
@@ -8,6 +9,7 @@ export default function SmsCampaigns() {
   const [campaigns, setCampaigns] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', message: '', gateway: 'twilio', recipients: '' });
+  const joinedRooms = useRef(new Set());
 
   const fetch = useCallback(async () => {
     const r = await API.get('/sms-campaigns');
@@ -16,9 +18,43 @@ export default function SmsCampaigns() {
   useEffect(() => { fetch(); }, [fetch]);
   useEffect(() => {
     if (!campaigns.some(c => c.status === 'sending')) return undefined;
-    const interval = setInterval(fetch, 5000);
+    const interval = setInterval(fetch, 3000);
     return () => clearInterval(interval);
   }, [campaigns, fetch]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleProgress = (data) => {
+      setCampaigns(prev => prev.map(c => {
+        if (c._id !== data.campaignId) return c;
+        return {
+          ...c,
+          status: data.status || c.status,
+          stats: {
+            sent: data.sent ?? c.stats?.sent ?? 0,
+            delivered: data.delivered ?? c.stats?.delivered ?? 0,
+            failed: data.failed ?? c.stats?.failed ?? 0
+          }
+        };
+      }));
+    };
+
+    socket.on('sms:progress', handleProgress);
+    return () => socket.off('sms:progress', handleProgress);
+  }, []);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    campaigns.forEach(c => {
+      if (c.status === 'sending' && !joinedRooms.current.has(c._id)) {
+        socket.emit('join:campaign', c._id);
+        joinedRooms.current.add(c._id);
+      }
+    });
+  }, [campaigns]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -87,7 +123,7 @@ export default function SmsCampaigns() {
             </div>
             <div className="flex items-center gap-3">
               <span className={`text-xs px-2 py-0.5 rounded-full ${c.status === 'sent' ? 'bg-green-500/20 text-green-400' : c.status === 'sending' ? 'bg-purple-500/20 text-purple-300' : c.status === 'failed' ? 'bg-red-500/20 text-red-400' : 'bg-gray-500/20 text-gray-400'}`}>{c.status}</span>
-              {c.status === 'draft' && <button onClick={() => sendCampaign(c._id)} className="text-xs px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-400">Send</button>}
+              {(c.status === 'draft' || c.status === 'failed') && <button onClick={() => sendCampaign(c._id)} className="text-xs px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-400">{c.status === 'failed' ? 'Resend' : 'Send'}</button>}
               <button onClick={() => handleDelete(c._id)} className="text-gray-500 hover:text-red-400"><HiOutlineTrash size={16} /></button>
             </div>
           </div>
