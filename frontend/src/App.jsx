@@ -2,62 +2,72 @@ import { Suspense, lazy, useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import DashboardLayout from './layouts/DashboardLayout';
+import ErrorBoundary from './components/ErrorBoundary';
 
-const Login = lazy(() => import('./pages/Login'));
-const Register = lazy(() => import('./pages/Register'));
-const Pricing = lazy(() => import('./pages/Pricing'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Campaigns = lazy(() => import('./pages/Campaigns'));
-const CampaignDetail = lazy(() => import('./pages/CampaignDetail'));
-const BulkSms = lazy(() => import('./pages/BulkSms'));
-const WhatsAppSessions = lazy(() => import('./pages/WhatsAppSessions'));
-const Contacts = lazy(() => import('./pages/Contacts'));
-const Messages = lazy(() => import('./pages/Messages'));
-const Reports = lazy(() => import('./pages/Reports'));
-const Wallet = lazy(() => import('./pages/Wallet'));
-const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
-const AdminUsers = lazy(() => import('./pages/AdminUsers'));
-const Settings = lazy(() => import('./pages/Settings'));
-const Support = lazy(() => import('./pages/Support'));
-const LiveChat = lazy(() => import('./pages/LiveChat'));
-const ApiDocs = lazy(() => import('./pages/ApiDocs'));
-const Templates = lazy(() => import('./pages/Templates'));
-const Compliance = lazy(() => import('./pages/Compliance'));
-const Billing = lazy(() => import('./pages/Billing'));
-const Analytics = lazy(() => import('./pages/Analytics'));
-const Team = lazy(() => import('./pages/Team'));
-const AIAssist = lazy(() => import('./pages/AIAssist'));
-const KnowledgeBase = lazy(() => import('./pages/KnowledgeBase'));
-const Automation = lazy(() => import('./pages/Automation'));
-const WorkflowBuilder = lazy(() => import('./pages/WorkflowBuilder'));
-const Integrations = lazy(() => import('./pages/Integrations'));
-const ScheduledCampaigns = lazy(() => import('./pages/ScheduledCampaigns'));
-const GroupScraper = lazy(() => import('./pages/GroupScraper'));
-const SmsFallback = lazy(() => import('./pages/SmsFallback'));
-const DataCapture = lazy(() => import('./pages/DataCapture'));
-const Audit = lazy(() => import('./pages/Audit'));
-const AutoReply = lazy(() => import('./pages/AutoReply'));
-const Cleanup = lazy(() => import('./pages/Cleanup'));
-const ImportContacts = lazy(() => import('./pages/ImportContacts'));
-const MessagePreview = lazy(() => import('./pages/MessagePreview'));
-const FollowUp = lazy(() => import('./pages/FollowUp'));
-const Deals = lazy(() => import('./pages/Deals'));
-const Tasks = lazy(() => import('./pages/Tasks'));
-const Email = lazy(() => import('./pages/Email'));
-const Products = lazy(() => import('./pages/Products'));
-const Quotes = lazy(() => import('./pages/Quotes'));
-const Meetings = lazy(() => import('./pages/Meetings'));
-const WebForms = lazy(() => import('./pages/WebForms'));
-const CrmDashboard = lazy(() => import('./pages/CrmDashboard'));
-const EmailCampaigns = lazy(() => import('./pages/EmailCampaigns'));
-const SmsCampaigns = lazy(() => import('./pages/SmsCampaigns'));
-const EmailTemplates = lazy(() => import('./pages/EmailTemplates'));
-const Goals = lazy(() => import('./pages/Goals'));
-const Contracts = lazy(() => import('./pages/Contracts'));
-const Surveys = lazy(() => import('./pages/Surveys'));
-const Webhooks = lazy(() => import('./pages/Webhooks'));
-const Roles = lazy(() => import('./pages/Roles'));
-const LeadScoring = lazy(() => import('./pages/LeadScoring'));
+function lazyWithRetry(factory) {
+  return lazy(() => factory().catch((err) => {
+    console.error('[LazyLoad] Chunk load failed, retrying...', err);
+    return new Promise((resolve) => {
+      setTimeout(() => resolve(factory()), 1500);
+    });
+  }));
+}
+
+const Login = lazyWithRetry(() => import('./pages/Login'));
+const Register = lazyWithRetry(() => import('./pages/Register'));
+const Pricing = lazyWithRetry(() => import('./pages/Pricing'));
+const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
+const Campaigns = lazyWithRetry(() => import('./pages/Campaigns'));
+const CampaignDetail = lazyWithRetry(() => import('./pages/CampaignDetail'));
+const BulkSms = lazyWithRetry(() => import('./pages/BulkSms'));
+const WhatsAppSessions = lazyWithRetry(() => import('./pages/WhatsAppSessions'));
+const Contacts = lazyWithRetry(() => import('./pages/Contacts'));
+const Messages = lazyWithRetry(() => import('./pages/Messages'));
+const Reports = lazyWithRetry(() => import('./pages/Reports'));
+const Wallet = lazyWithRetry(() => import('./pages/Wallet'));
+const AdminDashboard = lazyWithRetry(() => import('./pages/AdminDashboard'));
+const AdminUsers = lazyWithRetry(() => import('./pages/AdminUsers'));
+const Settings = lazyWithRetry(() => import('./pages/Settings'));
+const Support = lazyWithRetry(() => import('./pages/Support'));
+const LiveChat = lazyWithRetry(() => import('./pages/LiveChat'));
+const ApiDocs = lazyWithRetry(() => import('./pages/ApiDocs'));
+const Templates = lazyWithRetry(() => import('./pages/Templates'));
+const Compliance = lazyWithRetry(() => import('./pages/Compliance'));
+const Billing = lazyWithRetry(() => import('./pages/Billing'));
+const Analytics = lazyWithRetry(() => import('./pages/Analytics'));
+const Team = lazyWithRetry(() => import('./pages/Team'));
+const AIAssist = lazyWithRetry(() => import('./pages/AIAssist'));
+const KnowledgeBase = lazyWithRetry(() => import('./pages/KnowledgeBase'));
+const Automation = lazyWithRetry(() => import('./pages/Automation'));
+const WorkflowBuilder = lazyWithRetry(() => import('./pages/WorkflowBuilder'));
+const Integrations = lazyWithRetry(() => import('./pages/Integrations'));
+const ScheduledCampaigns = lazyWithRetry(() => import('./pages/ScheduledCampaigns'));
+const GroupScraper = lazyWithRetry(() => import('./pages/GroupScraper'));
+const SmsFallback = lazyWithRetry(() => import('./pages/SmsFallback'));
+const DataCapture = lazyWithRetry(() => import('./pages/DataCapture'));
+const Audit = lazyWithRetry(() => import('./pages/Audit'));
+const AutoReply = lazyWithRetry(() => import('./pages/AutoReply'));
+const Cleanup = lazyWithRetry(() => import('./pages/Cleanup'));
+const ImportContacts = lazyWithRetry(() => import('./pages/ImportContacts'));
+const MessagePreview = lazyWithRetry(() => import('./pages/MessagePreview'));
+const FollowUp = lazyWithRetry(() => import('./pages/FollowUp'));
+const Deals = lazyWithRetry(() => import('./pages/Deals'));
+const Tasks = lazyWithRetry(() => import('./pages/Tasks'));
+const Email = lazyWithRetry(() => import('./pages/Email'));
+const Products = lazyWithRetry(() => import('./pages/Products'));
+const Quotes = lazyWithRetry(() => import('./pages/Quotes'));
+const Meetings = lazyWithRetry(() => import('./pages/Meetings'));
+const WebForms = lazyWithRetry(() => import('./pages/WebForms'));
+const CrmDashboard = lazyWithRetry(() => import('./pages/CrmDashboard'));
+const EmailCampaigns = lazyWithRetry(() => import('./pages/EmailCampaigns'));
+const SmsCampaigns = lazyWithRetry(() => import('./pages/SmsCampaigns'));
+const EmailTemplates = lazyWithRetry(() => import('./pages/EmailTemplates'));
+const Goals = lazyWithRetry(() => import('./pages/Goals'));
+const Contracts = lazyWithRetry(() => import('./pages/Contracts'));
+const Surveys = lazyWithRetry(() => import('./pages/Surveys'));
+const Webhooks = lazyWithRetry(() => import('./pages/Webhooks'));
+const Roles = lazyWithRetry(() => import('./pages/Roles'));
+const LeadScoring = lazyWithRetry(() => import('./pages/LeadScoring'));
 
 function PageLoader() {
   const [show, setShow] = useState(false);
@@ -93,6 +103,7 @@ function AdminRoute({ children }) {
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/login" element={<Login />} />
@@ -164,5 +175,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/dashboard" />} />
       </Routes>
     </Suspense>
+    </ErrorBoundary>
   );
 }
