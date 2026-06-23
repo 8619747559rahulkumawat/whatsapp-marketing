@@ -31,7 +31,7 @@ const normalizeContacts = (contacts = []) => {
     const rawPhone = typeof item === 'string' ? item : item?.phone;
     const phone = formatPhoneNumber(String(rawPhone || ''));
 
-    if (!/^\d{10,15}$/.test(phone)) {
+    if (!/^\+?\d{10,15}$/.test(phone)) {
       invalid.push(rawPhone || '');
       continue;
     }

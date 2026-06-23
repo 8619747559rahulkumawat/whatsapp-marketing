@@ -12,15 +12,18 @@ const formatPhoneNumber = (phone, countryCode = process.env.DEFAULT_COUNTRY_CODE
   if (!phone) return '';
   let cleaned = phone.replace(/[^+\d]/g, '');
   if (cleaned.startsWith('+')) {
+    if (cleaned.startsWith(`+${countryCode}`)) {
+      return cleaned;
+    }
     cleaned = cleaned.substring(1);
   }
   if (cleaned.startsWith(countryCode) && cleaned.length > countryCode.length) {
-    return cleaned;
+    return `+${cleaned}`;
   }
   if (cleaned.startsWith('0')) {
     cleaned = cleaned.substring(1);
   }
-  return `${countryCode}${cleaned}`;
+  return `+${countryCode}${cleaned}`;
 };
 
 const calculatePagination = (page = 1, limit = 20) => {

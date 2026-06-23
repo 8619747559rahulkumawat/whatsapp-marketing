@@ -10,9 +10,11 @@ const sendViaTwilio = async (to, message) => {
     throw new Error('Twilio not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER in .env');
   }
 
+  const toPhone = to.startsWith('+') ? to : `+${to}`;
+
   const response = await axios.post(
     `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
-    new URLSearchParams({ To: to, From: from, Body: message }),
+    new URLSearchParams({ To: toPhone, From: from, Body: message }),
     { auth: { username: accountSid, password: authToken }, timeout: 15000 }
   );
 

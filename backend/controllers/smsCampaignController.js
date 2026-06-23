@@ -4,7 +4,7 @@ const { getIoInstance } = require('../socket');
 const runningCampaigns = new Set();
 const MAX_SMS_RECIPIENTS = parseInt(process.env.SMS_CAMPAIGN_MAX_RECIPIENTS || '5000', 10);
 const BATCH_SIZE = parseInt(process.env.SMS_BATCH_SIZE || '5', 10);
-const BATCH_DELAY_MS = parseInt(process.env.SMS_BATCH_DELAY_MS || '30000', 10);
+const BATCH_DELAY_MS = parseInt(process.env.SMS_BATCH_DELAY_MS || '6000', 10);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -13,8 +13,24 @@ const normalizeRecipients = (recipients = []) => {
   const normalized = [];
 
   for (const recipient of recipients) {
-    const phone = String(recipient?.phone || '').trim().replace(/[^\d+]/g, '');
+    let phone = String(recipient?.phone || '').trim();
     if (!phone || seen.has(phone)) continue;
+    if (phone.startsWith('+')) {
+      // Already has +, validate length (digits only)
+      const digits = phone.replace(/[^\d]/g, '');
+      if (digits.length < 10 || digits.length > 15) continue;
+      seen.add(phone);
+      normalized.push({
+        phone,
+        name: String(recipient?.name || '').trim(),
+        contactId: recipient?.contactId || undefined
+      });
+      continue;
+    }
+    phone = phone.replace(/[^\d]/g, '');
+    if (!phone || seen.has(phone)) continue;
+    if (phone.length === 10) phone = '91' + phone;
+    if (phone.length < 10 || phone.length > 15) continue;
     seen.add(phone);
     normalized.push({
       phone,
@@ -79,26 +95,32 @@ const sendTwilioCampaign = async (campaignId) => {
 
       const batch = (campaign.recipients || []).slice(i, i + BATCH_SIZE);
       const results = await Promise.allSettled(
-        batch.map((recipient) =>
-          client.messages.create({ body: campaign.message, from, to: recipient.phone })
-            .then(() => ({ phone: recipient.phone, ok: true }))
-            .catch((err) => ({ phone: recipient.phone, ok: false, error: err.message }))
-        )
-      );
+        batch.map((recipient, idx) => {
+          const toPhone = recipient.phone.startsWith('+') ? recipient.phone : `+${recipient.phone}`;
+          return client.messages.create({ body: campaign.message, from, to: toPhone })
+            .then(() => ({ phone: recipient.phone, idx: i + idx, ok: true }))
+            .catch((err) => ({ phone: recipient.phone, idx: i + idx, ok: false, error: err.message }));
+        }
+      )
 
+      const updateOps = {};
       for (const r of results) {
-        if (r.status === 'fulfilled' && r.value.ok) sent++;
-        else {
+        const val = r.status === 'fulfilled' ? r.value : { phone: '?', idx: 0, ok: false, error: r.reason?.message || 'unknown' };
+        if (val.ok) {
+          sent++;
+          updateOps[`recipients.${val.idx}.status`] = 'sent';
+        } else {
           failed++;
-          const val = r.value || r.reason;
-          console.error(`[SMS Campaign] Failed for ${val?.phone || '?'}: ${val?.error || r.reason?.message || 'unknown'}`);
+          updateOps[`recipients.${val.idx}.status`] = 'failed';
+          updateOps[`recipients.${val.idx}.error`] = val.error?.slice(0, 200) || 'Failed';
+          console.error(`[SMS Campaign] Failed for ${val.phone}: ${val.error}`);
         }
       }
 
       const processed = sent + failed;
       await SmsCampaign.findByIdAndUpdate(campaignId, {
-        stats: { sent, delivered: 0, failed },
-        updatedAt: new Date()
+        $set: { stats: { sent, delivered: 0, failed }, updatedAt: new Date() },
+        ...Object.keys(updateOps).length > 0 ? { $set: updateOps } : {}
       });
 
       emitProgress(campaignId, { sent, failed, total, processed });

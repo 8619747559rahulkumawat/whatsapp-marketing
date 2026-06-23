@@ -952,7 +952,8 @@ const getOrReconnectSocket = async (sessionId, retries = 2) => {
 
 const sendTextMessage = async (sessionId, to, text) => {
   const sock = await getOrReconnectSocket(sessionId);
-  const jid = to.includes('@s.whatsapp.net') ? to : `${to}@s.whatsapp.net`;
+  const clean = to.replace(/[^0-9]/g, '');
+  const jid = to.includes('@s.whatsapp.net') ? to : `${clean}@s.whatsapp.net`;
   
   // 1. Spintax parsing
   const finalizedText = replaceSpintax(text);
@@ -969,7 +970,8 @@ const sendTextMessage = async (sessionId, to, text) => {
 
 const sendMediaMessage = async (sessionId, to, url, type, caption = '') => {
   const sock = await getOrReconnectSocket(sessionId);
-  const jid = to.includes('@s.whatsapp.net') ? to : `${to}@s.whatsapp.net`;
+  const clean = to.replace(/[^0-9]/g, '');
+  const jid = to.includes('@s.whatsapp.net') ? to : `${clean}@s.whatsapp.net`;
 
   let mediaContent;
   if (url.startsWith('http')) {
@@ -1001,7 +1003,8 @@ const sendMediaMessage = async (sessionId, to, url, type, caption = '') => {
 
 const sendButtonMessage = async (sessionId, to, text, buttons) => {
   const sock = await getOrReconnectSocket(sessionId);
-  const jid = to.includes('@s.whatsapp.net') ? to : `${to}@s.whatsapp.net`;
+  const clean = to.replace(/[^0-9]/g, '');
+  const jid = to.includes('@s.whatsapp.net') ? to : `${clean}@s.whatsapp.net`;
   
   const buttonList = buttons.map((btn, idx) => ({
     buttonId: `btn_${idx}`,
