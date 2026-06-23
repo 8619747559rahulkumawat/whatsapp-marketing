@@ -754,12 +754,17 @@ const connectSession = async (sessionId, io) => {
           if (key?.id) {
             const waStatus = update.status;
             let dbStatus = 'sent';
-            if (waStatus === 'delivered' || waStatus === 'read') dbStatus = 'delivered';
+            if (waStatus === 'read') dbStatus = 'read';
+            else if (waStatus === 'delivered') dbStatus = 'delivered';
+            else if (waStatus === 'played') dbStatus = 'played';
             else if (waStatus === 'failed') dbStatus = 'failed';
             const Message = require('../models/Message');
+            const updateFields = { status: dbStatus };
+            if (dbStatus === 'delivered') updateFields.deliveredAt = new Date();
+            if (dbStatus === 'read') updateFields.readAt = new Date();
             const updated = await Message.findOneAndUpdate(
               { waMessageId: key.id },
-              { status: dbStatus, ...(dbStatus === 'delivered' ? { deliveredAt: new Date() } : {}) },
+              updateFields,
               { new: true }
             );
             if (updated && io) {
