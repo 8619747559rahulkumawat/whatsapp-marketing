@@ -32,8 +32,9 @@ const Header = memo(function Header({ setSidebarOpen, collapsed }) {
     if (token) {
       fetchNotifs();
       const interval = setInterval(fetchNotifs, 30000);
+      let socket;
       try {
-        const socket = connectSocket();
+        socket = connectSocket();
         if (socket) {
           socket.on('notification:new', (notif) => {
             setNotifications(prev => [notif, ...prev].slice(0, 10));
