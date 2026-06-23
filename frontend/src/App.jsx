@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState, useEffect } from 'react';
+import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import DashboardLayout from './layouts/DashboardLayout';
@@ -70,12 +70,6 @@ const Roles = lazyWithRetry(() => import('./pages/Roles'));
 const LeadScoring = lazyWithRetry(() => import('./pages/LeadScoring'));
 
 function PageLoader() {
-  const [show, setShow] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setShow(true), 200);
-    return () => clearTimeout(t);
-  }, []);
-  if (!show) return null;
   return (
     <div className="min-h-screen bg-[#0f0f1a] flex items-center justify-center">
       <div className="flex flex-col items-center gap-3">

@@ -1,12 +1,18 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import API from '../utils/api';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token'));
-  const [loading, setLoading] = useState(true);
+  const cachedUser = (() => {
+    try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
+  })();
+  const cachedToken = localStorage.getItem('token');
+
+  const [user, setUser] = useState(cachedUser);
+  const [token, setToken] = useState(cachedToken);
+  const [loading, setLoading] = useState(!cachedUser && !cachedToken);
+  const validated = useRef(false);
 
   const loadUser = async () => {
     try {
@@ -16,11 +22,13 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('user', JSON.stringify(data.user));
       }
     } catch {
+      if (validated.current) return;
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       setToken(null);
       setUser(null);
     } finally {
+      validated.current = true;
       setLoading(false);
     }
   };
