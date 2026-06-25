@@ -7,7 +7,7 @@ const smsCampaignSchema = new mongoose.Schema({
   message: { type: String, required: true },
   gateway: { type: String, enum: ['twilio', 'textlocal', 'msg91', 'custom'], default: 'twilio' },
   status: { type: String, enum: ['draft', 'scheduled', 'sending', 'sent', 'failed'], default: 'draft' },
-  recipients: [{ phone: String, name: String, contactId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact' } }],
+  recipients: [{ phone: String, name: String, contactId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact' }, status: { type: String, enum: ['pending', 'sent', 'failed'], default: 'pending' }, error: { type: String, default: '' } }],
   stats: { sent: { type: Number, default: 0 }, delivered: { type: Number, default: 0 }, failed: { type: Number, default: 0 } },
   error: { type: String, default: '' },
   scheduledAt: { type: Date },

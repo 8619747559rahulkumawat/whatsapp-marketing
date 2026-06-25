@@ -231,7 +231,7 @@ const getConnectionStatus = async (sessionId) => {
   return { status: 'disconnected', phone: '', errorMessage: '', errorDetails: null };
 };
 
-const cleanupSession = (sessionId) => {
+const cleanupSession = async (sessionId) => {
   if (reconnectTimers.has(sessionId)) {
     clearTimeout(reconnectTimers.get(sessionId));
     reconnectTimers.delete(sessionId);
@@ -246,7 +246,13 @@ const cleanupSession = (sessionId) => {
   messageStore.delete(sessionId);
   const oldSock = sessions.get(sessionId);
   if (oldSock) {
-    try { oldSock.ev?.removeAllListeners?.(); } catch (err) { console.error("WhatsApp Error:", err); }
+    try {
+      const sessionDir = getSessionDir(sessionId);
+      const credsPath = path.join(sessionDir, 'creds.json');
+      if (oldSock.authState?.creds && fs.existsSync(path.dirname(credsPath))) {
+        fs.writeFileSync(credsPath, JSON.stringify(oldSock.authState.creds, null, 2));
+      }
+    } catch (err) { console.error("[Baileys] Pre-cleanup credential save failed:", err.message); }
     try { oldSock.end(new Error('Session replaced')); } catch (err) { console.error("WhatsApp Error:", err); }
   }
   sessions.delete(sessionId);
@@ -269,7 +275,7 @@ const connectSession = async (sessionId, io) => {
       throw new Error('Session not found in database');
     }
 
-    cleanupSession(sessionId);
+    await cleanupSession(sessionId);
 
     const sessionDir = getSessionDir(sessionId);
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
@@ -284,7 +290,7 @@ const connectSession = async (sessionId, io) => {
       printQRInTerminal: false,
       markOnlineOnConnect: false,
       syncFullHistory: true,
-      shouldSyncHistoryMessage: () => false,
+      shouldSyncHistoryMessage: () => true,
       generateHighQualityLinkPreview: false,
       version,
       keepAliveIntervalMs: 10000,
@@ -817,7 +823,7 @@ setInterval(() => {
 }, 30000);
 
 const disconnectSession = async (sessionId) => {
-  cleanupSession(sessionId);
+  await cleanupSession(sessionId);
   reconnectAttempts.delete(sessionId);
   await Session.findOneAndUpdate({ sessionId }, { status: 'disconnected', qrCode: '', qr: '' });
 };
@@ -974,20 +980,48 @@ const sendMediaMessage = async (sessionId, to, url, type, caption = '') => {
   const jid = to.includes('@s.whatsapp.net') ? to : `${clean}@s.whatsapp.net`;
 
   let mediaContent;
+  let fileName = 'file';
   if (url.startsWith('http')) {
     mediaContent = { url };
+    try {
+      const urlPath = new URL(url).pathname;
+      fileName = path.basename(urlPath) || 'file';
+    } catch (e) { /* keep default */ }
   } else {
     const filePath = path.resolve(__dirname, '..', url.replace(/^\//, ''));
     if (!fs.existsSync(filePath)) throw new Error(`Media file not found: ${filePath}`);
     mediaContent = fs.readFileSync(filePath);
+    fileName = path.basename(filePath);
   }
+
+  const ext = path.extname(fileName).toLowerCase();
+  const mimeMap = {
+    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+    '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml',
+    '.mp4': 'video/mp4', '.avi': 'video/x-msvideo', '.mov': 'video/quicktime',
+    '.pdf': 'application/pdf', '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.txt': 'text/plain', '.csv': 'text/csv',
+    '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.m4a': 'audio/mp4',
+  };
+  const mimetype = mimeMap[ext] || 'application/octet-stream';
 
   let mediaMsg = {};
   switch (type) {
-    case 'image': mediaMsg = { image: mediaContent, caption: replaceSpintax(caption) }; break;
-    case 'video': mediaMsg = { video: mediaContent, caption: replaceSpintax(caption) }; break;
-    case 'document': mediaMsg = { document: mediaContent, caption: replaceSpintax(caption) }; break;
-    case 'audio': mediaMsg = { audio: mediaContent, mimetype: 'audio/mp4' }; break;
+    case 'image':
+      mediaMsg = { image: mediaContent, caption: replaceSpintax(caption), mimetype: mimetype };
+      break;
+    case 'video':
+      mediaMsg = { video: mediaContent, caption: replaceSpintax(caption), mimetype: mimetype };
+      break;
+    case 'document':
+      mediaMsg = { document: mediaContent, caption: replaceSpintax(caption), fileName, mimetype };
+      break;
+    case 'audio':
+      mediaMsg = { audio: mediaContent, mimetype: mimetype };
+      break;
     default: throw new Error('Unsupported media type');
   }
 
@@ -1082,12 +1116,13 @@ const restoreSessions = async (io) => {
     }
     console.log(`Attempting restore for ${restored}/${activeSessions.length} sessions`);
 
-    // Fire all connectSession calls concurrently (they're already fired above without await)
-    // Now wait for all of them to connect (max 60 seconds total)
-    const results = await Promise.allSettled(activeSessions.map(async (session) => {
+    // Wait with staggered delays to avoid overwhelming server
+    await new Promise(r => setTimeout(r, 5000));
+
+    for (const session of activeSessions) {
       const sessionDir = getSessionDir(session.sessionId);
-      if (!fs.existsSync(path.join(sessionDir, 'creds.json'))) return;
-      for (let i = 0; i < 60; i++) {
+      if (!fs.existsSync(path.join(sessionDir, 'creds.json'))) continue;
+      for (let i = 0; i < 30; i++) {
         const sock = sessions.get(session.sessionId);
         if (sock && sock.user) break;
         await new Promise(r => setTimeout(r, 1000));
@@ -1099,7 +1134,7 @@ const restoreSessions = async (io) => {
       } else {
         console.log(`Session ${session.sessionId} could not be restored - may need QR re-scan`);
       }
-    }));
+    }
   } catch (err) {
     console.error('Error restoring sessions:', err);
   }
@@ -1305,7 +1340,7 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
       try { existingSock.end(undefined); } catch (err) { console.error("WhatsApp Error:", err); }
       try { existingSock.ws?.close(); } catch (err) { console.error("WhatsApp Error:", err); }
     }
-    cleanupSession(sessionId);
+    await cleanupSession(sessionId);
     const sessionDir = getSessionDir(sessionId);
     // Remove existing auth creds so pairing starts fresh
     const credsFile = path.join(sessionDir, 'creds.json');
@@ -1318,12 +1353,12 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
 
     const sock = makeWASocket({
       auth: state,
-      browser: Browsers.macOS('Chrome'),
+      browser: Browsers.ubuntu('Chrome'),
       logger: pino({ level: 'warn' }),
       printQRInTerminal: false,
       markOnlineOnConnect: false,
       syncFullHistory: true,
-      shouldSyncHistoryMessage: () => false,
+      shouldSyncHistoryMessage: () => true,
       generateHighQualityLinkPreview: false,
       mobile: false,
       version,
@@ -1358,7 +1393,7 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
       console.log(`[Baileys] Pairing code for ${sessionId}: ${pairingCode}`);
     } catch (err) {
       console.error(`[Baileys] Pairing code error for ${sessionId}:`, err.message);
-      cleanupSession(sessionId);
+      await cleanupSession(sessionId);
       throw err;
     }
 
@@ -1401,7 +1436,7 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
         if (connection === 'close') {
           const reason = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.data?.reason || 428;
           if (reason === 401) { // loggedOut
-            cleanupSession(sessionId);
+            await cleanupSession(sessionId);
             sessionDoc.status = 'disconnected';
             await sessionDoc.save();
             if (io) io.emit('session:update', { sessionId, status: 'disconnected' });
