@@ -452,6 +452,34 @@ async function bootstrapDatabase() {
       await aiService.loadAIKeysFromDB();
       schedulerService.startScheduler(io).catch((err) => console.error('Scheduler start error:', err));
 
+      // Auto-reset corrupted sessions on Render deploy (stamp changes with each deploy)
+      if (process.env.RENDER_DEPLOY_ID || process.env.RENDER_GIT_COMMIT) {
+        try {
+          const sessionsDir = path.join(__dirname, process.env.SESSIONS_DIR || 'sessions');
+          const buildStampPath = path.join(sessionsDir, '.build_stamp');
+          const currentStamp = process.env.RENDER_DEPLOY_ID || process.env.RENDER_GIT_COMMIT;
+          let prevStamp = '';
+          try { prevStamp = fs.readFileSync(buildStampPath, 'utf8').trim(); } catch (e) { /* not found */ }
+          if (prevStamp && prevStamp !== currentStamp) {
+            console.log(`[Startup] Build stamp changed. Cleaning old sessions for fresh Signal Protocol keys...`);
+            if (fs.existsSync(sessionsDir)) {
+              const items = fs.readdirSync(sessionsDir);
+              for (const item of items) {
+                if (item.startsWith('.') || !fs.statSync(path.join(sessionsDir, item)).isDirectory()) continue;
+                fs.rmSync(path.join(sessionsDir, item), { recursive: true, force: true });
+                console.log(`[Startup] Deleted old session: ${item}`);
+              }
+            }
+            await Session.updateMany({}, { status: 'disconnected', qr: '', qrCode: '', isActive: false });
+            console.log(`[Startup] All old sessions reset. Ready for fresh QR scans.`);
+          }
+          fs.mkdirSync(sessionsDir, { recursive: true });
+          fs.writeFileSync(buildStampPath, currentStamp);
+        } catch (err) {
+          console.error('[Startup] Session cleanup error:', err.message);
+        }
+      }
+
       setTimeout(async () => {
         try {
           if (process.env.RESTORE_WHATSAPP_SESSIONS !== 'false') {
