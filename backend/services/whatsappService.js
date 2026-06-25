@@ -449,6 +449,11 @@ const connectSession = async (sessionId, io) => {
             }
             console.log(`[Baileys] Session ${sessionId} ended (reason: ${reason}), not reconnecting`);
           } else if (currentAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            const currentSock = sessions.get(sessionId);
+            if (currentSock !== sock) {
+              console.log(`[Baileys] Ignoring stale max-retries event for ${sessionId} - new socket exists`);
+              return;
+            }
             console.log(`[Baileys] Session ${sessionId} max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached, giving up`);
             sessions.delete(sessionId);
             session.status = 'disconnected';
@@ -462,7 +467,11 @@ const connectSession = async (sessionId, io) => {
             }
           } else {
             const currentSock = sessions.get(sessionId);
-            if (currentSock === sock) sessions.delete(sessionId);
+            if (currentSock !== sock) {
+              console.log(`[Baileys] Ignoring stale close event for ${sessionId} - new socket exists`);
+              return;
+            }
+            sessions.delete(sessionId);
             session.status = 'connecting';
             await session.save();
             const baseDelay = reason === DisconnectReason.timedOut || reason === DisconnectReason.connectionClosed ? 5000 : 2000;

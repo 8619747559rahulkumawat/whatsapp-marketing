@@ -174,6 +174,34 @@ app.use('/api', (req, res, next) => {
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/sessions', require('./routes/sessions'));
+// Force-reset all sessions (for fixing "Waiting for this message" issue after bugfix deployment)
+app.post('/api/debug/reset-sessions', async (req, res) => {
+  try {
+    const confirm = req.query.confirm;
+    if (confirm !== 'RESET_ALL') {
+      return res.status(400).json({ success: false, message: 'Pass ?confirm=RESET_ALL to confirm' });
+    }
+    const sessionsDir = path.join(__dirname, process.env.SESSIONS_DIR || 'sessions');
+    let deletedCount = 0;
+    if (fs.existsSync(sessionsDir)) {
+      const items = fs.readdirSync(sessionsDir);
+      for (const item of items) {
+        const itemPath = path.join(sessionsDir, item);
+        if (fs.statSync(itemPath).isDirectory()) {
+          fs.rmSync(itemPath, { recursive: true, force: true });
+          deletedCount++;
+        }
+      }
+    }
+    await Session.updateMany({}, { status: 'disconnected', qr: '', qrCode: '', isActive: false });
+    console.log(`[Reset] Deleted ${deletedCount} session folders, marked all sessions as disconnected`);
+    res.json({ success: true, message: `Deleted ${deletedCount} session(s). Re-scan QR codes from dashboard.` });
+  } catch (err) {
+    console.error('[Reset] Error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 app.get('/api/debug/session/:id', async (req, res) => {
   try {
     const { auth } = require('./middleware/auth');
