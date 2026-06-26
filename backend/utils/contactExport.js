@@ -32,6 +32,7 @@ const isLikelyInvalidPhone = (phone) => {
   if (!phone || phone.length !== 10) return true;
   if (/^0{10}$/.test(phone)) return true;
   if (/^(\d)\1{9}$/.test(phone)) return true;
+  if (/^\d{10}$/.test(phone) === false) return true;
   return false;
 };
 
@@ -47,6 +48,7 @@ const normalizeContactExportRows = (rows = [], { requireName = false } = {}) => 
   let invalidPhones = 0;
   let duplicatePhones = 0;
   let skippedNames = 0;
+  let loggedSamples = 0;
 
   for (const row of rows) {
     const phone = normalizePhone10(row.phone || row.Phone || row.jid);
@@ -57,6 +59,18 @@ const normalizeContactExportRows = (rows = [], { requireName = false } = {}) => 
     if (requireName && !isUsableContactName(name)) { skippedNames++; continue; }
 
     const finalName = name || 'Unknown';
+
+    // Log first few normalized contacts for debugging
+    if (loggedSamples < 5) {
+      console.log('[ExportNormalize][Sample]', {
+        inputPhone: row.phone || row.Phone || row.jid,
+        normalizedPhone: phone,
+        inputName: row.name || row.Name,
+        normalizedName: finalName,
+        source: row.group || ''
+      });
+      loggedSamples++;
+    }
 
     const normalized = {
       ...row,
@@ -89,6 +103,7 @@ const normalizeContactExportRows = (rows = [], { requireName = false } = {}) => 
   }
 
   const exportRows = Array.from(byPhone.values());
+  const withoutNames = exportRows.filter(r => !r.name || r.name === 'Unknown').length;
   return {
     rows: exportRows,
     stats: {
@@ -96,7 +111,8 @@ const normalizeContactExportRows = (rows = [], { requireName = false } = {}) => 
       totalExported: exportRows.length,
       duplicatesRemoved: duplicatePhones,
       invalidPhones,
-      skippedNames
+      skippedNames,
+      withoutNames
     }
   };
 };
@@ -196,7 +212,7 @@ const sendContactExport = async (res, rows, { format = 'xlsx', filenameBase = 'c
     summarySheet.addRow({ metric: 'Total Exported', value: stats.totalExported });
     summarySheet.addRow({ metric: 'Duplicates Removed', value: stats.duplicatesRemoved });
     summarySheet.addRow({ metric: 'Invalid Numbers Removed', value: stats.invalidPhones });
-    summarySheet.addRow({ metric: 'Contacts Without Name', value: stats.totalExported });
+    summarySheet.addRow({ metric: 'Contacts Without Name', value: stats.withoutNames || 0 });
     summarySheet.addRow({ metric: 'Generated At', value: new Date().toISOString() });
 
     ws.columns = [

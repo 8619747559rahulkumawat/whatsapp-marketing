@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const Session = require('../models/Session');
 const Contact = require('../models/Contact');
+const Chat = require('../models/Chat');
 const GroupScrape = require('../models/GroupScrape');
 const whatsappService = require('../services/whatsappService');
 const { generateSessionId } = require('../utils/helpers');
@@ -246,12 +247,12 @@ const readContactsFromDisk = (sessionId) => {
   if (fs.existsSync(file)) {
     try {
       const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
-      const entries = Object.entries(raw).filter(([jid]) => jid && !jid.includes('@g.us'));
+      const entries = Object.entries(raw).filter(([jid]) => jid && !jid.includes('@g.us') && !jid.includes('@lid') && !jid.includes('@broadcast'));
       console.log('[DiskContacts] Found', entries.length, 'contacts in', file);
       return entries.map(([jid, c]) => ({
-        phone: c.id?.split('@')[0] || jid.split('@')[0] || '',
+        phone: jid.split('@')[0] || '',
         name: c.name || c.notify || c.verifiedName || '',
-        jid: c.id || jid || '',
+        jid: jid,
         pushName: c.name || '',
         verifiedName: c.verifiedName || '',
         isBusiness: !!c.business
@@ -424,7 +425,9 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
 // Collect contacts from ALL possible sources (read-only, no DB writes)
 // ---------------------------------------------------------------------------
 const isRealPhone = (jid) => {
-  const n = (jid || '').split('@')[0].replace(/[^0-9]/g, '');
+  const raw = String(jid || '');
+  if (raw.includes('@lid') || raw.includes('@g.us') || raw.includes('@broadcast')) return false;
+  const n = raw.split('@')[0].replace(/[^0-9]/g, '');
   return n.length >= 10 && n.length <= 13;
 };
 
@@ -445,10 +448,12 @@ const collectSessionContacts = async (sessionId, userId) => {
         entries = Object.entries(sock.contacts).filter(([j]) => j && !j.includes('@g.us') && isRealPhone(j));
       }
       results.sources.socketContacts = entries.length;
-      for (const [, c] of entries) {
-        const p = c.id?.split('@')[0] || '';
+      for (const [jid, c] of entries) {
+        const p = jid.split('@')[0];
         if (!p || results.all.has(p)) continue;
-        results.all.set(p, { name: c.name || c.notify || c.verifiedName || '', group: 'WhatsApp Contacts', phone: p });
+        const name = c.name || c.notify || c.verifiedName || '';
+        console.log('[CollectContacts][Source1:SocketContacts]', { jid, phone: p, name, rawContact: { id: c.id, name: c.name, notify: c.notify, verifiedName: c.verifiedName } });
+        results.all.set(p, { name, group: 'WhatsApp Contacts', phone: p });
       }
     }
   } catch (e) { results.sources.socketContactsError = e.message; }
@@ -494,10 +499,12 @@ const collectSessionContacts = async (sessionId, userId) => {
         entries = Object.entries(store).filter(([j]) => j && !j.includes('@g.us') && isRealPhone(j));
       }
       results.sources.storeContacts = entries.length;
-      for (const [, c] of entries) {
-        const p = c.id?.split('@')[0] || '';
+      for (const [jid, c] of entries) {
+        const p = jid.split('@')[0];
         if (!p || results.all.has(p)) continue;
-        results.all.set(p, { name: c.name || c.notify || c.verifiedName || '', group: 'WhatsApp Contacts', phone: p });
+        const name = c.name || c.notify || c.verifiedName || '';
+        console.log('[CollectContacts][Source4:StoreContacts]', { jid, phone: p, name, rawContact: { id: c.id, name: c.name, notify: c.notify, verifiedName: c.verifiedName } });
+        results.all.set(p, { name, group: 'WhatsApp Contacts', phone: p });
       }
     }
   } catch (e) { results.sources.storeContactsError = e.message; }
@@ -595,6 +602,35 @@ const collectSessionContacts = async (sessionId, userId) => {
     }
     if (chatAdded > 0) console.log('[CollectContacts] Added', chatAdded, 'contacts from recent chats');
   } catch (e) { results.sources.chatJidsError = e.message; }
+
+  // Phase N: Enrich empty names from Chat model (waName from message history)
+  try {
+    const emptyNamePhones = [];
+    for (const [phone, c] of results.all) {
+      if (!c.name && phone) emptyNamePhones.push(phone);
+    }
+    if (emptyNamePhones.length > 0) {
+      const chatNames = await Chat.find({ waPhone: { $in: emptyNamePhones } })
+        .select('waPhone waName')
+        .sort({ createdAt: -1 })
+        .lean();
+      const nameMap = new Map();
+      for (const ch of chatNames) {
+        if (ch.waPhone && ch.waName && ch.waName !== ch.waPhone && !/^\d+$/.test(ch.waName) && !nameMap.has(ch.waPhone)) {
+          nameMap.set(ch.waPhone, ch.waName);
+        }
+      }
+      let enriched = 0;
+      for (const [phone, c] of results.all) {
+        if (!c.name && nameMap.has(phone)) {
+          c.name = nameMap.get(phone);
+          enriched++;
+        }
+      }
+      if (enriched > 0) console.log('[CollectContacts] Enriched', enriched, 'contacts with names from Chat model');
+      results.sources.chatModelEnriched = enriched;
+    }
+  } catch (e) { console.log('[CollectContacts] Chat model enrichment error:', e.message); }
 
   results.total = results.all.size;
   return results;
@@ -740,10 +776,12 @@ exports.exportContacts = async (req, res) => {
       if (sock?.contacts) {
         const entries = sock.contacts instanceof Map ? [...sock.contacts] : typeof sock.contacts === 'object' ? Object.entries(sock.contacts) : [];
         for (const [jid, c] of entries) {
-          if (!jid || jid.includes('@g.us') || !isRealPhone(jid)) continue;
-          const p = c.id?.split('@')[0] || jid.split('@')[0];
+          if (!jid || !isRealPhone(jid)) continue;
+          const p = jid.split('@')[0];
           if (!p || collected.all.has(p)) continue;
-          collected.all.set(p, { name: c.name || c.notify || c.verifiedName || '', group: 'WhatsApp Contacts', phone: p, admin: '-', sessionId, groupJid: jid, scrapedAt: '', address: '' });
+          const name = c.name || c.notify || c.verifiedName || '';
+          console.log('[ExportContacts][Phase3:SocketContacts]', { jid, phone: p, name, rawContact: { id: c.id, name: c.name, notify: c.notify, verifiedName: c.verifiedName } });
+          collected.all.set(p, { name, group: 'WhatsApp Contacts', phone: p, admin: '-', sessionId, groupJid: jid, scrapedAt: '', address: '' });
           added++;
         }
       }
@@ -752,10 +790,12 @@ exports.exportContacts = async (req, res) => {
         const store = sock.store.contacts;
         const entries = store instanceof Map ? [...store] : typeof store === 'object' ? Object.entries(store) : [];
         for (const [jid, c] of entries) {
-          if (!jid || jid.includes('@g.us') || !isRealPhone(jid)) continue;
-          const p = c.id?.split('@')[0] || jid.split('@')[0];
+          if (!jid || !isRealPhone(jid)) continue;
+          const p = jid.split('@')[0];
           if (!p || collected.all.has(p)) continue;
-          collected.all.set(p, { name: c.name || c.notify || c.verifiedName || '', group: 'WhatsApp Contacts', phone: p, admin: '-', sessionId, groupJid: jid, scrapedAt: '', address: '' });
+          const name = c.name || c.notify || c.verifiedName || '';
+          console.log('[ExportContacts][Phase3:StoreContacts]', { jid, phone: p, name, rawContact: { id: c.id, name: c.name, notify: c.notify, verifiedName: c.verifiedName } });
+          collected.all.set(p, { name, group: 'WhatsApp Contacts', phone: p, admin: '-', sessionId, groupJid: jid, scrapedAt: '', address: '' });
           added++;
         }
       }
@@ -776,6 +816,21 @@ exports.exportContacts = async (req, res) => {
     collected.all.clear();
 
     console.log('[ExportContacts] Raw contacts before normalization:', rawContacts.length, 'Session:', sessionId);
+
+    // Diagnostic: log sample contacts to verify correct data
+    const sampleSize = Math.min(5, rawContacts.length);
+    for (let i = 0; i < sampleSize; i++) {
+      const c = rawContacts[i];
+      console.log('[ExportContacts][Sample #' + (i + 1) + ']', {
+        phone: c.phone,
+        name: c.name,
+        group: c.group,
+        rawEntry: { phone: c.phone, name: c.name, group: c.group }
+      });
+    }
+    const withNames = rawContacts.filter(c => c.name && c.name !== 'Unknown').length;
+    const withoutNames = rawContacts.filter(c => !c.name || c.name === 'Unknown').length;
+    console.log('[ExportContacts] Name stats:', { withNames, withoutNames, total: rawContacts.length });
 
     if (!rawContacts.length) {
       console.log('[ExportContacts] No contacts from ANY source after all fallbacks');
