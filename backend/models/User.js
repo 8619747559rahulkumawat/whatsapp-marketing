@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, default: '' },
   businessName: { type: String, default: '' },
   password: { type: String, required: true },
-  role: { type: String, enum: ['admin', 'reseller', 'user', 'super_admin'], default: 'user' },
+  role: { type: String, enum: ['admin', 'reseller', 'user', 'super_admin', 'agent', 'viewer'], default: 'user' },
   parentUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: true },
   credits: { type: Number, default: 0 },
@@ -19,10 +19,8 @@ const userSchema = new mongoose.Schema({
     dailyLimit: { type: Number, default: 1000 },
     senderName: { type: String, default: '' }
   },
-  lastLogin: { type: Date },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
-});
+  lastLogin: { type: Date }
+}, { timestamps: true });
 
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();

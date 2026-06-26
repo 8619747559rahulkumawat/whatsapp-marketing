@@ -34,10 +34,11 @@ export default function Deals() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = { ...form, value: parseFloat(form.value) || 0 };
       if (editing) {
-        await API.put(`/deals/${editing._id}`, form);
+        await API.put(`/deals/${editing._id}`, payload);
       } else {
-        await API.post('/deals', form);
+        await API.post('/deals', payload);
       }
       setShowForm(false);
       setEditing(null);

@@ -83,7 +83,15 @@ const completeScheduledCampaign = async (scheduledCampaignId, campaignId) => {
   if (!campaignId) throw new Error('No campaignId in scheduled campaign');
 
   const io = getIoInstance();
-  await campaignService.processCampaign(campaignId, io);
+  try {
+    await campaignService.processCampaign(campaignId, io);
+  } catch (err) {
+    await ScheduledCampaign.findByIdAndUpdate(scheduledCampaignId, {
+      status: 'failed',
+      lastError: err.message
+    });
+    throw err;
+  }
 
   const sc = await ScheduledCampaign.findById(scheduledCampaignId);
   if (sc) {
@@ -178,12 +186,13 @@ const calculateNextRun = (sc) => {
   if (sc.scheduleType === 'monthly') {
     const next = new Date(now);
     const targetDay = sc.repeatConfig?.dayOfMonth || 1;
+    next.setMonth(next.getMonth() + (next.getDate() >= targetDay ? 1 : 0));
     next.setDate(targetDay);
-    if (next <= now) next.setMonth(next.getMonth() + 1);
     if (sc.repeatConfig?.time) {
       const [h, m] = sc.repeatConfig.time.split(':');
       next.setHours(parseInt(h), parseInt(m), 0, 0);
     }
+    if (next <= now) next.setMonth(next.getMonth() + 1);
     return next;
   }
   return null;
@@ -233,15 +242,20 @@ const scheduleCampaign = async (campaignId, scheduledAt, scheduleType = 'once', 
   const campaign = await require('../models/Campaign').findById(campaignId);
   if (!campaign) throw new Error('Campaign not found');
 
+  const scheduledDate = new Date(scheduledAt);
+  if (scheduleType === 'once' && scheduledDate <= new Date()) {
+    throw new Error('Scheduled time must be in the future');
+  }
+
   const sc = await ScheduledCampaign.create({
     tenantId: campaign.tenantId,
     userId: campaign.userId,
     campaignId: campaign._id,
     scheduleType,
-    scheduledAt: new Date(scheduledAt),
+    scheduledAt: scheduledDate,
     timezone,
     repeatConfig,
-    nextRunAt: new Date(scheduledAt),
+    nextRunAt: scheduledDate,
     status: 'pending'
   });
 

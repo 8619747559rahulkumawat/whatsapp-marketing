@@ -6,7 +6,8 @@ const { tenantMiddleware } = require('../middleware/tenant');
 
 router.use(auth, tenantMiddleware);
 
-router.get('/my', supportController.getTickets);
+const setScopeMy = (req, res, next) => { req.query.scope = 'my'; next(); };
+router.get('/my', setScopeMy, supportController.getTickets);
 router.get('/all', supportController.getTickets);
 router.post('/', supportController.createTicket);
 router.put('/:id/status', supportController.updateTicketStatus);

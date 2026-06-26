@@ -86,8 +86,11 @@ export default function SmsCampaigns() {
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this campaign?')) return;
-    await API.delete(`/sms-campaigns/${id}`);
-    fetch();
+    try {
+      await API.delete(`/sms-campaigns/${id}`);
+      toast.success('Campaign deleted');
+      fetch();
+    } catch (err) { toast.error(err.response?.data?.message || 'Error deleting campaign'); }
   };
 
   return (

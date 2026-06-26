@@ -45,7 +45,7 @@ export default function Meetings() {
         <h1 className="text-2xl font-bold text-white">Meetings</h1>
         <div className="flex gap-3">
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="input-field text-sm">
-            <option value="">All</option><option value="scheduled">Scheduled</option><option value="confirmed">Confirmed</option><option value="completed">Completed</option>
+            <option value="">All</option><option value="scheduled">Scheduled</option><option value="confirmed">Confirmed</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option>
           </select>
           <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-2 px-4 py-2 rounded-xl text-sm whitespace-nowrap"><HiOutlinePlus /> Schedule</button>
         </div>

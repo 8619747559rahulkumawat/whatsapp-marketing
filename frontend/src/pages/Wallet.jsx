@@ -88,9 +88,23 @@ export default function Wallet() {
         </div>
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-2 p-4 border-t border-white/5">
-            {Array.from({ length: totalPages }, (_, i) => (
-              <button key={i} onClick={() => setPage(i + 1)} className={`w-8 h-8 rounded-lg text-sm ${page === i + 1 ? 'bg-purple-600 text-white' : 'text-gray-400 hover:bg-white/5'}`}>{i + 1}</button>
-            ))}
+            <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="w-8 h-8 rounded-lg text-sm text-gray-400 hover:bg-white/5 disabled:opacity-30">&lt;</button>
+            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+              let pageNum;
+              if (totalPages <= 7) {
+                pageNum = i + 1;
+              } else if (page <= 4) {
+                pageNum = i + 1;
+              } else if (page >= totalPages - 3) {
+                pageNum = totalPages - 6 + i;
+              } else {
+                pageNum = page - 3 + i;
+              }
+              return (
+                <button key={pageNum} onClick={() => setPage(pageNum)} className={`w-8 h-8 rounded-lg text-sm ${page === pageNum ? 'bg-purple-600 text-white' : 'text-gray-400 hover:bg-white/5'}`}>{pageNum}</button>
+              );
+            })}
+            <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} className="w-8 h-8 rounded-lg text-sm text-gray-400 hover:bg-white/5 disabled:opacity-30">&gt;</button>
           </div>
         )}
       </div>

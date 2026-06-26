@@ -8,6 +8,24 @@ const whatsappService = require('./whatsappService');
 const axios = require('axios');
 
 const runningAutomations = new Map();
+const BLOCKED_HOSTS = ['127.0.0.1', 'localhost', '0.0.0.0', '::1', '10.', '172.16.', '172.17.', '172.18.', '172.19.', '172.20.', '172.21.', '172.22.', '172.23.', '172.24.', '172.25.', '172.26.', '172.27.', '172.28.', '172.29.', '172.30.', '172.31.', '192.168.', '169.254.169.254'];
+
+const validateUrl = (url) => {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+    if (BLOCKED_HOSTS.some(blocked => hostname.startsWith(blocked) || hostname === blocked)) {
+      throw new Error(`Requests to ${hostname} are not allowed for security reasons`);
+    }
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      throw new Error('Only http and https protocols are allowed');
+    }
+    return true;
+  } catch (err) {
+    if (err.message.includes('not allowed') || err.message.includes('protocols')) throw err;
+    throw new Error('Invalid URL provided');
+  }
+};
 
 const safeParseJSON = (str) => {
   try { return JSON.parse(str); } catch { return {}; }
@@ -51,8 +69,9 @@ const executeNode = async (node, context, io) => {
     }
 
     case 'waitDelay': {
-      const { duration, unit } = data;
-      const ms = unit === 'minutes' ? duration * 60000 : unit === 'hours' ? duration * 3600000 : duration;
+      const duration = data.duration || data.delay || 0;
+      const unit = data.unit || data.delayUnit || data.timeUnit || 'seconds';
+      const ms = unit === 'minutes' ? duration * 60000 : unit === 'hours' ? duration * 3600000 : (unit === 'seconds' ? duration * 1000 : duration);
       await new Promise(resolve => setTimeout(resolve, ms));
       break;
     }
@@ -82,6 +101,7 @@ const executeNode = async (node, context, io) => {
 
     case 'webhook': {
       const { url, method, headers, body } = data;
+      validateUrl(url);
       await axios({
         method: method || 'POST',
         url,
@@ -93,6 +113,7 @@ const executeNode = async (node, context, io) => {
 
     case 'apiCall': {
       const { url, method, headers, body } = data;
+      validateUrl(url);
       const response = await axios({
         method: method || 'GET',
         url,
@@ -124,12 +145,15 @@ const executeNode = async (node, context, io) => {
   }
 };
 
+const getRunningKey = (flowId, context) => `${flowId}:${context.contact?._id || context.phone || 'global'}:${context.userId || 'unknown'}`;
+
 const executeFlow = async (flowId, context, io) => {
-  if (runningAutomations.has(flowId)) {
-    console.log(`Automation ${flowId} already running`);
+  const runningKey = getRunningKey(flowId, context);
+  if (runningAutomations.has(runningKey)) {
+    console.log(`Automation ${runningKey} already running`);
     return;
   }
-  runningAutomations.set(flowId, true);
+  runningAutomations.set(runningKey, true);
 
   try {
     const flow = await AutomationFlow.findById(flowId);
@@ -170,17 +194,17 @@ const executeFlow = async (flowId, context, io) => {
       }
     }
 
-    flow.stats.totalExecutions += 1;
-    flow.stats.successfulExecutions += 1;
-    flow.stats.lastExecutedAt = new Date();
-    await flow.save();
+    await AutomationFlow.findByIdAndUpdate(flowId, {
+      $inc: { 'stats.totalExecutions': 1, 'stats.successfulExecutions': 1 },
+      $set: { 'stats.lastExecutedAt': new Date() }
+    });
   } catch (err) {
     console.error(`Automation ${flowId} error:`, err.message);
     await AutomationFlow.findByIdAndUpdate(flowId, {
-      $inc: { 'stats.failedExecutions': 1 }
+      $inc: { 'stats.totalExecutions': 1, 'stats.failedExecutions': 1 }
     });
   } finally {
-    runningAutomations.delete(flowId);
+    runningAutomations.delete(runningKey);
   }
 };
 
@@ -208,22 +232,29 @@ const processDripCampaign = async (campaignId, contactIds, io) => {
   const flowData = campaign.automationFlow;
   if (!flowData.isDrip) return;
 
-  for (const contactId of contactIds) {
-    const contact = await Contact.findById(contactId);
-    if (!contact) continue;
+  const CHUNK_SIZE = 5;
+  for (let i = 0; i < contactIds.length; i += CHUNK_SIZE) {
+    const chunk = contactIds.slice(i, i + CHUNK_SIZE);
 
-    const context = {
-      userId: campaign.userId,
-      sessionId: campaign.sessionId,
-      contact,
-      phone: contact.phone,
-      campaignId: campaign._id
-    };
+    await new Promise(resolve => setImmediate(resolve));
 
-    await executeFlow(flowData._id || campaignId, context, io);
+    for (const contactId of chunk) {
+      const contact = await Contact.findById(contactId);
+      if (!contact) continue;
 
-    if (flowData.dripConfig?.interval > 0) {
-      await new Promise(resolve => setTimeout(resolve, flowData.dripConfig.interval));
+      const context = {
+        userId: campaign.userId,
+        sessionId: campaign.sessionId,
+        contact,
+        phone: contact.phone,
+        campaignId: campaign._id
+      };
+
+      await executeFlow(flowData._id || campaignId, context, io);
+
+      if (flowData.dripConfig?.interval > 0) {
+        await new Promise(resolve => setTimeout(resolve, flowData.dripConfig.interval));
+      }
     }
   }
 };

@@ -18,12 +18,12 @@ exports.getAdminDashboard = async (req, res) => {
       recentCampaigns
     ] = await Promise.all([
       User.countDocuments({ role: { $ne: 'admin' } }),
-      Session.countDocuments(),
-      Campaign.countDocuments(),
-      Contact.countDocuments(),
-      Session.countDocuments({ status: 'connected' }),
-      User.find({ role: { $ne: 'admin' } }).sort({ createdAt: -1 }).limit(10).select('name email credits role isActive createdAt'),
-      Campaign.find().populate('userId', 'name email').sort({ createdAt: -1 }).limit(10)
+      Session.countDocuments({ tenantId: req.user.tenantId }),
+      Campaign.countDocuments({ tenantId: req.user.tenantId }),
+      Contact.countDocuments({ tenantId: req.user.tenantId }),
+      Session.countDocuments({ status: 'connected', tenantId: req.user.tenantId }),
+      User.find({ role: { $ne: 'admin' }, tenantId: req.user.tenantId }).sort({ createdAt: -1 }).limit(10).select('name email credits role isActive createdAt'),
+      Campaign.find({ tenantId: req.user.tenantId }).populate('userId', 'name email').sort({ createdAt: -1 }).limit(10)
     ]);
     const totalCreditsUsed = await Transaction.aggregate([
       { $match: { type: 'debit', tenantId: req.user.tenantId } },
@@ -55,8 +55,12 @@ exports.getAdminDashboard = async (req, res) => {
     });
     
     const totalRevenue = await Transaction.aggregate([
-      { $match: { type: 'credit' } },
+      { $match: { type: 'credit', tenantId: req.user.tenantId } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const totalMessages = await Campaign.aggregate([
+      { $match: { tenantId: req.user.tenantId } },
+      { $group: { _id: null, total: { $sum: '$sentCount' } } }
     ]);
     res.json({
       success: true,
@@ -64,9 +68,9 @@ exports.getAdminDashboard = async (req, res) => {
         totalUsers,
         totalSessions,
         totalCampaigns,
-        // totalMessages removed for admin privacy
+        totalMessages: totalMessages[0]?.total || 0,
         totalContacts,
-        totalCreditsUsed,
+        totalCreditsUsed: totalCreditsUsed[0]?.total || 0,
         activeSessions,
         totalRevenue: totalRevenue[0]?.total || 0
       },
@@ -115,6 +119,9 @@ exports.getUsers = async (req, res) => {
 
 exports.updateMyCredits = async (req, res) => {
   try {
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      return res.status(403).json({ success: false, message: 'Only admins can update their own credits' });
+    }
     const { credits } = req.body;
     if (credits === undefined || credits < 0) {
       return res.status(400).json({ success: false, message: 'Valid credits required' });
@@ -279,6 +286,7 @@ exports.updateUserPlan = async (req, res) => {
     if (!tenant) return res.status(404).json({ success: false, message: 'Tenant not found' });
     tenant.plan = plan;
     tenant.status = 'active';
+    if (!tenant.settings) tenant.settings = {};
     if (plan === 'free') {
       tenant.settings.limits = { contacts: 100, messagesPerDay: 100, users: 1 };
     } else if (plan === 'starter') {
@@ -288,6 +296,7 @@ exports.updateUserPlan = async (req, res) => {
     } else if (plan === 'enterprise') {
       tenant.settings.limits = { contacts: 100000, messagesPerDay: 100000, users: 50 };
     }
+    tenant.markModified('settings');
     await tenant.save();
     res.json({ success: true, message: `User plan upgraded to ${plan}`, user: { ...user.toJSON(), plan: tenant.plan } });
   } catch (err) {

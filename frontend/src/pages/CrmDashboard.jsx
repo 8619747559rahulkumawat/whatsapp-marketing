@@ -21,18 +21,18 @@ const allFeatures = [
   { path: '/lead-scoring', label: 'AI Lead Scoring', desc: 'Auto-predict kaunse lead convert honge (ML-based)', icon: HiOutlineSparkles, color: 'from-violet-500 to-violet-600', tag: 'New' },
   { path: '/email-campaigns', label: 'Email Campaigns', desc: 'Bulk email + open/click tracking (SendGrid)', icon: HiOutlineLightningBolt, color: 'from-blue-500 to-blue-600', tag: 'New' },
   { path: '/sms-campaigns', label: 'SMS Campaigns', desc: 'Non-WA SMS via Twilio/textlocal gateways', icon: HiOutlineChatAlt2, color: 'from-teal-500 to-teal-600', tag: 'New' },
-  { path: '#', label: 'Two-way Email Sync', desc: 'Gmail/Outlook se email auto-sync CRM mein', icon: HiOutlineRefresh, color: 'from-indigo-500 to-indigo-600', tag: 'New' },
+  { path: '/email-sync', label: 'Two-way Email Sync', desc: 'Gmail/Outlook se email auto-sync CRM mein', icon: HiOutlineRefresh, color: 'from-indigo-500 to-indigo-600', tag: 'New' },
   { path: '/roles', label: 'Role-based Access', desc: 'Admin, Manager, Agent — alag permissions', icon: HiOutlineUserGroup, color: 'from-gray-500 to-gray-600', tag: 'New' },
-  { path: '#', label: 'Smart Notifications', desc: 'Real-time alerts for lead/deal/task activity', icon: HiOutlineBell, color: 'from-red-500 to-red-600', tag: 'New' },
-  { path: '#', label: 'Custom Dashboards', desc: 'Widget-based dashboard — apne hisaab se set karo', icon: HiOutlineViewGrid, color: 'from-purple-500 to-purple-600', tag: 'New' },
+  { path: '/notifications', label: 'Smart Notifications', desc: 'Real-time alerts for lead/deal/task activity', icon: HiOutlineBell, color: 'from-red-500 to-red-600', tag: 'New' },
+  { path: '/dashboards', label: 'Custom Dashboards', desc: 'Widget-based dashboard — apne hisaab se set karo', icon: HiOutlineViewGrid, color: 'from-purple-500 to-purple-600', tag: 'New' },
   { path: '/webhooks', label: 'API & Webhooks', desc: 'Third-party apps se connect (Zapier-style)', icon: HiOutlineCode, color: 'from-cyan-500 to-cyan-600', tag: 'New' },
-  { path: '#', label: 'Mobile App (PWA)', desc: 'Phone par app jaisa experience, offline support', icon: HiOutlineDeviceMobile, color: 'from-green-500 to-green-600', tag: 'New' },
-  { path: '#', label: 'Import/Export', desc: 'CSV/Excel bulk import/export for all data', icon: HiOutlineUpload, color: 'from-yellow-500 to-yellow-600', tag: 'New' },
+  { path: '/pwa', label: 'Mobile App (PWA)', desc: 'Phone par app jaisa experience, offline support', icon: HiOutlineDeviceMobile, color: 'from-green-500 to-green-600', tag: 'New' },
+  { path: '/import-export', label: 'Import/Export', desc: 'CSV/Excel bulk import/export for all data', icon: HiOutlineUpload, color: 'from-yellow-500 to-yellow-600', tag: 'New' },
   { path: '/email-templates', label: 'Email Templates', desc: 'Ready-to-use email templates with variables', icon: HiOutlineDocumentText, color: 'from-orange-500 to-orange-600', tag: 'New' },
   { path: '/goals', label: 'Goal Tracking', desc: 'Team targets + progress bars', icon: HiOutlineFlag, color: 'from-red-500 to-red-600', tag: 'New' },
   { path: '/contracts', label: 'Contract Management', desc: 'Upload, manage & track contracts', icon: HiOutlineDocument, color: 'from-blue-500 to-blue-600', tag: 'New' },
   { path: '/surveys', label: 'Survey / NPS', desc: 'Customer satisfaction score + feedback', icon: HiOutlineHeart, color: 'from-pink-500 to-pink-600', tag: 'New' },
-  { path: '#', label: 'Activity Timeline', desc: 'Har contact ki poori history ek jagah', icon: HiOutlineClock, color: 'from-teal-500 to-teal-600', tag: 'Core' },
+  { path: '/activity', label: 'Activity Timeline', desc: 'Har contact ki poori history ek jagah', icon: HiOutlineClock, color: 'from-teal-500 to-teal-600', tag: 'Core' },
 ];
 
 export default function CrmDashboard() {
@@ -96,8 +96,7 @@ export default function CrmDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filtered.map(f => {
           const Icon = f.icon;
-          const isLive = !f.path.startsWith('#');
-          return isLive ? (
+          return (
             <Link key={f.label} to={f.path} className="glass-card rounded-xl p-5 border border-white/5 hover:border-purple-500/40 transition-all group relative overflow-hidden">
               {f.tag === 'New' && <span className="absolute top-2 right-2 text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400">NEW</span>}
               <div className="flex items-start gap-4">
@@ -110,20 +109,6 @@ export default function CrmDashboard() {
                 </div>
               </div>
             </Link>
-          ) : (
-            <div key={f.label} className="glass-card rounded-xl p-5 border border-white/5 opacity-75 relative overflow-hidden">
-              {f.tag === 'New' && <span className="absolute top-2 right-2 text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400">NEW</span>}
-              <div className="flex items-start gap-4">
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${f.color} flex items-center justify-center flex-shrink-0`}>
-                  <Icon className="text-white" size={22} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-white font-semibold">{f.label}</h3>
-                  <p className="text-gray-400 text-xs mt-1">{f.desc}</p>
-                  <span className="text-[10px] text-purple-400 mt-1 inline-block">In-page feature ✓</span>
-                </div>
-              </div>
-            </div>
           );
         })}
       </div>

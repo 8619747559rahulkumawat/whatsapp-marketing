@@ -24,8 +24,8 @@ exports.getRealtimeStats = async (tenantId, userId) => {
     readMessages,
     failedMessages,
     activeSessions,
-    deliveryRate: totalMessages > 0 ? ((deliveredMessages / totalMessages) * 100).toFixed(1) : 0,
-    readRate: totalMessages > 0 ? ((readMessages / totalMessages) * 100).toFixed(1) : 0
+    deliveryRate: totalMessages > 0 ? parseFloat(((deliveredMessages / totalMessages) * 100).toFixed(1)) : 0,
+    readRate: totalMessages > 0 ? parseFloat(((readMessages / totalMessages) * 100).toFixed(1)) : 0
   };
 };
 
@@ -112,12 +112,20 @@ exports.exportAnalyticsReport = async (tenantId, userId, format = 'csv') => {
   const stats = await this.getRealtimeStats(tenantId, userId);
   const campaigns = await this.getCampaignAnalytics(tenantId, userId);
 
+  const sanitizeCSV = (val) => {
+    const str = String(val || '');
+    if (str.startsWith('=') || str.startsWith('+') || str.startsWith('-') || str.startsWith('@') || str.startsWith('\t')) {
+      return "'" + str;
+    }
+    return str;
+  };
+
   if (format === 'csv') {
     let csv = 'Metric,Value\n';
     Object.entries(stats).forEach(([key, val]) => { csv += `${key},${val}\n`; });
     csv += '\nCampaign,Status,Sent,Delivered,Failed\n';
     campaigns.campaigns.forEach(c => {
-      csv += `"${c.name}",${c.status},${c.sentCount || 0},${c.deliveredCount || 0},${c.failedCount || 0}\n`;
+      csv += `"${sanitizeCSV(c.name)}",${c.status},${c.sentCount || 0},${c.deliveredCount || 0},${c.failedCount || 0}\n`;
     });
     return csv;
   }

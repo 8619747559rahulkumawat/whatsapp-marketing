@@ -5,7 +5,7 @@ const captureEntity = async (message, contactId, tenantId, userId) => {
   const entities = await aiService.extractEntities(message);
   if (!entities) return { captured: false, entities: {} };
 
-  const contact = await Contact.findById(contactId);
+  const contact = await Contact.findOne({ _id: contactId, tenantId });
   if (!contact) return { captured: false, entities };
 
   const updates = {};
@@ -13,6 +13,7 @@ const captureEntity = async (message, contactId, tenantId, userId) => {
   if (entities.phone && !contact.phone) updates.phone = entities.phone;
   if (entities.name && !contact.name) updates.name = entities.name;
   if (entities.city) {
+    updates.city = entities.city;
     updates.address = contact.address
       ? `${contact.address}, ${entities.city}`
       : entities.city;
@@ -40,6 +41,7 @@ const extractAndSaveToContact = async (message, phone, tenantId, userId) => {
   if (entities.email && !contact.email) updates.email = entities.email;
   if (entities.name && !contact.name) updates.name = entities.name;
   if (entities.city) {
+    updates.city = entities.city;
     updates.address = contact.address
       ? `${contact.address}, ${entities.city}`
       : entities.city;

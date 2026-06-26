@@ -6,9 +6,14 @@ exports.getAuditLogs = async (req, res) => {
     const filter = { tenantId: req.tenant._id };
     if (req.query.userId) filter.userId = req.query.userId;
     if (req.query.action) filter.action = req.query.action;
-    if (req.query.resource) filter.resource = req.query.resource;
+    if (req.query.entity || req.query.resource) filter.resource = req.query.entity || req.query.resource;
     if (req.query.startDate) filter.timestamp = { ...filter.timestamp, $gte: new Date(req.query.startDate) };
     if (req.query.endDate) filter.timestamp = { ...filter.timestamp, $lte: new Date(req.query.endDate) };
+    if (req.query.days) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - parseInt(req.query.days));
+      filter.timestamp = { ...filter.timestamp, $gte: cutoff };
+    }
 
     const { skip, limit, page } = calculatePagination(req.query.page, req.query.limit);
     const [logs, total] = await Promise.all([
@@ -24,15 +29,25 @@ exports.getAuditLogs = async (req, res) => {
 exports.getAuditStats = async (req, res) => {
   try {
     const filter = { tenantId: req.tenant._id };
-    const [totalLogs, actionDistribution] = await Promise.all([
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const [totalLogs, actionDistribution, todayCount, userCountResult] = await Promise.all([
       AuditLog.countDocuments(filter),
       AuditLog.aggregate([
         { $match: filter },
         { $group: { _id: '$action', count: { $sum: 1 } } },
         { $sort: { count: -1 } }
+      ]),
+      AuditLog.countDocuments({ ...filter, timestamp: { $gte: todayStart } }),
+      AuditLog.aggregate([
+        { $match: filter },
+        { $group: { _id: '$userId' } },
+        { $count: 'count' }
       ])
     ]);
-    res.json({ success: true, stats: { totalLogs, actionDistribution } });
+    const uniqueUsers = userCountResult[0]?.count || 0;
+    const uniqueActions = actionDistribution.length;
+    res.json({ success: true, stats: { totalLogs, actionDistribution, todayCount, uniqueUsers, uniqueActions } });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

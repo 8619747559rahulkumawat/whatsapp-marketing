@@ -40,11 +40,11 @@ const chat = async (req, res) => {
     const userId = req.user._id;
     const session = sessionId || `session_${Date.now()}`;
 
-    AIChat.create({ tenantId, userId, role: 'user', content: message, type: 'chat', sessionId: session }).catch(() => {});
+    AIChat.create({ tenantId, userId, role: 'user', content: message, type: 'chat', sessionId: session }).catch(err => console.error('Failed to save user AI chat:', err.message));
 
     const reply = await aiService.generateKnowledgeReply(message, tenantId, []);
 
-    AIChat.create({ tenantId, userId, role: 'assistant', content: reply, type: 'chat', sessionId: session }).catch(() => {});
+    AIChat.create({ tenantId, userId, role: 'assistant', content: reply, type: 'chat', sessionId: session }).catch(err => console.error('Failed to save assistant AI chat:', err.message));
 
     res.json({ success: true, reply, sessionId: session });
   } catch (err) {
@@ -217,19 +217,23 @@ const getKnowledgeBases = async (req, res) => {
 const uploadKnowledgeBase = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+    const { knowledgeBaseId } = req.body;
+    if (!knowledgeBaseId) return res.status(400).json({ success: false, message: 'knowledgeBaseId is required' });
+
+    const existingKb = await KnowledgeBase.findOne({
+      _id: knowledgeBaseId, tenantId: req.tenant?._id || req.user.tenantId
+    });
+    if (!existingKb) return res.status(404).json({ success: false, message: 'Knowledge base not found' });
+
     const filePath = req.file.path;
     const buffer = fs.readFileSync(filePath);
     let content = '';
-    let type = 'txt';
 
     if (req.file.mimetype === 'application/pdf') {
-      type = 'pdf';
       content = await aiService.extractTextFromPDF(buffer);
     } else if (req.file.mimetype === 'text/plain') {
-      type = 'txt';
       content = buffer.toString('utf-8');
     } else if (req.file.mimetype.includes('word')) {
-      type = 'doc';
       content = buffer.toString('utf-8');
     } else {
       content = buffer.toString('utf-8');
@@ -239,23 +243,16 @@ const uploadKnowledgeBase = async (req, res) => {
     const chunkedDocs = [];
     for (const chunk of chunks) {
       const embedding = await aiService.generateEmbedding(chunk);
-      chunkedDocs.push({ text: chunk, embedding: embedding || [], metadata: {} });
+      chunkedDocs.push({ text: chunk, embedding: embedding || [], metadata: { source: req.file.originalname } });
     }
 
-    const kb = await KnowledgeBase.create({
-      tenantId: req.tenant?._id || req.user.tenantId,
-      userId: req.user._id,
-      name: req.file.originalname,
-      type,
-      content: content.substring(0, 100000),
-      chunks: chunkedDocs,
-      filePath: `/uploads/${req.file.filename}`,
-      fileSize: req.file.size,
-      chunkCount: chunkedDocs.length,
-      status: chunkedDocs.length > 0 ? 'ready' : 'failed'
-    });
+    existingKb.chunks.push(...chunkedDocs);
+    existingKb.chunkCount = existingKb.chunks.length;
+    existingKb.content = (existingKb.content + '\n' + content).substring(0, 100000);
+    existingKb.status = chunkedDocs.length > 0 ? 'ready' : 'failed';
+    await existingKb.save();
 
-    res.json({ success: true, knowledgeBase: kb });
+    res.json({ success: true, knowledgeBase: existingKb });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -300,6 +297,7 @@ const createKnowledgeBase = async (req, res) => {
       tenantId: req.tenant?._id || req.user.tenantId,
       userId: req.user._id,
       name,
+      type: 'manual',
       description: description || '',
       content: (content || '').substring(0, 100000),
       chunks: chunkedDocs,
@@ -326,10 +324,10 @@ const getKnowledgeBaseChunks = async (req, res) => {
 
 const searchKnowledgeBase = async (req, res) => {
   try {
-    const { query, topK } = req.body;
+    const { query, topK, knowledgeBaseId } = req.body;
     if (!query) return res.status(400).json({ success: false, message: 'Query is required' });
     const results = await aiService.searchKnowledgeBase(
-      query, req.tenant?._id || req.user.tenantId, parseInt(topK) || 5
+      query, req.tenant?._id || req.user.tenantId, parseInt(topK) || 5, knowledgeBaseId
     );
     res.json({ success: true, results });
   } catch (err) {

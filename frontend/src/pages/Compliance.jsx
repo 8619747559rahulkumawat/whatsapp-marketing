@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import API from '../utils/api';
 import { HiOutlineSearch, HiOutlineDownload, HiOutlineShieldCheck, HiOutlineBan, HiOutlineCheckCircle, HiOutlineXCircle } from 'react-icons/hi';
@@ -13,15 +13,15 @@ export default function Compliance() {
   const [filter, setFilter] = useState('');
   const [dndCheck, setDndCheck] = useState({ phone: '', result: null, checking: false });
 
-  useEffect(() => { fetchLogs(); }, [page, filter]);
-
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     try {
       const params = `?page=${page}&limit=20${filter ? `&type=${filter}` : ''}`;
       const { data } = await API.get(`/compliance${params}`);
       if (data.success) { setLogs(data.logs); setTotalPages(data.pagination.pages); }
     } catch { console.error('Operation failed'); } finally { setLoading(false); }
-  };
+  }, [page, filter]);
+
+  useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
   const fetchSubscribers = async () => {
     try {
@@ -38,7 +38,7 @@ export default function Compliance() {
     try {
       const { data } = await API.get(`/compliance/dnd/check/${dndCheck.phone}`);
       setDndCheck({ ...dndCheck, result: data, checking: false });
-    } catch { setDndCheck({ ...dndCheck, checking: false, result: { isDND: false } }); }
+    } catch (err) { setDndCheck({ ...dndCheck, checking: false, result: { isDND: false, error: err.response?.data?.message || err.message } }); }
   };
 
   const exportLogs = () => {
@@ -47,6 +47,7 @@ export default function Compliance() {
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'compliance-logs.csv'; a.click();
+    URL.revokeObjectURL(url);
   };
 
   const tabs = [
@@ -141,11 +142,11 @@ export default function Compliance() {
               </button>
             </div>
             {dndCheck.result && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`mt-4 p-4 rounded-xl ${dndCheck.result.isDND ? 'bg-red-500/10 border border-red-500/20' : 'bg-green-500/10 border border-green-500/20'}`}>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`mt-4 p-4 rounded-xl ${dndCheck.result.error ? 'bg-yellow-500/10 border border-yellow-500/20' : dndCheck.result.isDND ? 'bg-red-500/10 border border-red-500/20' : 'bg-green-500/10 border border-green-500/20'}`}>
                 <div className="flex items-center gap-2">
-                  {dndCheck.result.isDND ? <HiOutlineXCircle className="text-red-400 text-xl" /> : <HiOutlineCheckCircle className="text-green-400 text-xl" />}
-                  <span className={dndCheck.result.isDND ? 'text-red-400' : 'text-green-400'}>
-                    {dndCheck.result.isDND ? 'Number is DND (opted out)' : 'Number is not in DND list'}
+                  {dndCheck.result.error ? <HiOutlineXCircle className="text-yellow-400 text-xl" /> : dndCheck.result.isDND ? <HiOutlineXCircle className="text-red-400 text-xl" /> : <HiOutlineCheckCircle className="text-green-400 text-xl" />}
+                  <span className={dndCheck.result.error ? 'text-yellow-400' : dndCheck.result.isDND ? 'text-red-400' : 'text-green-400'}>
+                    {dndCheck.result.error || (dndCheck.result.isDND ? 'Number is DND (opted out)' : 'Number is not in DND list')}
                   </span>
                 </div>
               </motion.div>
@@ -191,14 +192,14 @@ export default function Compliance() {
             <p className="text-gray-400 text-sm mb-4">Manage data access, export, and deletion requests</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
-                { type: 'access', label: 'Access Request', desc: 'View all data stored for a contact' },
-                { type: 'export', label: 'Export Data', desc: 'Export contact data in CSV format' },
-                { type: 'deletion', label: 'Right to Erasure', desc: 'Permanently delete contact data' }
+                { type: 'access', label: 'Access Request', desc: 'View all data stored for a contact', handler: () => alert('GDPR Access Request - Contact support@example.com') },
+                { type: 'export', label: 'Export Data', desc: 'Export contact data in CSV format', handler: () => alert('GDPR Export - Contact support@example.com') },
+                { type: 'deletion', label: 'Right to Erasure', desc: 'Permanently delete contact data', handler: () => alert('GDPR Deletion - Contact support@example.com') }
               ].map(item => (
-                <div key={item.type} className="bg-white/5 rounded-xl p-4 text-center hover:bg-white/10 transition-all cursor-pointer">
+                <div key={item.type} className="bg-white/5 rounded-xl p-4 text-center hover:bg-white/10 transition-all cursor-pointer" onClick={item.handler}>
                   <h4 className="text-white font-medium mb-2">{item.label}</h4>
                   <p className="text-gray-400 text-xs mb-3">{item.desc}</p>
-                  <button className="text-xs btn-primary px-4 py-2 rounded-lg text-white">Request</button>
+                  <button onClick={item.handler} className="text-xs btn-primary px-4 py-2 rounded-lg text-white">Request</button>
                 </div>
               ))}
             </div>

@@ -15,9 +15,23 @@ exports.getRules = async (req, res) => {
   }
 };
 
+const ALLOWED_AUTO_REPLY_FIELDS = ['name', 'keyword', 'matchType', 'replyType', 'replyText', 'mediaUrl', 'sessionId', 'isActive', 'oncePerContact'];
+
 exports.createRule = async (req, res) => {
   try {
-    const rule = await AutoReply.create({ ...req.body, tenantId: req.tenant._id, userId: req.user._id });
+    const data = {};
+    for (const field of ALLOWED_AUTO_REPLY_FIELDS) {
+      if (req.body[field] !== undefined) data[field] = req.body[field];
+    }
+    if (!data.keyword) {
+      return res.status(400).json({ success: false, message: 'Keyword is required' });
+    }
+    if (!data.replyText || !data.replyText.trim()) {
+      return res.status(400).json({ success: false, message: 'Reply text is required' });
+    }
+    data.tenantId = req.tenant._id;
+    data.userId = req.user._id;
+    const rule = await AutoReply.create(data);
     res.status(201).json({ success: true, rule });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -26,9 +40,16 @@ exports.createRule = async (req, res) => {
 
 exports.updateRule = async (req, res) => {
   try {
+    const data = {};
+    for (const field of ALLOWED_AUTO_REPLY_FIELDS) {
+      if (req.body[field] !== undefined) data[field] = req.body[field];
+    }
+    if (data.replyText !== undefined && !data.replyText.trim()) {
+      return res.status(400).json({ success: false, message: 'Reply text cannot be empty' });
+    }
     const rule = await AutoReply.findOneAndUpdate(
       { _id: req.params.id, tenantId: req.tenant._id },
-      { $set: req.body },
+      { $set: data },
       { new: true }
     );
     if (!rule) return res.status(404).json({ success: false, message: 'Rule not found' });

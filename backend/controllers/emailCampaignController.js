@@ -14,7 +14,7 @@ exports.getCampaigns = async (req, res) => {
 
 exports.getCampaign = async (req, res) => {
   try {
-    const campaign = await EmailCampaign.findById(req.params.id);
+    const campaign = await EmailCampaign.findOne({ _id: req.params.id, tenantId: req.tenant._id });
     if (!campaign) return res.status(404).json({ success: false, message: 'Campaign not found' });
     res.json({ success: true, campaign });
   } catch (err) {
@@ -24,9 +24,14 @@ exports.getCampaign = async (req, res) => {
 
 exports.createCampaign = async (req, res) => {
   try {
-    const campaign = await EmailCampaign.create({
-      ...req.body, tenantId: req.tenant._id, userId: req.user._id
-    });
+    const allowed = ['name', 'subject', 'body', 'recipients'];
+    const data = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) data[key] = req.body[key];
+    }
+    data.tenantId = req.tenant._id;
+    data.userId = req.user._id;
+    const campaign = await EmailCampaign.create(data);
     res.status(201).json({ success: true, campaign });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -35,8 +40,14 @@ exports.createCampaign = async (req, res) => {
 
 exports.updateCampaign = async (req, res) => {
   try {
-    const campaign = await EmailCampaign.findByIdAndUpdate(
-      req.params.id, { ...req.body, updatedAt: new Date() }, { new: true }
+    const allowed = ['name', 'subject', 'body', 'recipients', 'status'];
+    const updates = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+    updates.updatedAt = new Date();
+    const campaign = await EmailCampaign.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.tenant._id }, updates, { new: true }
     );
     if (!campaign) return res.status(404).json({ success: false, message: 'Campaign not found' });
     res.json({ success: true, campaign });
@@ -47,7 +58,7 @@ exports.updateCampaign = async (req, res) => {
 
 exports.deleteCampaign = async (req, res) => {
   try {
-    await EmailCampaign.findByIdAndDelete(req.params.id);
+    await EmailCampaign.findOneAndDelete({ _id: req.params.id, tenantId: req.tenant._id });
     res.json({ success: true, message: 'Campaign deleted' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -56,7 +67,7 @@ exports.deleteCampaign = async (req, res) => {
 
 exports.sendCampaign = async (req, res) => {
   try {
-    const campaign = await EmailCampaign.findById(req.params.id);
+    const campaign = await EmailCampaign.findOne({ _id: req.params.id, tenantId: req.tenant._id });
     if (!campaign) return res.status(404).json({ success: false, message: 'Campaign not found' });
     campaign.status = 'sending';
     await campaign.save();
@@ -95,7 +106,7 @@ exports.sendCampaign = async (req, res) => {
       } catch { bounced++; }
     }
     campaign.stats = { sent, opened: 0, clicked: 0, bounced };
-    campaign.status = 'sent';
+    campaign.status = sent > 0 ? 'sent' : 'failed';
     campaign.sentAt = new Date();
     await campaign.save();
     await Activity.create({

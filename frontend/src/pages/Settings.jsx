@@ -10,6 +10,10 @@ export default function Settings() {
   const { user, updateUser } = useAuth();
   const { lang, toggleLang } = useLanguage();
   const [profile, setProfile] = useState({ name: user?.name || '', phone: user?.phone || '' });
+
+  useEffect(() => {
+    setProfile({ name: user?.name || '', phone: user?.phone || '' });
+  }, [user?.name, user?.phone]);
   const [password, setPassword] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [creditAmount, setCreditAmount] = useState('');
   const [creditRate, setCreditRate] = useState('0.15');

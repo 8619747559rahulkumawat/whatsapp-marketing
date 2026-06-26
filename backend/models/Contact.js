@@ -16,10 +16,8 @@ const contactSchema = new mongoose.Schema({
   isBlacklisted: { type: Boolean, default: false },
   blacklistReason: { type: String, default: '' },
   messageCount: { type: Number, default: 0 },
-  lastMessaged: { type: Date },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
-});
+  lastMessaged: { type: Date }
+}, { timestamps: true });
 
 contactSchema.index({ tenantId: 1, phone: 1 }, { unique: true });
 

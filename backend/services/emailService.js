@@ -5,12 +5,14 @@ try {
 
 let transporter = null;
 
-const getTransporter = () => {
-  if (transporter) return transporter;
-  if (!nodemailer) return null;
+const transporterReady = () => !!transporter;
+
+const initTransporter = () => {
+  if (transporter) return Promise.resolve(transporter);
+  if (!nodemailer) return Promise.resolve(null);
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
     console.warn('[Email] SMTP not fully configured (SMTP_HOST, SMTP_USER, SMTP_PASS required)');
-    return null;
+    return Promise.resolve(null);
   }
   transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
@@ -21,21 +23,24 @@ const getTransporter = () => {
       pass: process.env.SMTP_PASS
     }
   });
-  // Verify SMTP connection on startup
-  transporter.verify().then(() => {
+  return transporter.verify().then(() => {
     console.log('[Email] SMTP connection verified');
+    return transporter;
   }).catch((err) => {
     console.warn('[Email] SMTP verification failed:', err.message);
     transporter = null;
+    return null;
   });
-  return transporter;
 };
 
+// Initialize immediately but don't block
+initTransporter();
+
 exports.sendEmail = async ({ to, subject, html, text }) => {
-  const transport = getTransporter();
+  const transport = await initTransporter();
   if (!transport) {
     console.log('Email not sent - SMTP not configured');
-    return null;
+    return { success: false, error: 'SMTP not configured' };
   }
   try {
     const info = await transport.sendMail({
@@ -46,15 +51,17 @@ exports.sendEmail = async ({ to, subject, html, text }) => {
       text
     });
     console.log('Email sent:', info.messageId);
-    return info;
+    return { success: true, info };
   } catch (err) {
     console.error('Email send error:', err.message);
-    return null;
+    return { success: false, error: err.message };
   }
 };
 
+const emailModule = exports;
+
 exports.sendInvoiceEmail = async (invoice, userEmail) => {
-  return this.sendEmail({
+  return emailModule.sendEmail({
     to: userEmail,
     subject: `Invoice ${invoice.invoiceNumber} from RSendix.pro`,
     html: `
@@ -67,7 +74,7 @@ exports.sendInvoiceEmail = async (invoice, userEmail) => {
 };
 
 exports.sendSubscriptionConfirmation = async (email, planName) => {
-  return this.sendEmail({
+  return emailModule.sendEmail({
     to: email,
     subject: `Subscription Activated - ${planName}`,
     html: `<h2>Welcome to ${planName} Plan!</h2><p>Your subscription is now active.</p>`

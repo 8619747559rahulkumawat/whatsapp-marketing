@@ -46,9 +46,14 @@ exports.createFlow = async (req, res) => {
 
 exports.updateFlow = async (req, res) => {
   try {
+    const allowedFields = ['name', 'description', 'trigger', 'nodes', 'edges', 'isDrip', 'dripConfig', 'status'];
+    const updates = {};
+    for (const key of allowedFields) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
     const flow = await AutomationFlow.findOneAndUpdate(
       { _id: req.params.id, tenantId: req.tenant._id },
-      { $set: req.body },
+      { $set: updates },
       { new: true, runValidators: true }
     );
     if (!flow) return res.status(404).json({ success: false, message: 'Flow not found' });
@@ -71,6 +76,9 @@ exports.deleteFlow = async (req, res) => {
 exports.toggleFlowStatus = async (req, res) => {
   try {
     const { status } = req.body;
+    if (!['draft', 'active', 'paused', 'archived'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status. Must be one of: draft, active, paused, archived' });
+    }
     const flow = await AutomationFlow.findOneAndUpdate(
       { _id: req.params.id, tenantId: req.tenant._id },
       { $set: { status } },
@@ -102,12 +110,18 @@ exports.executeFlow = async (req, res) => {
   }
 };
 
+const safeParseJSON = (str) => {
+  try { return JSON.parse(str); } catch { return str; }
+};
+
 exports.saveCampaignFlow = async (req, res) => {
   try {
     const { nodes, edges } = req.body;
+    const parsedNodes = typeof nodes === 'string' ? safeParseJSON(nodes) : (nodes || []);
+    const parsedEdges = typeof edges === 'string' ? safeParseJSON(edges) : (edges || []);
     const campaign = await Campaign.findOneAndUpdate(
       { _id: req.params.campaignId, tenantId: req.tenant._id },
-      { $set: { automationFlow: { nodes, edges } } },
+      { $set: { automationFlow: { nodes: parsedNodes, edges: parsedEdges } } },
       { new: true }
     );
     if (!campaign) return res.status(404).json({ success: false, message: 'Campaign not found' });

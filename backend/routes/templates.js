@@ -7,6 +7,10 @@ const { tenantMiddleware } = require('../middleware/tenant');
 router.use(auth);
 router.use(tenantMiddleware);
 
+// Specific routes must come before /:id wildcard
+router.get('/categories/list', templateController.getCategories);
+router.get('/status/:status', templateController.getTemplatesByStatus);
+
 // Template CRUD routes
 router.get('/', templateController.getTemplates);
 router.post('/', templateController.createTemplate);
@@ -18,7 +22,5 @@ router.delete('/:id', templateController.deleteTemplate);
 router.post('/:id/submit-for-approval', templateController.submitForApproval);
 router.post('/:id/approve', templateController.approveTemplate);
 router.post('/:id/reject', templateController.rejectTemplate);
-router.get('/categories/list', templateController.getCategories);
-router.get('/status/:status', templateController.getTemplatesByStatus);
 
 module.exports = router;

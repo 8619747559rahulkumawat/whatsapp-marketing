@@ -153,6 +153,7 @@ export default function App() {
           <Route path="/surveys" element={<Surveys />} />
           <Route path="/webhooks" element={<Webhooks />} />
           <Route path="/roles" element={<Roles />} />
+          <Route path="/live-chat" element={<LiveChat />} />
           <Route path="/lead-scoring" element={<LeadScoring />} />
         </Route>
 
@@ -160,10 +161,6 @@ export default function App() {
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/admin/audit" element={<Audit />} />
-        </Route>
-
-        <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-          <Route path="/live-chat" element={<LiveChat />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/dashboard" />} />

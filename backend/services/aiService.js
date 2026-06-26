@@ -18,6 +18,7 @@ const GEMINI_MODEL = 'gemini-2.5-flash';
 
 let aiAvailable = null;
 let aiCheckTime = 0;
+let aiCheckPromise = null;
 const AI_CHECK_TTL = 30000;
 
 // ─── Built-in AI (100% free, no API key needed) ───
@@ -374,42 +375,31 @@ const fastCheckAI = async () => {
   const now = Date.now();
   if (aiAvailable !== null && now - aiCheckTime < AI_CHECK_TTL) return aiAvailable;
 
-  // Gemini check first (free, reliable)
-  const gemini = getGeminiModel();
-  if (gemini) {
+  if (aiCheckPromise) return aiCheckPromise;
+
+  aiCheckPromise = (async () => {
     try {
-      const result = await gemini.generateContent('test');
-      if (result.response) {
+      if (getGeminiModel()) {
         aiAvailable = 'gemini';
-        aiCheckTime = now;
+        aiCheckTime = Date.now();
         return aiAvailable;
       }
-    } catch { aiAvailable = null; }
-  }
 
-  // OpenAI check
-  const client = getOpenAIClient();
-  if (client) {
-    try {
-      await client.models.list({ timeout: 3000 });
-      aiAvailable = 'openai';
-      aiCheckTime = now;
-      return aiAvailable;
-    } catch { aiAvailable = null; }
-  }
+      if (getOpenAIClient()) {
+        aiAvailable = 'openai';
+        aiCheckTime = Date.now();
+        return aiAvailable;
+      }
 
-  // Ollama check
-  try {
-    await axios.get(`${OLLAMA_BASE_URL}/api/tags`, { timeout: 2000 });
-    aiAvailable = 'ollama';
-    aiCheckTime = now;
-    return aiAvailable;
-  } catch { /* ollama not available */ }
+      aiAvailable = 'local';
+      aiCheckTime = Date.now();
+      return 'local';
+    } finally {
+      aiCheckPromise = null;
+    }
+  })();
 
-  // Fallback: built-in local AI (always works!)
-  aiAvailable = 'local';
-  aiCheckTime = now;
-  return 'local';
+  return aiCheckPromise;
 };
 
 const generateWithOpenAI = async (prompt, context = '') => {
@@ -535,10 +525,12 @@ const cosineSimilarity = (vecA, vecB) => {
   return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 };
 
-const searchKnowledgeBase = async (query, tenantId, topK = 5) => {
+const searchKnowledgeBase = async (query, tenantId, topK = 5, knowledgeBaseId = null) => {
   const queryEmbedding = await generateEmbedding(query);
   if (!queryEmbedding || queryEmbedding.length === 0) return [];
-  const docs = await KnowledgeBase.find({ tenantId, status: 'ready', isActive: true, 'chunks.embedding': { $exists: true, $not: { $size: 0 } } }).lean();
+  const filter = { tenantId, status: 'ready', isActive: true, 'chunks.embedding': { $exists: true, $not: { $size: 0 } } };
+  if (knowledgeBaseId) filter._id = knowledgeBaseId;
+  const docs = await KnowledgeBase.find(filter).lean();
   const results = [];
   for (const doc of docs) {
     for (const chunk of doc.chunks) {

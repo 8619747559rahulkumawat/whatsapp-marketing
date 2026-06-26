@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 const validators = {
   required: (v) => (v && v.trim ? v.trim() : v) ? null : 'This field is required',
@@ -17,17 +17,20 @@ export function useFormValidation(fields, config = {}) {
     fields.forEach(f => { obj[f.name] = f.default || ''; });
     return obj;
   });
+  const formRef = useRef(form);
+  formRef.current = form;
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
 
-  const validateField = (name, value) => {
+  const validateField = (name, value, formOverride) => {
     const field = fields.find(f => f.name === name);
     if (!field) return null;
     const rules = field.rules || [];
+    const ctx = formOverride || form;
     for (const rule of rules) {
       const validatorFn = typeof rule === 'function' ? rule : validators[rule];
       if (!validatorFn) continue;
-      const err = validatorFn(value, form);
+      const err = validatorFn(value, ctx);
       if (err) return err;
     }
     return null;
@@ -46,16 +49,17 @@ export function useFormValidation(fields, config = {}) {
   };
 
   const handleChange = (name, value) => {
-    setForm(prev => ({ ...prev, [name]: value }));
+    const updatedForm = { ...form, [name]: value };
+    setForm(updatedForm);
     if (touched[name]) {
-      const err = validateField(name, value);
+      const err = validateField(name, value, updatedForm);
       setErrors(prev => ({ ...prev, [name]: err }));
     }
   };
 
   const handleBlur = (name) => {
     setTouched(prev => ({ ...prev, [name]: true }));
-    const err = validateField(name, form[name]);
+    const err = validateField(name, formRef.current[name], formRef.current);
     setErrors(prev => ({ ...prev, [name]: err }));
   };
 

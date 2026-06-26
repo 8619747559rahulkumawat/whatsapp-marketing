@@ -6,7 +6,7 @@ const { calculatePagination } = require('../utils/helpers');
 
 exports.getDashboardStats = async (req, res) => {
   try {
-    const filter = req.user.role === 'admin' ? {} : { userId: req.user._id };
+    const filter = req.user.role === 'admin' ? { tenantId: req.tenant._id } : { userId: req.user._id };
     const [
       totalMessages,
       sentMessages,
@@ -21,7 +21,7 @@ exports.getDashboardStats = async (req, res) => {
       Message.countDocuments({ ...filter, status: { $in: ['delivered', 'read'] } }),
       Message.countDocuments({ ...filter, status: 'failed' }),
       Campaign.countDocuments(filter),
-      Session.countDocuments({ ...(req.user.role !== 'admin' ? { userId: req.user._id } : {}), status: 'connected' }),
+      Session.countDocuments({ ...filter, status: 'connected' }),
       Contact.countDocuments(filter)
     ]);
     
@@ -47,7 +47,7 @@ exports.getDashboardStats = async (req, res) => {
 
 exports.getDeliveryReports = async (req, res) => {
   try {
-    const filter = req.user.role === 'admin' ? {} : { userId: req.user._id };
+    const filter = req.user.role === 'admin' ? { tenantId: req.tenant._id } : { userId: req.user._id };
     const { skip, limit, page } = calculatePagination(req.query.page, req.query.limit);
     if (req.query.status) filter.status = req.query.status;
     if (req.query.campaignId) filter.campaignId = req.query.campaignId;
@@ -100,7 +100,7 @@ exports.getDeliveryReports = async (req, res) => {
 
 exports.getCampaignReports = async (req, res) => {
   try {
-    const filter = req.user.role === 'admin' ? {} : { userId: req.user._id };
+    const filter = req.user.role === 'admin' ? { tenantId: req.tenant._id } : { userId: req.user._id };
     const campaigns = await Campaign.find(filter)
       .populate('sessionId', 'name phoneNumber')
       .sort({ createdAt: -1 });
@@ -140,7 +140,7 @@ exports.getCampaignReports = async (req, res) => {
 
 exports.getMonthlyStats = async (req, res) => {
   try {
-    const filter = req.user.role === 'admin' ? {} : { userId: req.user._id };
+    const filter = req.user.role === 'admin' ? { tenantId: req.tenant._id } : { userId: req.user._id };
     const now = new Date();
     const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
     filter.createdAt = { $gte: sixMonthsAgo };
@@ -165,13 +165,20 @@ exports.getMonthlyStats = async (req, res) => {
 
 exports.exportReport = async (req, res) => {
   try {
-    const filter = req.user.role === 'admin' ? {} : { userId: req.user._id };
+    const filter = req.user.role === 'admin' ? { tenantId: req.tenant._id } : { userId: req.user._id };
     const { type, campaignId, status } = req.query;
     if (type === 'campaign' && campaignId) {
       filter.campaignId = campaignId;
     }
     if (status) filter.status = status;
     const messages = await Message.find(filter).populate('campaignId', 'name').lean();
+    const sanitizeCSV = (val) => {
+      const str = String(val || '');
+      if (str.startsWith('=') || str.startsWith('+') || str.startsWith('-') || str.startsWith('@') || str.startsWith('\t')) {
+        return "'" + str;
+      }
+      return str;
+    };
     let csv = 'Date,Phone,Message,Type,Status,Sent At\n';
     for (const m of messages) {
       let to = m.to;
@@ -180,7 +187,7 @@ exports.exportReport = async (req, res) => {
         to = '[Private]';
         content = '[Private Message]';
       }
-      csv += `"${new Date(m.createdAt).toISOString()}","${to}","${content.replace(/"/g, '""')}","${m.messageType}","${m.status}","${m.sentAt ? new Date(m.sentAt).toISOString() : ''}"\n`;
+      csv += `"${sanitizeCSV(new Date(m.createdAt).toISOString())}","${sanitizeCSV(to)}","${sanitizeCSV(content).replace(/"/g, '""')}","${sanitizeCSV(m.messageType)}","${sanitizeCSV(m.status)}","${sanitizeCSV(m.sentAt ? new Date(m.sentAt).toISOString() : '')}"\n`;
     }
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=report.csv');

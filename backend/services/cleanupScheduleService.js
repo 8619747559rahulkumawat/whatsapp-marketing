@@ -23,7 +23,6 @@ const runCleanup = async () => {
     { name: 'SupportTicket', model: require('../models/SupportTicket') },
     { name: 'Transaction', model: require('../models/Transaction') },
     { name: 'Invoice', model: require('../models/Invoice') },
-    { name: 'Setting', model: require('../models/Setting') },
     { name: 'ApiKey', model: require('../models/ApiKey') },
     { name: 'Subscriber', model: require('../models/Subscriber') },
     { name: 'AIChat', model: require('../models/AIChat') },
@@ -45,7 +44,7 @@ const runCleanup = async () => {
 
   for (const { name, model } of models) {
     try {
-      const filter = name === 'Setting' || name === 'ApiKey' || name === 'Subscriber'
+      const filter = name === 'ApiKey' || name === 'Subscriber'
         ? { updatedAt: { $lt: cutoffDate } }
         : { createdAt: { $lt: cutoffDate } };
       const d = await model.deleteMany(filter);

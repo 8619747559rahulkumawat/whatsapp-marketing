@@ -1,17 +1,19 @@
 const Chat = require('../models/Chat');
 const User = require('../models/User');
 const mongoose = require('mongoose');
+const COUNTRY_CODE = process.env.COUNTRY_CODE || '91';
 
 exports.getConversations = async (req, res) => {
   try {
     const userId = req.user._id;
+    const tenantId = req.tenant._id;
     const isAdmin = req.user.role === 'admin' || req.user.role === 'super_admin';
 
     let userMatch;
     if (isAdmin) {
-      userMatch = { waPhone: '' };
+      userMatch = { waPhone: '', tenantId };
     } else {
-      userMatch = { $or: [{ senderId: userId }, { receiverId: userId }], waPhone: '' };
+      userMatch = { $or: [{ senderId: userId }, { receiverId: userId }], waPhone: '', tenantId };
     }
 
     const userConversations = await Chat.aggregate([
@@ -36,9 +38,9 @@ exports.getConversations = async (req, res) => {
 
     let waMatch;
     if (isAdmin) {
-      waMatch = { waPhone: { $exists: true, $nin: ['', null] } };
+      waMatch = { waPhone: { $exists: true, $nin: ['', null] }, tenantId };
     } else {
-      waMatch = { waPhone: { $exists: true, $nin: ['', null] }, $or: [{ senderId: userId }, { receiverId: userId }] };
+      waMatch = { waPhone: { $exists: true, $nin: ['', null] }, $or: [{ senderId: userId }, { receiverId: userId }], tenantId };
     }
 
     const waConversations = await Chat.aggregate([
@@ -61,7 +63,7 @@ exports.getConversations = async (req, res) => {
       ...userConversations,
       ...waConversations.map(c => {
         let p = c.waPhone;
-        if (p && p.startsWith('91') && p.length > 10) p = p.slice(2);
+        if (p && p.startsWith(COUNTRY_CODE) && p.length > 10) p = p.slice(COUNTRY_CODE.length);
         let contactName = c.waName || p;
         if (contactName === c.waPhone || contactName === p || /^\d+$/.test(contactName)) contactName = p;
         return {
@@ -88,7 +90,7 @@ exports.sendMessage = async (req, res) => {
     let targetId = receiverId;
 
     if (!targetId && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
-      const admin = await User.findOne({ $or: [{ role: 'admin' }, { role: 'super_admin' }] }).sort({ createdAt: 1 });
+      const admin = await User.findOne({ $or: [{ role: 'admin' }, { role: 'super_admin' }], tenantId: req.user.tenantId }).sort({ createdAt: 1 });
       if (admin) targetId = admin._id;
     }
 
@@ -133,17 +135,22 @@ exports.deleteConversation = async (req, res) => {
   try {
     const userId = req.user._id;
     const targetUserId = req.params.userId;
+    const tenantId = req.tenant._id;
 
     // Handle WhatsApp number conversations (wa_ prefix)
     if (targetUserId?.startsWith('wa_')) {
       const rawPhone = targetUserId.replace('wa_', '').replace(/[^0-9]/g, '');
-      const phone = rawPhone.startsWith('91') ? rawPhone : '91' + rawPhone;
+      const phone = rawPhone.startsWith(COUNTRY_CODE) ? rawPhone : COUNTRY_CODE + rawPhone;
+      const isAdmin = req.user.role === 'admin' || req.user.role === 'super_admin';
+      const msgFilter = { to: { $in: [phone, rawPhone.replace(new RegExp('^' + COUNTRY_CODE), '')] }, tenantId };
+      if (!isAdmin) msgFilter.userId = userId;
+      const chatFilter = { waPhone: { $in: [phone, rawPhone] }, tenantId };
+      if (!isAdmin) {
+        chatFilter.$or = [{ senderId: userId }, { receiverId: userId }];
+      }
       const Message = require('../models/Message');
-      // Delete from Message collection by exact phone match
-      await Message.deleteMany({ to: phone, userId: userId });
-      await Message.deleteMany({ to: rawPhone.replace(/^91/, ''), userId: userId });
-      // Delete from Chat collection by waPhone field
-      await Chat.deleteMany({ waPhone: { $in: [phone, rawPhone] }, $or: [{ senderId: userId }, { receiverId: userId }] });
+      await Message.deleteMany(msgFilter);
+      await Chat.deleteMany(chatFilter);
       return res.json({ success: true, message: 'WhatsApp conversation deleted' });
     }
 
@@ -152,7 +159,8 @@ exports.deleteConversation = async (req, res) => {
       $or: [
         { senderId: userId, receiverId: targetUserId },
         { senderId: targetUserId, receiverId: userId }
-      ]
+      ],
+      tenantId
     });
     res.json({ success: true, message: 'Conversation deleted' });
   } catch (err) {
@@ -163,14 +171,26 @@ exports.deleteConversation = async (req, res) => {
 exports.deleteMessage = async (req, res) => {
   try {
     const { id } = req.params;
-    let msg = await Chat.findOne({ _id: id, $or: [{ senderId: req.user._id }, { receiverId: req.user._id }] });
+    const tenantId = req.tenant._id;
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'super_admin';
+    let msg = await Chat.findOne({ _id: id, tenantId, senderId: req.user._id });
     if (msg) {
       msg.message = '[Deleted]';
       await msg.save();
       return res.json({ success: true, message: 'Message deleted' });
     }
+    if (isAdmin) {
+      msg = await Chat.findOne({ _id: id, tenantId });
+      if (msg) {
+        msg.message = '[Deleted]';
+        await msg.save();
+        return res.json({ success: true, message: 'Message deleted' });
+      }
+    }
     const Message = require('../models/Message');
-    const sentMsg = await Message.findOne({ _id: id });
+    const sentMsg = isAdmin
+      ? await Message.findOne({ _id: id, tenantId })
+      : await Message.findOne({ _id: id, tenantId, userId: req.user._id });
     if (sentMsg) {
       sentMsg.content = '[Deleted]';
       await sentMsg.save();
@@ -201,7 +221,8 @@ exports.getSupportMessages = async (req, res) => {
     const filter = {
       $and: [
         { $or: [{ senderId: targetObjectId }, { receiverId: targetObjectId }] },
-        { $or: [{ waPhone: '' }, { waPhone: { $exists: false } }, { waPhone: null }] }
+        { $or: [{ waPhone: '' }, { waPhone: { $exists: false } }, { waPhone: null }] },
+        { tenantId: req.tenant._id }
       ]
     };
 
@@ -302,15 +323,18 @@ exports.getSupportUsers = async (req, res) => {
 exports.markRead = async (req, res) => {
   try {
     const { userId } = req.params;
+    const tenantId = req.tenant._id;
     if (userId?.startsWith('wa_')) {
-      const phone = userId.replace('wa_', '');
+      const phone = userId.replace(/^wa_/, '');
+      const rawPhone = phone.startsWith(COUNTRY_CODE) ? phone.slice(COUNTRY_CODE.length) : phone;
+      const fullPhone = phone.startsWith(COUNTRY_CODE) ? phone : COUNTRY_CODE + phone;
       await Chat.updateMany(
-        { waPhone: { $regex: phone, $options: 'i' }, senderRole: 'user', read: false },
+        { waPhone: { $in: [fullPhone, rawPhone] }, senderRole: 'user', read: false, tenantId },
         { read: true }
       );
     } else {
       await Chat.updateMany(
-        { senderId: userId, receiverId: req.user._id, read: false },
+        { senderId: userId, receiverId: req.user._id, read: false, tenantId },
         { read: true }
       );
     }

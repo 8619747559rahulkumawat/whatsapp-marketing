@@ -131,7 +131,7 @@ const toCsv = (rows) => {
   for (const row of rows) {
     lines.push(keys.map((key) => escapeCsvValue(row[key] ?? '')).join(','));
   }
-  return lines.join('\n');
+  return '\uFEFF' + lines.join('\n');
 };
 
 const buildContactMap = (contacts = []) => {

@@ -50,7 +50,7 @@ export default function CampaignDetail() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
           {[
-            { label: 'Total', value: campaign.totalContacts, color: 'text-white' },
+            { label: 'Total', value: campaign.totalContacts || campaign.contacts?.length || campaign.groups?.length || 0, color: 'text-white' },
             { label: 'Sent', value: campaign.sentCount, color: 'text-blue-400' },
             { label: 'Delivered', value: campaign.deliveredCount, color: 'text-green-400' },
             { label: 'Failed', value: campaign.failedCount, color: 'text-red-400' },

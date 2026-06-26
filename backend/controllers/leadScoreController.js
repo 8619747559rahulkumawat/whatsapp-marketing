@@ -64,28 +64,63 @@ exports.recalculateScore = async (req, res) => {
 
 exports.recalculateAll = async (req, res) => {
   try {
-    const contacts = await require('../models/Contact').find({ tenantId: req.tenant._id });
-    for (const contact of contacts) {
-      const activities = await Activity.find({ tenantId: req.tenant._id, contactId: contact._id });
-      const deals = await require('../models/Deal').find({ tenantId: req.tenant._id, contactId: contact._id });
+    const contacts = await require('../models/Contact').find({ tenantId: req.tenant._id }).lean();
+    const contactIds = contacts.map(c => c._id);
+    const [activityCounts, dealData, latestActivities] = await Promise.all([
+      Activity.aggregate([
+        { $match: { tenantId: req.tenant._id, contactId: { $in: contactIds } } },
+        { $group: {
+            _id: '$contactId',
+            emailOpens: { $sum: { $cond: [{ $eq: ['$type', 'email'] }, 1, 0] } },
+            messageReplies: { $sum: { $cond: [{ $eq: ['$type', 'message'] }, 1, 0] } },
+            formSubmissions: { $sum: { $cond: [{ $eq: ['$type', 'system'] }, 1, 0] } },
+            meetingAttendance: { $sum: { $cond: [{ $eq: ['$type', 'meeting'] }, 1, 0] } },
+            lastCreated: { $max: '$createdAt' }
+          }
+        }
+      ]),
+      Deal.aggregate([
+        { $match: { tenantId: req.tenant._id, contactId: { $in: contactIds }, stage: 'won' } },
+        { $group: { _id: '$contactId', totalValue: { $sum: '$value' } } }
+      ]),
+      Activity.aggregate([
+        { $match: { tenantId: req.tenant._id, contactId: { $in: contactIds } } },
+        { $sort: { createdAt: -1 } },
+        { $group: { _id: '$contactId', lastCreated: { $first: '$createdAt' } } }
+      ])
+    ]);
+    const activityMap = {};
+    activityCounts.forEach(a => { activityMap[a._id.toString()] = a; });
+    const dealMap = {};
+    dealData.forEach(d => { dealMap[d._id.toString()] = d; });
+    const latestMap = {};
+    latestActivities.forEach(a => { latestMap[a._id.toString()] = a; });
+    const bulkOps = contacts.map(contact => {
+      const cid = contact._id.toString();
+      const act = activityMap[cid] || {};
+      const dl = dealMap[cid] || {};
+      const lat = latestMap[cid] || {};
       const factors = {
-        emailOpens: activities.filter(a => a.type === 'email').length,
+        emailOpens: act.emailOpens || 0,
         emailClicks: 0,
-        messageReplies: activities.filter(a => a.type === 'message').length,
+        messageReplies: act.messageReplies || 0,
         websiteVisits: 0,
-        formSubmissions: activities.filter(a => a.type === 'system' && a.metadata?.formSlug).length,
-        meetingAttendance: activities.filter(a => a.type === 'meeting').length,
-        dealValue: deals.reduce((s, d) => s + (d.stage === 'won' ? d.value : 0), 0),
-        recency: Math.min(Math.floor((Date.now() - (activities[0]?.createdAt || Date.now())) / 86400000), 30)
+        formSubmissions: act.formSubmissions || 0,
+        meetingAttendance: act.meetingAttendance || 0,
+        dealValue: dl.totalValue || 0,
+        recency: Math.min(Math.floor((Date.now() - (lat.lastCreated || Date.now())) / 86400000), 30)
       };
       const score = calculateScore(factors);
       const level = getLevel(score);
-      await LeadScore.findOneAndUpdate(
-        { tenantId: req.tenant._id, contactId: contact._id },
-        { score, level, factors, lastActivity: activities[0]?.createdAt, updatedAt: new Date() },
-        { upsert: true }
-      );
-    }
+      return {
+        updateOne: {
+          filter: { tenantId: req.tenant._id, contactId: contact._id },
+          update: { score, level, factors, lastActivity: lat.lastCreated, updatedAt: new Date() },
+          upsert: true
+        }
+      };
+    });
+    if (bulkOps.length > 0) await LeadScore.bulkWrite(bulkOps);
     res.json({ success: true, message: `Recalculated scores for ${contacts.length} contacts` });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

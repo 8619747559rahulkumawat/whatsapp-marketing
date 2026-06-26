@@ -21,7 +21,7 @@ exports.getProducts = async (req, res) => {
 
 exports.getProduct = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findOne({ _id: req.params.id, tenantId: req.tenant._id });
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
     res.json({ success: true, product });
   } catch (err) {
@@ -44,8 +44,8 @@ exports.createProduct = async (req, res) => {
 
 exports.updateProduct = async (req, res) => {
   try {
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
+    const product = await Product.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.tenant._id },
       { ...req.body, updatedAt: new Date() },
       { new: true }
     );
@@ -58,7 +58,7 @@ exports.updateProduct = async (req, res) => {
 
 exports.deleteProduct = async (req, res) => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id);
+    const product = await Product.findOneAndDelete({ _id: req.params.id, tenantId: req.tenant._id });
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
     res.json({ success: true, message: 'Product deleted' });
   } catch (err) {

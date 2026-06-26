@@ -117,13 +117,17 @@ const sendTwilioCampaign = async (campaignId) => {
         }
       }
 
-      const processed = sent + failed;
+      const batchSent = results.filter(r => {
+        const val = r.status === 'fulfilled' ? r.value : null;
+        return val && val.ok;
+      }).length;
+      const batchFailed = results.length - batchSent;
       await SmsCampaign.findByIdAndUpdate(campaignId, {
-        $set: { stats: { sent, delivered: 0, failed }, updatedAt: new Date() },
-        ...Object.keys(updateOps).length > 0 ? { $set: updateOps } : {}
+        $inc: { 'stats.sent': batchSent, 'stats.failed': batchFailed },
+        $set: { updatedAt: new Date(), ...updateOps }
       });
 
-      emitProgress(campaignId, { sent, failed, total, processed });
+      emitProgress(campaignId, { sent, failed, total, processed: sent + failed });
 
       if (BATCH_DELAY_MS > 0 && i + BATCH_SIZE < total) {
         await sleep(BATCH_DELAY_MS);
@@ -164,7 +168,11 @@ exports.getCampaigns = async (req, res) => {
 
 exports.getCampaign = async (req, res) => {
   try {
-    const campaign = await SmsCampaign.findById(req.params.id);
+    const filter = { _id: req.params.id, tenantId: req.tenant._id };
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      filter.userId = req.user._id;
+    }
+    const campaign = await SmsCampaign.findOne(filter);
     if (!campaign) return res.status(404).json({ success: false, message: 'Campaign not found' });
     res.json({ success: true, campaign });
   } catch (err) {
@@ -200,9 +208,17 @@ exports.createCampaign = async (req, res) => {
 
 exports.updateCampaign = async (req, res) => {
   try {
-    const campaign = await SmsCampaign.findByIdAndUpdate(
-      req.params.id, { ...req.body, updatedAt: new Date() }, { new: true }
-    );
+    const allowedFields = ['name', 'message', 'recipients', 'gateway', 'status'];
+    const updates = {};
+    for (const key of allowedFields) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+    updates.updatedAt = new Date();
+    const filter = { _id: req.params.id, tenantId: req.tenant._id };
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      filter.userId = req.user._id;
+    }
+    const campaign = await SmsCampaign.findOneAndUpdate(filter, updates, { new: true });
     if (!campaign) return res.status(404).json({ success: false, message: 'Campaign not found' });
     res.json({ success: true, campaign });
   } catch (err) {
@@ -212,7 +228,12 @@ exports.updateCampaign = async (req, res) => {
 
 exports.deleteCampaign = async (req, res) => {
   try {
-    await SmsCampaign.findByIdAndDelete(req.params.id);
+    const filter = { _id: req.params.id, tenantId: req.tenant._id };
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      filter.userId = req.user._id;
+    }
+    const campaign = await SmsCampaign.findOneAndDelete(filter);
+    if (!campaign) return res.status(404).json({ success: false, message: 'Campaign not found' });
     res.json({ success: true, message: 'Campaign deleted' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -221,11 +242,8 @@ exports.deleteCampaign = async (req, res) => {
 
 exports.sendCampaign = async (req, res) => {
   try {
-    const campaign = await SmsCampaign.findById(req.params.id);
+    const campaign = await SmsCampaign.findOne({ _id: req.params.id, tenantId: req.tenant._id });
     if (!campaign) return res.status(404).json({ success: false, message: 'Campaign not found' });
-    if (campaign.tenantId.toString() !== req.tenant._id.toString()) {
-      return res.status(403).json({ success: false, message: 'Access denied' });
-    }
     if (campaign.status === 'sending') {
       if (!runningCampaigns.has(campaign._id.toString())) {
         sendTwilioCampaign(campaign._id).catch((err) => console.error('[SMS Campaign] Background error:', err));

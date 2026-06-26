@@ -4,40 +4,13 @@ const campaignService = require('../services/campaignService');
 
 exports.getCampaigns = async (req, res) => {
   try {
-    const filter = req.user.role === 'admin' ? {} : { userId: req.user._id };
+    const filter = { tenantId: req.tenant._id, userId: req.user._id };
     const campaigns = await Campaign.find(filter)
       .populate('sessionId', 'name phoneNumber')
       .sort({ createdAt: -1 })
       .limit(50);
     
-    // If user is admin, hide sensitive campaign data for other users' campaigns
-    if (req.user.role === 'admin') {
-      const sanitizedCampaigns = campaigns.map(campaign => {
-        // Convert to plain object to avoid modifying original Mongoose document
-        const campaignObj = campaign.toObject ? campaign.toObject() : { ...campaign };
-        
-        // If campaign belongs to another user, hide sensitive fields
-        if (campaignObj.userId && campaignObj.userId.toString() !== req.user._id.toString()) {
-          // Hide potentially sensitive data, keeping only essential system-level info
-          campaignObj.name = '[Private Campaign]';
-          campaignObj.message = '[Private Message]';
-          campaignObj.mediaUrl = '';
-          campaignObj.contacts = []; // Hide contacts list
-          campaignObj.groups = []; // Hide groups list
-          campaignObj.buttons = []; // Hide buttons
-          // Keep status for system monitoring
-          // Keep sentCount, deliveredCount, failedCount for system monitoring
-          // Keep timestamps for system monitoring
-          // Keep sessionId for system monitoring (but it's already anonymized in session controller)
-        }
-        
-        return campaignObj;
-      });
-      
-      res.json({ success: true, campaigns: sanitizedCampaigns });
-    } else {
-      res.json({ success: true, campaigns });
-    }
+    res.json({ success: true, campaigns });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -45,34 +18,15 @@ exports.getCampaigns = async (req, res) => {
 
 exports.getCampaign = async (req, res) => {
   try {
-    const campaign = await Campaign.findById(req.params.id)
+    const filter = { _id: req.params.id, tenantId: req.tenant._id, userId: req.user._id };
+    const campaign = await Campaign.findOne(filter)
       .populate('sessionId', 'name phoneNumber')
       .populate('contacts', 'name phone');
     if (!campaign) {
       return res.status(404).json({ success: false, message: 'Campaign not found' });
     }
     
-    // If user is admin and campaign belongs to another user, hide sensitive data
-    if (req.user.role === 'admin' && campaign.userId && campaign.userId.toString() !== req.user._id.toString()) {
-      // Convert to plain object to avoid modifying original Mongoose document
-      const campaignObj = campaign.toObject ? campaign.toObject() : { ...campaign };
-      
-      // Hide potentially sensitive data, keeping only essential system-level info
-      campaignObj.name = '[Private Campaign]';
-      campaignObj.message = '[Private Message]';
-      campaignObj.mediaUrl = '';
-      campaignObj.contacts = []; // Hide contacts list
-      campaignObj.groups = []; // Hide groups list
-      campaignObj.buttons = []; // Hide buttons
-      // Keep status for system monitoring
-      // Keep sentCount, deliveredCount, failedCount for system monitoring
-      // Keep timestamps for system monitoring
-      // Keep sessionId for system monitoring (but it's already anonymized in session controller)
-      
-      res.json({ success: true, campaign: campaignObj });
-    } else {
-      res.json({ success: true, campaign });
-    }
+    res.json({ success: true, campaign });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -123,7 +77,7 @@ exports.updateCampaign = async (req, res) => {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
     const campaign = await Campaign.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user._id },
+      { _id: req.params.id, tenantId: req.tenant._id, userId: req.user._id },
       updates,
       { new: true }
     );
@@ -138,7 +92,7 @@ exports.updateCampaign = async (req, res) => {
 
 exports.deleteCampaign = async (req, res) => {
   try {
-    const campaign = await Campaign.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
+    const campaign = await Campaign.findOneAndDelete({ _id: req.params.id, tenantId: req.tenant._id, userId: req.user._id });
     if (!campaign) {
       return res.status(404).json({ success: false, message: 'Campaign not found or access denied' });
     }
@@ -150,7 +104,8 @@ exports.deleteCampaign = async (req, res) => {
 
 exports.startCampaign = async (req, res) => {
   try {
-    const campaign = await Campaign.findById(req.params.id);
+    const filter = { _id: req.params.id, tenantId: req.tenant._id, userId: req.user._id };
+    const campaign = await Campaign.findOne(filter);
     if (!campaign) {
       return res.status(404).json({ success: false, message: 'Campaign not found' });
     }
@@ -163,6 +118,9 @@ exports.startCampaign = async (req, res) => {
 
 exports.pauseCampaign = async (req, res) => {
   try {
+    const filter = { _id: req.params.id, tenantId: req.tenant._id, userId: req.user._id };
+    const campaign = await Campaign.findOne(filter);
+    if (!campaign) return res.status(404).json({ success: false, message: 'Campaign not found' });
     await campaignService.pauseCampaign(req.params.id);
     res.json({ success: true, message: 'Campaign paused' });
   } catch (err) {
@@ -172,6 +130,9 @@ exports.pauseCampaign = async (req, res) => {
 
 exports.resumeCampaign = async (req, res) => {
   try {
+    const filter = { _id: req.params.id, tenantId: req.tenant._id, userId: req.user._id };
+    const campaign = await Campaign.findOne(filter);
+    if (!campaign) return res.status(404).json({ success: false, message: 'Campaign not found' });
     await campaignService.resumeCampaign(req.params.id, req.app.get('io'));
     res.json({ success: true, message: 'Campaign resumed' });
   } catch (err) {
@@ -181,6 +142,9 @@ exports.resumeCampaign = async (req, res) => {
 
 exports.cancelCampaign = async (req, res) => {
   try {
+    const filter = { _id: req.params.id, tenantId: req.tenant._id, userId: req.user._id };
+    const campaign = await Campaign.findOne(filter);
+    if (!campaign) return res.status(404).json({ success: false, message: 'Campaign not found' });
     await campaignService.cancelCampaign(req.params.id);
     res.json({ success: true, message: 'Campaign cancelled' });
   } catch (err) {
@@ -191,7 +155,7 @@ exports.cancelCampaign = async (req, res) => {
 exports.getCampaignMessages = async (req, res) => {
   try {
     const Message = require('../models/Message');
-    const messages = await Message.find({ campaignId: req.params.id })
+    const messages = await Message.find({ campaignId: req.params.id, tenantId: req.tenant._id })
       .sort({ createdAt: -1 })
       .limit(100);
     res.json({ success: true, messages });
@@ -202,77 +166,30 @@ exports.getCampaignMessages = async (req, res) => {
 
 exports.getCampaignAnalytics = async (req, res) => {
   try {
-    const filter = req.user.role === 'admin' ? {} : { userId: req.user._id };
+    const filter = { tenantId: req.tenant._id, userId: req.user._id };
     const campaigns = await Campaign.find(filter).sort({ createdAt: -1 });
     
-    // If user is admin, hide sensitive campaign data for other users' campaigns
-    if (req.user.role === 'admin') {
-      const anonymizedCampaigns = campaigns.map(campaign => {
-        // Convert to plain object to avoid modifying original Mongoose document
-        const campaignObj = campaign.toObject ? campaign.toObject() : { ...campaign };
-        
-        // If campaign belongs to another user, hide sensitive fields
-        if (campaignObj.userId && campaignObj.userId.toString() !== req.user._id.toString()) {
-          // Hide potentially sensitive data, keeping only essential system-level info
-          campaignObj.name = '[Private Campaign]';
-          campaignObj.message = '[Private Message]';
-          campaignObj.mediaUrl = '';
-          campaignObj.contacts = []; // Hide contacts list
-          campaignObj.groups = []; // Hide groups list
-          campaignObj.buttons = []; // Hide buttons
-          // Keep status for system monitoring
-          // Keep sentCount, deliveredCount, failedCount for system monitoring
-          // Keep timestamps for system monitoring
-          // Keep sessionId for system monitoring (but it's already anonymized in session controller)
-        }
-        
-        return campaignObj;
-      });
-      
-      const total = anonymizedCampaigns.length;
-      const running = anonymizedCampaigns.filter(c => c.status === 'running').length;
-      const completed = anonymizedCampaigns.filter(c => c.status === 'completed').length;
-      const failed = anonymizedCampaigns.filter(c => c.status === 'failed').length;
-      const totalSent = anonymizedCampaigns.reduce((s, c) => s + c.sentCount, 0);
-      const totalDelivered = anonymizedCampaigns.reduce((s, c) => s + c.deliveredCount, 0);
-      const totalFailed = anonymizedCampaigns.reduce((s, c) => s + c.failedCount, 0);
+    const total = campaigns.length;
+    const running = campaigns.filter(c => c.status === 'running').length;
+    const completed = campaigns.filter(c => c.status === 'completed').length;
+    const failed = campaigns.filter(c => c.status === 'failed').length;
+    const totalSent = campaigns.reduce((s, c) => s + c.sentCount, 0);
+    const totalDelivered = campaigns.reduce((s, c) => s + c.deliveredCount, 0);
+    const totalFailed = campaigns.reduce((s, c) => s + c.failedCount, 0);
 
-      res.json({
-        success: true,
-        analytics: {
-          total,
-          running,
-          completed,
-          failed,
-          totalSent,
-          totalDelivered,
-          totalFailed,
-          campaigns: anonymizedCampaigns
-        }
-      });
-    } else {
-      const total = campaigns.length;
-      const running = campaigns.filter(c => c.status === 'running').length;
-      const completed = campaigns.filter(c => c.status === 'completed').length;
-      const failed = campaigns.filter(c => c.status === 'failed').length;
-      const totalSent = campaigns.reduce((s, c) => s + c.sentCount, 0);
-      const totalDelivered = campaigns.reduce((s, c) => s + c.deliveredCount, 0);
-      const totalFailed = campaigns.reduce((s, c) => s + c.failedCount, 0);
-
-      res.json({
-        success: true,
-        analytics: {
-          total,
-          running,
-          completed,
-          failed,
-          totalSent,
-          totalDelivered,
-          totalFailed,
-          campaigns
-        }
-      });
-    }
+    res.json({
+      success: true,
+      analytics: {
+        total,
+        running,
+        completed,
+        failed,
+        totalSent,
+        totalDelivered,
+        totalFailed,
+        campaigns
+      }
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

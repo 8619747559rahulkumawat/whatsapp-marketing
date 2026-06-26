@@ -5,10 +5,10 @@ const whatsappService = require('../services/whatsappService');
 exports.getTemplates = async (req, res) => {
   try {
     const { category, status, page = 1, limit = 20 } = req.query;
-    const filter = { 
-      tenantId: req.tenant._id,
-      userId: req.user._id 
-    };
+    const filter = { tenantId: req.tenant._id };
+    if (!['admin', 'super_admin'].includes(req.user.role)) {
+      filter.userId = req.user._id;
+    }
     
     if (category) filter.category = category;
     if (status) filter.status = status;
@@ -282,10 +282,11 @@ exports.rejectTemplate = async (req, res) => {
 
 exports.getCategories = async (req, res) => {
   try {
-    const categories = await Template.distinct('category', {
-      tenantId: req.tenant._id,
-      userId: req.user._id
-    });
+    const filter = { tenantId: req.tenant._id };
+    if (!['admin', 'super_admin'].includes(req.user.role)) {
+      filter.userId = req.user._id;
+    }
+    const categories = await Template.distinct('category', filter);
     
     res.json({ success: true, categories });
   } catch (err) {
@@ -304,11 +305,11 @@ exports.getTemplatesByStatus = async (req, res) => {
       });
     }
     
-    const templates = await Template.find({
-      tenantId: req.tenant._id,
-      userId: req.user._id,
-      status
-    }).sort({ createdAt: -1 });
+    const filter = { tenantId: req.tenant._id, status };
+    if (!['admin', 'super_admin'].includes(req.user.role)) {
+      filter.userId = req.user._id;
+    }
+    const templates = await Template.find(filter).sort({ createdAt: -1 });
     
     res.json({ success: true, templates });
   } catch (err) {

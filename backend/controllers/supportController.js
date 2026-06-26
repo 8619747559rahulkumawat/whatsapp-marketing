@@ -10,7 +10,7 @@ exports.getTickets = async (req, res) => {
     const { skip, limit, page } = calculatePagination(req.query.page, req.query.limit);
     const filter = { tenantId: req.tenant._id };
     if (req.query.status) filter.status = req.query.status;
-    if (req.user.role === 'agent') filter.assignedTo = req.user._id;
+    if (req.query.scope === 'my') filter.assignedTo = req.user._id;
     const [tickets, totalCount] = await Promise.all([
       SupportTicket.find(filter)
         .populate('userId', 'name email phone')
@@ -66,6 +66,12 @@ exports.updateTicketStatus = async (req, res) => {
 exports.assignTicket = async (req, res) => {
   try {
     const { assignedTo } = req.body;
+    if (assignedTo) {
+      const assignedUser = await User.findOne({ _id: assignedTo, tenantId: req.tenant._id });
+      if (!assignedUser) {
+        return res.status(400).json({ success: false, message: 'Assigned user not found in this tenant' });
+      }
+    }
     const ticket = await SupportTicket.findOneAndUpdate(
       { _id: req.params.id, tenantId: req.tenant._id },
       { $set: { assignedTo, status: 'in_progress' } },
@@ -81,6 +87,9 @@ exports.assignTicket = async (req, res) => {
 exports.addTicketNote = async (req, res) => {
   try {
     const { text } = req.body;
+    if (!text || !text.trim()) {
+      return res.status(400).json({ success: false, message: 'Note text is required' });
+    }
     const ticket = await SupportTicket.findOneAndUpdate(
       { _id: req.params.id, tenantId: req.tenant._id },
       { $push: { internalNotes: { text, addedBy: req.user._id, addedByName: req.user.name, addedAt: new Date() } } },

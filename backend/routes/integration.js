@@ -30,10 +30,17 @@ const webhookAuth = (platform) => {
   };
 };
 
+const resolveTenantFromConfig = async (platform) => {
+  const EcommerceIntegration = require('../models/EcommerceIntegration');
+  const integrations = await EcommerceIntegration.find({ platform, isActive: true }).lean();
+  return integrations.length > 0 ? integrations[0].tenantId : null;
+};
+
 // Shopify webhook endpoints (no auth - verified by HMAC)
 router.post('/shopify/abandoned-checkout', webhookAuth('shopify'), async (req, res) => {
   try {
-    const result = await ecommerceService.handleAbandonedCheckout(req.body, 'shopify', req.body.tenantId || null, req.app.get('io'));
+    const tenantId = await resolveTenantFromConfig('shopify');
+    const result = await ecommerceService.handleAbandonedCheckout(req.body, 'shopify', tenantId, req.app.get('io'));
     res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -42,7 +49,8 @@ router.post('/shopify/abandoned-checkout', webhookAuth('shopify'), async (req, r
 
 router.post('/shopify/order-created', webhookAuth('shopify'), async (req, res) => {
   try {
-    const result = await ecommerceService.handleOrderCreated(req.body, 'shopify', req.body.tenantId || null, req.app.get('io'));
+    const tenantId = await resolveTenantFromConfig('shopify');
+    const result = await ecommerceService.handleOrderCreated(req.body, 'shopify', tenantId, req.app.get('io'));
     res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -51,7 +59,8 @@ router.post('/shopify/order-created', webhookAuth('shopify'), async (req, res) =
 
 router.post('/shopify/order-updated', webhookAuth('shopify'), async (req, res) => {
   try {
-    const result = await ecommerceService.handleOrderUpdated(req.body, 'shopify', req.body.tenantId || null, req.app.get('io'));
+    const tenantId = await resolveTenantFromConfig('shopify');
+    const result = await ecommerceService.handleOrderUpdated(req.body, 'shopify', tenantId, req.app.get('io'));
     res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -61,7 +70,8 @@ router.post('/shopify/order-updated', webhookAuth('shopify'), async (req, res) =
 // WooCommerce webhook endpoints (no auth - verified by signature)
 router.post('/woocommerce/abandoned-checkout', webhookAuth('woocommerce'), async (req, res) => {
   try {
-    const result = await ecommerceService.handleAbandonedCheckout(req.body, 'woocommerce', req.body.tenantId || null, req.app.get('io'));
+    const tenantId = await resolveTenantFromConfig('woocommerce');
+    const result = await ecommerceService.handleAbandonedCheckout(req.body, 'woocommerce', tenantId, req.app.get('io'));
     res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -70,7 +80,8 @@ router.post('/woocommerce/abandoned-checkout', webhookAuth('woocommerce'), async
 
 router.post('/woocommerce/order-created', webhookAuth('woocommerce'), async (req, res) => {
   try {
-    const result = await ecommerceService.handleOrderCreated(req.body, 'woocommerce', req.body.tenantId || null, req.app.get('io'));
+    const tenantId = await resolveTenantFromConfig('woocommerce');
+    const result = await ecommerceService.handleOrderCreated(req.body, 'woocommerce', tenantId, req.app.get('io'));
     res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -79,7 +90,8 @@ router.post('/woocommerce/order-created', webhookAuth('woocommerce'), async (req
 
 router.post('/woocommerce/order-updated', webhookAuth('woocommerce'), async (req, res) => {
   try {
-    const result = await ecommerceService.handleOrderUpdated(req.body, 'woocommerce', req.body.tenantId || null, req.app.get('io'));
+    const tenantId = await resolveTenantFromConfig('woocommerce');
+    const result = await ecommerceService.handleOrderUpdated(req.body, 'woocommerce', tenantId, req.app.get('io'));
     res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

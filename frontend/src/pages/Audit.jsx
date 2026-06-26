@@ -31,7 +31,7 @@ export default function Audit() {
 
   const clearLogs = async () => {
     if (!confirm('Clear all audit logs? This cannot be undone.')) return;
-    try { await API.delete('/audit/clear'); setLogs([]); setStats(null); } catch (err) { console.error(err); }
+    try { await API.delete('/audit/clear'); fetchLogs(); fetchStats(); } catch (err) { console.error(err); }
   };
 
   const actionColors = {

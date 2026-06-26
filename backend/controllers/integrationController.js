@@ -34,9 +34,14 @@ exports.createWebhook = async (req, res) => {
 
 exports.updateWebhook = async (req, res) => {
   try {
+    const allowedFields = ['name', 'url', 'events', 'headers', 'retryConfig', 'isActive'];
+    const updates = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    }
     const webhook = await WebhookEndpoint.findOneAndUpdate(
       { _id: req.params.id, tenantId: req.tenant._id },
-      { $set: req.body },
+      { $set: updates },
       { new: true, runValidators: true }
     );
     if (!webhook) return res.status(404).json({ success: false, message: 'Webhook not found' });

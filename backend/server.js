@@ -12,6 +12,7 @@ const https = require('https');
 const WebSocket = require('ws');
 
 const jwt = require('jsonwebtoken');
+const { auth, adminOnly } = require('./middleware/auth');
 const errorHandler = require('./middleware/errorHandler');
 const schedulerService = require('./services/schedulerService');
 const { seedAll } = require('./utils/seeder');
@@ -102,7 +103,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.get('/api/debug/connectivity', async (req, res) => {
+app.get('/api/debug/connectivity', auth, adminOnly, async (req, res) => {
   const results = [];
   const check = (name) => new Promise((resolve) => {
     const start = Date.now();
@@ -175,7 +176,7 @@ app.use('/api', (req, res, next) => {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/sessions', require('./routes/sessions'));
 // Force-reset all sessions (for fixing "Waiting for this message" issue after bugfix deployment)
-app.post('/api/debug/reset-sessions', async (req, res) => {
+app.post('/api/debug/reset-sessions', auth, adminOnly, async (req, res) => {
   try {
     const confirm = req.query.confirm;
     if (confirm !== 'RESET_ALL') {
@@ -202,15 +203,12 @@ app.post('/api/debug/reset-sessions', async (req, res) => {
   }
 });
 
-app.get('/api/debug/session/:id', async (req, res) => {
+app.get('/api/debug/session/:id', auth, adminOnly, async (req, res) => {
   try {
-    const { auth } = require('./middleware/auth');
-    await auth(req, res, async () => {
-      const { tenantMiddleware } = require('./middleware/tenant');
-      await tenantMiddleware(req, res, async () => {
-        const sessionController = require('./controllers/sessionController');
-        await sessionController.getSessionDebug(req, res);
-      });
+    const { tenantMiddleware } = require('./middleware/tenant');
+    await tenantMiddleware(req, res, async () => {
+      const sessionController = require('./controllers/sessionController');
+      await sessionController.getSessionDebug(req, res);
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -350,7 +348,7 @@ io.on('connection', (socket) => {
 
   socket.on('join:user', (userId) => {
     if (!userId) return;
-    const token = socket.handshake?.auth?.token || socket.handshake?.query?.token;
+    const token = socket.handshake?.auth?.token;
     if (token) {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -365,7 +363,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('join:admin', () => {
-    const token = socket.handshake?.auth?.token || socket.handshake?.query?.token;
+    const token = socket.handshake?.auth?.token;
     if (token) {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);

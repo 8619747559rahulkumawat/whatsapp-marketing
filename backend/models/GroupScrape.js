@@ -40,7 +40,7 @@ groupScrapeSchema.index({ tenantId: 1, userId: 1 });
 groupScrapeSchema.index({ groupJid: 1 });
 addRetentionIndex(groupScrapeSchema, 'updatedAt', 'GROUP_SCRAPE', 30);
 
-groupScrapeSchema.pre('validate', function trimGroupScrapePayload(next) {
+groupScrapeSchema.pre('save', function trimGroupScrapePayload(next) {
   const maxParticipants = parsePositiveInt(process.env.GROUP_SCRAPE_MAX_PARTICIPANTS, 5000);
   const maxMessages = parsePositiveInt(process.env.GROUP_SCRAPE_MAX_MESSAGES, 100);
   this.updatedAt = new Date();

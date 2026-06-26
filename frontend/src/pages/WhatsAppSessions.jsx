@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 export default function WhatsAppSessions() {
   const { user: currentUser } = useAuth();
   const [sessions, setSessions] = useState([]);
+  const sessionsRef = useRef(sessions);
   const [loading, setLoading] = useState(true);
   const [showNewModal, setShowNewModal] = useState(false);
   const [sessionName, setSessionName] = useState('');
@@ -30,6 +31,9 @@ export default function WhatsAppSessions() {
   const [callType, setCallType] = useState('video');
   const [callActive, setCallActive] = useState(false);
   const [callRoom, setCallRoom] = useState('');
+
+  // Keep ref in sync with state
+  useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
 
   // Sessions fetch karne ka function
   const fetchSessions = async () => {
@@ -100,22 +104,20 @@ export default function WhatsAppSessions() {
     const pollInterval = setInterval(fetchSessions, 30000);
 
     // Auto-refresh QR for connecting sessions every 5s
-    const qrRefreshInterval = setInterval(() => {
-      setSessions(prev => {
-        const connecting = prev.filter(s => s.status === 'connecting' && !s.qrCode && !s.qr);
-        if (connecting.length === 0) return prev;
-        connecting.forEach(s => {
-          API.get(`/sessions/${s.sessionId}/qr`).then(({ data }) => {
-            if (data.qr) {
-              setQrError(null);
-              setSessions(inner => inner.map(x =>
-                x.sessionId === s.sessionId ? { ...x, qrCode: data.qr, qr: data.qr, status: data.status } : x
-              ));
-            }
-          }).catch(() => {});
-        });
-        return prev;
-      });
+    const qrRefreshInterval = setInterval(async () => {
+      const snapshot = sessionsRef.current;
+      const connecting = snapshot.filter(s => s.status === 'connecting' && !s.qrCode && !s.qr);
+      for (const s of connecting) {
+        try {
+          const { data } = await API.get(`/sessions/${s.sessionId}/qr`);
+          if (data.qr) {
+            setQrError(null);
+            setSessions(prev => prev.map(x =>
+              x.sessionId === s.sessionId ? { ...x, qrCode: data.qr, qr: data.qr, status: data.status } : x
+            ));
+          }
+        } catch {}
+      }
     }, 5000);
 
     return () => {
@@ -317,7 +319,7 @@ export default function WhatsAppSessions() {
         'Direction': m.isMe ? 'Sent' : 'Received'
       }));
       const csv = ['Sender,Content,Type,Timestamp,Direction', ...rows.map(r =>
-        `"${r.Sender}","${r.Content.replace(/"/g, '""')}","${r.Type}","${r.Timestamp}","${r.Direction}"`
+        `"${r.Sender}","${String(r.Content).replace(/"/g, '""').replace(/\n/g, '\\n').replace(/\r/g, '\\r')}","${r.Type}","${r.Timestamp}","${r.Direction}"`
       )].join('\n');
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);

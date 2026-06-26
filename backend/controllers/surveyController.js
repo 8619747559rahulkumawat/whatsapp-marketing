@@ -14,7 +14,7 @@ exports.getSurveys = async (req, res) => {
 
 exports.getSurvey = async (req, res) => {
   try {
-    const survey = await Survey.findById(req.params.id);
+    const survey = await Survey.findOne({ _id: req.params.id, tenantId: req.tenant._id });
     if (!survey) return res.status(404).json({ success: false, message: 'Survey not found' });
     res.json({ success: true, survey });
   } catch (err) {
@@ -35,8 +35,8 @@ exports.createSurvey = async (req, res) => {
 
 exports.updateSurvey = async (req, res) => {
   try {
-    const survey = await Survey.findByIdAndUpdate(
-      req.params.id, { ...req.body, updatedAt: new Date() }, { new: true }
+    const survey = await Survey.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.tenant._id }, { ...req.body, updatedAt: new Date() }, { new: true }
     );
     if (!survey) return res.status(404).json({ success: false, message: 'Survey not found' });
     res.json({ success: true, survey });
@@ -47,7 +47,8 @@ exports.updateSurvey = async (req, res) => {
 
 exports.deleteSurvey = async (req, res) => {
   try {
-    await Survey.findByIdAndDelete(req.params.id);
+    const survey = await Survey.findOneAndDelete({ _id: req.params.id, tenantId: req.tenant._id });
+    if (!survey) return res.status(404).json({ success: false, message: 'Survey not found' });
     res.json({ success: true, message: 'Survey deleted' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -65,10 +66,10 @@ exports.submitResponse = async (req, res) => {
       npsScore = answers[0].score;
     }
     const response = await SurveyResponse.create({
-      tenantId: req.tenant._id, surveyId: survey._id, contactId, answers, npsScore
+      tenantId: survey.tenantId, surveyId: survey._id, contactId, answers, npsScore
     });
     const stats = await SurveyResponse.aggregate([
-      { $match: { surveyId: survey._id } },
+      { $match: { surveyId: survey._id, tenantId: survey.tenantId } },
       { $group: { _id: null, avg: { $avg: '$npsScore' }, count: { $sum: 1 } } }
     ]);
     await Survey.findByIdAndUpdate(survey._id, {

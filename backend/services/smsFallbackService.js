@@ -2,6 +2,7 @@ const axios = require('axios');
 const SmsFallbackLog = require('../models/SmsFallbackLog');
 
 const sendViaTwilio = async (to, message) => {
+  if (!to) throw new Error('No phone number provided');
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_PHONE_NUMBER;
@@ -43,8 +44,12 @@ const sendViaLocalGateway = async (to, message, gatewayUrl) => {
 
 const executeSmsFallback = async (messageDoc, tenantId, userId) => {
   const channel = process.env.SMS_PROVIDER || 'twilio';
-  const phone = messageDoc.to;
+  const phone = messageDoc.to || messageDoc.phone;
   const content = messageDoc.content || messageDoc.message;
+
+  if (!phone) {
+    return { success: false, error: 'No phone number provided' };
+  }
 
   let log = await SmsFallbackLog.create({
     tenantId, userId,

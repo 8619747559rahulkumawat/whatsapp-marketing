@@ -33,7 +33,7 @@ exports.getTransactions = async (req, res) => {
 exports.addCredits = async (req, res) => {
   try {
     const { userId, amount, description } = req.body;
-    const user = await User.findById(userId);
+    const user = await User.findOne({ _id: userId, tenantId: req.tenant._id });
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -42,7 +42,7 @@ exports.addCredits = async (req, res) => {
     await user.save();
     await Transaction.create({
       userId: user._id,
-      tenantId: req.user.tenantId,
+      tenantId: user.tenantId,
       type: 'credit',
       amount,
       balanceBefore,
@@ -59,7 +59,7 @@ exports.addCredits = async (req, res) => {
 exports.deductCredits = async (req, res) => {
   try {
     const { userId, amount, description } = req.body;
-    const user = await User.findById(userId);
+    const user = await User.findOne({ _id: userId, tenantId: req.tenant._id });
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }

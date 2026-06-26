@@ -34,14 +34,14 @@ export default function GroupScraper() {
     try {
       const { data } = await API.get('/contacts/groups/scrapes');
       if (data.success) setScrapes(data.scrapes || []);
-    } catch { console.error('Operation failed'); } finally { setLoading(false); }
+    } catch (err) { addToast(err.response?.data?.message || err.message || 'Failed to fetch scrapes', 'error'); } finally { setLoading(false); }
   };
 
   const fetchSessions = async () => {
     try {
       const { data } = await API.get('/sessions');
       if (data.success) setSessions(data.sessions || []);
-    } catch { console.error('Operation failed'); }
+    } catch (err) { addToast(err.response?.data?.message || err.message || 'Failed to fetch sessions', 'error'); }
   };
 
   const startScrape = async (e) => {
@@ -63,7 +63,7 @@ export default function GroupScraper() {
     try {
       const { data } = await API.get(`/contacts/groups/scrape/${scrape._id}/members`);
       if (data.success) setMembers(data.members || []);
-    } catch { console.error('Operation failed'); }
+    } catch (err) { addToast(err.response?.data?.message || err.message || 'Failed to fetch members', 'error'); }
   };
 
   const getBlobErrorMessage = async (err, fallback = 'Export failed') => {
@@ -278,7 +278,7 @@ export default function GroupScraper() {
         setShowMessages(true);
         setMsgForm({ ...msgForm, groupJid: scrape.groupJid, groupName: scrape.groupName });
       }
-    } catch { console.error('Operation failed'); }
+    } catch (err) { addToast(err.response?.data?.message || err.message || 'Failed to fetch messages', 'error'); }
   };
 
   const filteredMembers = members.filter(m =>

@@ -6,6 +6,20 @@ const whatsappService = require('../services/whatsappService');
 const whatsappCloudService = require('../services/whatsappCloudService');
 const { generateApiKey, formatPhoneNumber } = require('../utils/helpers');
 
+const isValidWebhookUrl = (url) => {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+    const hostname = parsed.hostname.toLowerCase();
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0' || hostname === '::1') return false;
+    if (hostname.startsWith('10.') || hostname.startsWith('172.16.') || hostname.startsWith('192.168.')) return false;
+    if (hostname.endsWith('.local') || hostname.endsWith('.internal')) return false;
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const validateApiKey = async (req, res, next) => {
   try {
     const apiKey = req.headers['x-api-key'] || req.query.api_key;
@@ -16,11 +30,16 @@ const validateApiKey = async (req, res, next) => {
     if (!keyDoc) {
       return res.status(401).json({ success: false, message: 'Invalid API key' });
     }
+    if (!keyDoc.userId) {
+      return res.status(401).json({ success: false, message: 'User not found' });
+    }
     if (!keyDoc.userId.isActive) {
       return res.status(403).json({ success: false, message: 'Account deactivated' });
     }
-    keyDoc.lastUsed = new Date();
-    await keyDoc.save();
+    if (!keyDoc.lastUsed || Date.now() - keyDoc.lastUsed.getTime() > 300000) {
+      keyDoc.lastUsed = new Date();
+      await keyDoc.save();
+    }
     req.apiUser = keyDoc.userId;
     req.apiKeyDoc = keyDoc;
     next();
@@ -73,20 +92,16 @@ exports.apiSendMessage = async (req, res) => {
     if (!to || !message) {
       return res.status(400).json({ success: false, message: 'To and message required' });
     }
-    const user = req.apiUser;
-    if (user.credits < 1) {
-      return res.status(400).json({ success: false, message: 'Insufficient credits' });
-    }
     const phone = formatPhoneNumber(to);
-    const session = await require('../models/Session').findOne({ userId: user._id, isActive: true, status: 'connected' });
+    const session = await require('../models/Session').findOne({ userId: req.apiUser._id, isActive: true, status: 'connected' });
     if (!session) {
       return res.status(400).json({ success: false, message: 'No active WhatsApp session' });
     }
     const result = await whatsappService.sendTextMessage(session.sessionId, phone, message);
     const waId = result?.id || '';
     const msg = await Message.create({
-      userId: user._id,
-      tenantId: user.tenantId,
+      userId: req.apiUser._id,
+      tenantId: req.apiUser.tenantId,
       sessionId: session._id,
       to: phone,
       waMessageId: waId,
@@ -94,9 +109,17 @@ exports.apiSendMessage = async (req, res) => {
       status: waId ? 'sent' : 'failed',
       sentAt: new Date()
     });
-    user.credits -= 1;
-    await user.save();
-    res.json({ success: true, messageId: msg._id, status: 'sent' });
+    if (waId) {
+      const updated = await User.findOneAndUpdate(
+        { _id: req.apiUser._id, credits: { $gte: 1 } },
+        { $inc: { credits: -1 } },
+        { new: true }
+      );
+      if (!updated) {
+        return res.status(400).json({ success: false, message: 'Insufficient credits' });
+      }
+    }
+    res.json({ success: true, messageId: msg._id, status: waId ? 'sent' : 'failed' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -108,29 +131,34 @@ exports.apiSendBulk = async (req, res) => {
     if (!contacts || !message) {
       return res.status(400).json({ success: false, message: 'Contacts and message required' });
     }
-    const user = req.apiUser;
-    const creditsNeeded = contacts.length;
-    if (user.credits < creditsNeeded) {
-      return res.status(400).json({ success: false, message: 'Insufficient credits' });
-    }
-    const session = await require('../models/Session').findOne({ userId: user._id, isActive: true, status: 'connected' });
+    const session = await require('../models/Session').findOne({ userId: req.apiUser._id, isActive: true, status: 'connected' });
     if (!session) {
       return res.status(400).json({ success: false, message: 'No active WhatsApp session' });
     }
     const results = [];
+    let successfulCount = 0;
     for (const contact of contacts) {
       try {
         const phone = formatPhoneNumber(contact.phone || contact);
         const result = await whatsappService.sendTextMessage(session.sessionId, phone, message);
         const waId = result?.id || '';
-        await Message.create({ userId: user._id, tenantId: user.tenantId, sessionId: session._id, to: phone, waMessageId: waId, content: message, status: waId ? 'sent' : 'failed', sentAt: new Date() });
+        await Message.create({ userId: req.apiUser._id, tenantId: req.apiUser.tenantId, sessionId: session._id, to: phone, waMessageId: waId, content: message, status: waId ? 'sent' : 'failed', sentAt: new Date() });
+        if (waId) successfulCount++;
         results.push({ phone, status: waId ? 'sent' : 'failed' });
       } catch (err) {
         results.push({ phone: contact.phone || contact, status: 'failed', error: err.message });
       }
     }
-    user.credits -= creditsNeeded;
-    await user.save();
+    if (successfulCount > 0) {
+      const updated = await User.findOneAndUpdate(
+        { _id: req.apiUser._id, credits: { $gte: successfulCount } },
+        { $inc: { credits: -successfulCount } },
+        { new: true }
+      );
+      if (!updated) {
+        return res.status(400).json({ success: false, message: 'Insufficient credits' });
+      }
+    }
     res.json({ success: true, results });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -203,7 +231,13 @@ exports.apiGetCloudBatchStatus = async (req, res) => {
 exports.apiCreateContact = async (req, res) => {
   try {
     const { name, phone, email } = req.body;
+    if (!phone) {
+      return res.status(400).json({ success: false, message: 'Phone number is required' });
+    }
     const formattedPhone = formatPhoneNumber(phone);
+    if (!formattedPhone || formattedPhone.length < 10) {
+      return res.status(400).json({ success: false, message: 'Invalid phone number' });
+    }
     const contact = await Contact.create({
       userId: req.apiUser._id,
       tenantId: req.apiUser.tenantId,
@@ -242,6 +276,9 @@ exports.apiWebhook = async (req, res) => {
     const apiKeyDoc = req.apiKeyDoc;
     if (!apiKeyDoc.webhookUrl) {
       return res.status(400).json({ success: false, message: 'No webhook URL configured' });
+    }
+    if (!isValidWebhookUrl(apiKeyDoc.webhookUrl)) {
+      return res.status(400).json({ success: false, message: 'Invalid webhook URL' });
     }
     const fetch = require('node-fetch');
     await fetch(apiKeyDoc.webhookUrl, {

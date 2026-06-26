@@ -15,7 +15,7 @@ exports.getWebForms = async (req, res) => {
 
 exports.getWebForm = async (req, res) => {
   try {
-    const form = await WebForm.findById(req.params.id);
+    const form = await WebForm.findOne({ _id: req.params.id, tenantId: req.tenant._id });
     if (!form) return res.status(404).json({ success: false, message: 'Web form not found' });
     res.json({ success: true, form });
   } catch (err) {
@@ -38,8 +38,8 @@ exports.createWebForm = async (req, res) => {
 
 exports.updateWebForm = async (req, res) => {
   try {
-    const form = await WebForm.findByIdAndUpdate(
-      req.params.id,
+    const form = await WebForm.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.tenant._id },
       { ...req.body, updatedAt: new Date() },
       { new: true }
     );
@@ -52,7 +52,7 @@ exports.updateWebForm = async (req, res) => {
 
 exports.deleteWebForm = async (req, res) => {
   try {
-    const form = await WebForm.findByIdAndDelete(req.params.id);
+    const form = await WebForm.findOneAndDelete({ _id: req.params.id, tenantId: req.tenant._id });
     if (!form) return res.status(404).json({ success: false, message: 'Web form not found' });
     res.json({ success: true, message: 'Web form deleted' });
   } catch (err) {
@@ -88,7 +88,7 @@ exports.submitWebForm = async (req, res) => {
           description: `New lead from ${form.name}: ${name} (${email || phone})`,
           metadata: { formSlug: form.slug, formName: form.name, submission: submissionData }
         });
-      } catch {}
+      } catch (e) { console.error('Webform submission error:', e); }
     }
     await WebForm.findByIdAndUpdate(form._id, { $inc: { submissions: 1 } });
     res.json({ success: true, message: form.successMessage, redirectUrl: form.redirectUrl || null });

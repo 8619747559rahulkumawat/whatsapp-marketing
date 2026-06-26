@@ -8,10 +8,8 @@ const apiKeySchema = new mongoose.Schema({
   permissions: [{ type: String, enum: ['send', 'campaign', 'contacts', 'reports', 'webhook'] }],
   isActive: { type: Boolean, default: true },
   lastUsed: { type: Date },
-  webhookUrl: { type: String, default: '' },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
-});
+  webhookUrl: { type: String, default: '' }
+}, { timestamps: true });
 
 // Indexes for better query performance
 apiKeySchema.index({ tenantId: 1, userId: 1 });

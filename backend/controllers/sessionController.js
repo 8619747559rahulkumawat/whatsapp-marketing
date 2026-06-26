@@ -11,10 +11,10 @@ const mongoose = require('mongoose');
 
 exports.getSessions = async (req, res) => {
   try {
-    const filter = req.user.role === 'admin' ? {} : { userId: req.user._id };
+    const filter = (req.user.role === 'admin' || req.user.role === 'super_admin') ? {} : { userId: req.user._id };
     
     let query = Session.find(filter).sort({ createdAt: -1 });
-    if (req.user.role === 'admin') {
+    if (req.user.role === 'admin' || req.user.role === 'super_admin') {
       query = query.populate('userId', 'name email phone');
     }
     
@@ -33,7 +33,7 @@ exports.getSessions = async (req, res) => {
       // else keep DB status as-is (disconnected, connecting, etc.)
     }
     
-    if (req.user.role === 'admin') {
+    if (req.user.role === 'admin' || req.user.role === 'super_admin') {
       const sanitizedSessions = sessions.map(session => {
         const sessionObj = session.toObject ? session.toObject() : { ...session };
         
@@ -407,7 +407,7 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
     const chunk = unique.slice(i, i + chunkSize);
     const ops = chunk.map(c => ({
       updateOne: {
-        filter: { userId, phone: c.phoneKey },
+        filter: { tenantId, phone: c.phoneKey },
         update: {
           $setOnInsert: { userId, tenantId, phone: c.phoneKey, name: c.name || '', source: 'whatsapp_sync', createdAt: new Date() },
           $set: { updatedAt: new Date() }

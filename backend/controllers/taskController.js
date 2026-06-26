@@ -21,7 +21,7 @@ exports.getTasks = async (req, res) => {
 
 exports.getTask = async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id)
+    const task = await Task.findOne({ _id: req.params.id, tenantId: req.tenant._id })
       .populate('assignedTo', 'name email')
       .populate('contactId', 'name phone');
     if (!task) return res.status(404).json({ success: false, message: 'Task not found' });
@@ -57,7 +57,7 @@ exports.updateTask = async (req, res) => {
   try {
     const data = { ...req.body, updatedAt: new Date() };
     if (req.body.status === 'completed') data.completedAt = new Date();
-    const task = await Task.findByIdAndUpdate(req.params.id, data, { new: true });
+    const task = await Task.findOneAndUpdate({ _id: req.params.id, tenantId: req.tenant._id }, data, { new: true });
     if (!task) return res.status(404).json({ success: false, message: 'Task not found' });
     res.json({ success: true, task });
   } catch (err) {
@@ -67,7 +67,7 @@ exports.updateTask = async (req, res) => {
 
 exports.deleteTask = async (req, res) => {
   try {
-    const task = await Task.findByIdAndDelete(req.params.id);
+    const task = await Task.findOneAndDelete({ _id: req.params.id, tenantId: req.tenant._id });
     if (!task) return res.status(404).json({ success: false, message: 'Task not found' });
     res.json({ success: true, message: 'Task deleted' });
   } catch (err) {

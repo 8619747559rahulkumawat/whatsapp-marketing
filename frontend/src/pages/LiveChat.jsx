@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { FaWhatsapp, FaPaperPlane, FaUser, FaSmile, FaPaperclip, FaReply, FaTrash, FaStar, FaSearch, FaTimes, FaDownload, FaPhone, FaVideo, FaPhoneSlash } from 'react-icons/fa';
 
 
-const EMOJIS = ['😊','👍','❤️','😂','🔥','🎉','🙏','😍','🤣','💀','😎','🥳','😅','🤔','👌','✌️','💪','🤝','😭','🥺','😤','🤩','😱','🤗','😴','🤪','😈','💩','👻','👋','🙌','🤲','💯','✅','❌','⭐','🌈','🎯','🔥','💀','👑','🚀','💰','📱','💻','📞','✉️','📷','🎬','🏆','🥇','💎','😡','🥶','🤡','💔','🗿','✨','🕊️','🔴','🟢','🔵','🟡'];
+const EMOJIS = ['😊','👍','❤️','😂','🔥','🎉','🙏','😍','🤣','💀','😎','🥳','😅','🤔','👌','✌️','💪','🤝','😭','🥺','😤','🤩','😱','🤗','😴','🤪','😈','💩','👻','👋','🙌','🤲','💯','✅','❌','⭐','🌈','🎯','👑','🚀','💰','📱','💻','📞','✉️','📷','🎬','🏆','🥇','💎','😡','🥶','🤡','💔','🗿','✨','🕊️','🔴','🟢','🔵','🟡'];
 const STICKERS = ['👍', '❤️', '😂', '😍', '🔥', '🎉', '🙏', '💀', '😎', '🥳', '🤔', '👌', '💪', '🤝', '😭', '🥺', '😤', '🤩', '😱', '🤗', '😴', '🤪', '😈', '💩', '👻', '👋', '🙌', '🤲', '💯', '✅', '❌', '⭐', '🎯', '👑', '🚀'];
 
 export default function LiveChat() {
@@ -18,12 +18,13 @@ export default function LiveChat() {
    const chatEndRef = useRef(null);
    const selectedConvRef = useRef(null);
    const [search, setSearch] = useState('');
-   const [searchConv, setSearchConv] = useState('');
    const [sessions, setSessions] = useState([]);
    const [showEmoji, setShowEmoji] = useState(false);
    const [showStickers, setShowStickers] = useState(false);
    const [replyTo, setReplyTo] = useState(null);
    const [pinned, setPinned] = useState(() => JSON.parse(localStorage.getItem('pinned_chats') || '[]'));
+   const pinnedRef = useRef(pinned);
+   useEffect(() => { pinnedRef.current = pinned; }, [pinned]);
    const [searchMsg, setSearchMsg] = useState('');
    const fileInputRef = useRef(null);
    const emojiRef = useRef(null);
@@ -122,17 +123,17 @@ export default function LiveChat() {
   };
 
   const fetchData = async () => {
-    try {
-      const [chatRes, msgRes, sessRes] = await Promise.all([
-        API.get('/chat'), API.get('/messages?limit=200'), API.get('/sessions')
-      ]);
-      const connectedSessions = sessRes.data.success ? sessRes.data.sessions.filter(s => s.status === 'connected') : [];
-      if (sessRes.data.success) setSessions(connectedSessions);
-      if (msgRes.data.success && chatRes.data.success) {
-        const convs = mergeConversations(chatRes.data.conversations || [], msgRes.data.messages || []);
-        fetchProfilePics(convs, connectedSessions);
-      }
-    } catch (err) { console.error(err); }
+    const [chatRes, msgRes, sessRes] = await Promise.all([
+      API.get('/chat').catch(e => { console.warn('chat fetch failed', e); return null; }),
+      API.get('/messages?limit=200').catch(e => { console.warn('messages fetch failed', e); return null; }),
+      API.get('/sessions').catch(e => { console.warn('sessions fetch failed', e); return null; })
+    ]);
+    const connectedSessions = sessRes?.data?.success ? sessRes.data.sessions.filter(s => s.status === 'connected') : [];
+    if (sessRes?.data?.success) setSessions(connectedSessions);
+    if (msgRes?.data?.success && chatRes?.data?.success) {
+      const convs = mergeConversations(chatRes.data.conversations || [], msgRes.data.messages || []);
+      fetchProfilePics(convs, connectedSessions);
+    }
   };
 
   const mergeConversations = (chatConvs, whatsappMsgs) => {
@@ -144,11 +145,12 @@ export default function LiveChat() {
       let profilePic = c.profilePic || c.user?.profilePic || '';
       if (typeof key === 'string' && key.startsWith('wa_')) {
         let p = key.slice(3);
-        if (p.startsWith('91') && p.length > 10) p = p.slice(2);
+        const cc = '91';
+        if (p.startsWith(cc) && p.length > 10) p = p.slice(cc.length);
         key = 'wa_' + p;
-        if (userName.startsWith('91') && userName.length > 10) userName = userName.slice(2);
+        if (userName.startsWith(cc) && userName.length > 10) userName = userName.slice(cc.length);
       }
-      if (!convMap[key]) convMap[key] = { userId: key, userName, profilePic, fullPhone: c.fullPhone || '', userEmail: c.user?.email || '', messages: [], lastTime: c.lastTime, pinned: pinned.includes(key), unread: 0, user: c.user || {} };
+      if (!convMap[key]) convMap[key] = { userId: key, userName, profilePic, fullPhone: c.fullPhone || '', userEmail: c.user?.email || '', messages: [], lastTime: c.lastTime, pinned: pinnedRef.current.includes(key), unread: 0, user: c.user || {} };
       (c.messages || []).forEach(m => {
         convMap[key].messages.push({ _id: m._id, message: m.message, senderRole: m.senderRole, senderName: m.senderName, createdAt: m.createdAt, read: m.read, mediaUrl: m.mediaUrl || '' });
         if (m.senderRole === 'user' && !m.read) convMap[key].unread++;
@@ -158,9 +160,10 @@ export default function LiveChat() {
       const rawPhone = m.to?.replace('@s.whatsapp.net', '').replace(/[^0-9]/g, '') || '';
       if (!rawPhone) return;
       let phone = rawPhone;
-      if (phone.startsWith('91') && phone.length > 10) phone = phone.slice(2);
+      const cc = '91';
+      if (phone.startsWith(cc) && phone.length > 10) phone = phone.slice(cc.length);
       const key = `wa_${phone}`;
-      if (!convMap[key]) convMap[key] = { userId: key, userName: phone, fullPhone: rawPhone, userEmail: 'WhatsApp', messages: [], lastTime: m.sentAt || m.createdAt, pinned: pinned.includes(key), profilePic: '' };
+      if (!convMap[key]) convMap[key] = { userId: key, userName: phone, fullPhone: rawPhone, userEmail: 'WhatsApp', messages: [], lastTime: m.sentAt || m.createdAt, pinned: pinnedRef.current.includes(key), profilePic: '' };
       const isSent = m.status === 'sent' || m.status === 'delivered' || m.status === 'read';
       convMap[key].messages.push({ _id: m._id, message: m.content || '', senderRole: isSent ? 'admin' : 'user', senderName: isSent ? 'You' : phone, createdAt: m.sentAt || m.createdAt, mediaUrl: m.mediaUrl || '' });
       if (new Date(m.sentAt || m.createdAt) > new Date(convMap[key].lastTime || 0)) convMap[key].lastTime = m.sentAt || m.createdAt;
@@ -526,7 +529,7 @@ export default function LiveChat() {
                   <button onClick={() => setSearchMsg(prev => prev ? '' : '🔍')} className="text-gray-400 hover:text-white text-sm"><FaSearch size={14} /></button>
                   <button onClick={() => togglePin(selectedConv.userId)} className={`text-sm ${selectedConv.pinned ? 'text-yellow-400' : 'text-gray-400 hover:text-yellow-400'}`}><FaStar size={14} /></button>
                   {(user?.role === 'admin' || user?.role === 'super_admin') && (
-                    <button onClick={() => handleDeleteConv(selectedConv.userId)}
+                    <button onClick={(e) => handleDeleteConv(selectedConv.userId, e)}
                       className="p-1.5 rounded-lg text-xs text-gray-400 hover:text-red-400 hover:bg-red-500/10">
                       <FaTrash size={12} />
                     </button>

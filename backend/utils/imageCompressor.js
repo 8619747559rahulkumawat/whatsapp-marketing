@@ -31,8 +31,13 @@ const compressImage = async (filePath, mimetype) => {
   else if (mimetype === 'image/png') pipeline = pipeline.png({ quality: 75, compressionLevel: 9 });
   else if (mimetype === 'image/webp') pipeline = pipeline.webp({ quality: 70 });
   await pipeline.toFile(tmpPath);
-  fs.unlinkSync(filePath);
-  fs.renameSync(tmpPath, filePath);
+  try {
+    fs.renameSync(tmpPath, filePath);
+  } catch (renameErr) {
+    console.error('[ImageCompressor] Rename failed, cleaning up tmp file:', renameErr.message);
+    try { fs.unlinkSync(tmpPath); } catch {}
+    throw renameErr;
+  }
 };
 
 module.exports = { compressImage };

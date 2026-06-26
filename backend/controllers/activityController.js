@@ -32,7 +32,7 @@ exports.createActivity = async (req, res) => {
 
 exports.deleteActivity = async (req, res) => {
   try {
-    const activity = await Activity.findByIdAndDelete(req.params.id);
+    const activity = await Activity.findOneAndDelete({ _id: req.params.id, tenantId: req.tenant._id });
     if (!activity) return res.status(404).json({ success: false, message: 'Activity not found' });
     res.json({ success: true, message: 'Activity deleted' });
   } catch (err) {

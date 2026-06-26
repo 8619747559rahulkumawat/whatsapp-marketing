@@ -11,8 +11,10 @@ export default function EmailTemplates() {
   const [form, setForm] = useState({ name: '', subject: '', body: '', category: 'general' });
 
   const fetch = useCallback(async () => {
-    const r = await API.get('/email-templates');
-    if (r.data.success) setTemplates(r.data.templates);
+    try {
+      const r = await API.get('/email-templates');
+      if (r.data.success) setTemplates(r.data.templates);
+    } catch (err) { toast.error('Failed to load templates'); }
   }, []);
   useEffect(() => { fetch(); }, [fetch]);
 
@@ -36,8 +38,11 @@ export default function EmailTemplates() {
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this template?')) return;
-    await API.delete(`/email-templates/${id}`);
-    fetch();
+    try {
+      await API.delete(`/email-templates/${id}`);
+      toast.success('Template deleted');
+      fetch();
+    } catch (err) { toast.error(err.response?.data?.message || 'Delete failed'); }
   };
 
   return (

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import API from '../utils/api';
 import { HiOutlinePlus, HiOutlineTrash, HiOutlinePlay, HiOutlinePause, HiOutlineCog, HiOutlineDuplicate, HiOutlineSave, HiOutlineTemplate, HiOutlineLightningBolt, HiOutlineClock, HiOutlineFilter, HiOutlineCode, HiOutlineChat, HiOutlineMail } from 'react-icons/hi';
 import { FaRobot, FaProjectDiagram, FaWhatsapp, FaSms } from 'react-icons/fa';
+import { nodeTypes as flowNodeTypes } from '../components/FlowNodes';
 
 const NODE_TYPES = [
   { type: 'send_message', label: 'Send Message', icon: FaWhatsapp, color: 'green', description: 'Send a WhatsApp message', bgClass: 'bg-green-500/20', iconClass: 'text-green-400' },
@@ -36,16 +37,18 @@ export default function WorkflowBuilder() {
     } catch { console.error('Operation failed'); } finally { setLoading(false); }
   };
 
+  const normalizeNodes = (nodes) => (nodes || []).map(n => ({ ...n, id: n.id || n._id, _id: n._id || n.id }));
+
   const selectFlow = async (flow) => {
     setSelectedFlow(flow);
     try {
       const { data } = await API.get(`/automation/${flow._id}`);
       if (data.success) {
-        setNodes(data.flow?.nodes || []);
+        setNodes(normalizeNodes(data.flow?.nodes));
         setEdges(data.flow?.edges || []);
       }
     } catch {
-      setNodes(flow.nodes || []);
+      setNodes(normalizeNodes(flow.nodes));
       setEdges(flow.edges || []);
     }
   };
@@ -68,8 +71,11 @@ export default function WorkflowBuilder() {
     if (!selectedFlow) return;
     setSaving(true);
     try {
-      await API.put(`/automation/${selectedFlow._id}`, { nodes, edges });
-      fetchFlows();
+      const { data } = await API.put(`/automation/${selectedFlow._id}`, { nodes, edges });
+      if (data.success) {
+        setSelectedFlow(data.flow || data.automation || { ...selectedFlow, nodes, edges });
+      }
+      await fetchFlows();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to save');
     } finally { setSaving(false); }
@@ -86,8 +92,10 @@ export default function WorkflowBuilder() {
   };
 
   const addNode = (type) => {
+    const id = `node_${Date.now()}`;
     const newNode = {
-      _id: `node_${Date.now()}`,
+      id,
+      _id: id,
       type: type.type,
       label: type.label,
       config: {},

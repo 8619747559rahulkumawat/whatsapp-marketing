@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Tenant = require('../models/Tenant');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
@@ -14,6 +15,9 @@ const tenantMiddleware = async (req, res, next) => {
       // Super admin can access any tenant by specifying tenantId in header or query
       const tenantId = req.headers['x-tenant-id'] || req.query.tenantId;
       if (tenantId) {
+        if (!mongoose.Types.ObjectId.isValid(tenantId)) {
+          return res.status(400).json({ success: false, message: 'Invalid tenant ID format' });
+        }
         const tenant = await Tenant.findById(tenantId);
         if (!tenant) {
           return res.status(404).json({ success: false, message: 'Tenant not found' });
@@ -30,8 +34,10 @@ const tenantMiddleware = async (req, res, next) => {
         }).catch(() => {});
       } else if (req.user.tenantId) {
         const tenant = await Tenant.findById(req.user.tenantId);
-        if (tenant) req.tenant = tenant;
-        else req.tenant = req.user.tenantId;
+        if (!tenant) {
+          return res.status(404).json({ success: false, message: 'Tenant not found' });
+        }
+        req.tenant = tenant;
       }
       next();
       return;

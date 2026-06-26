@@ -75,7 +75,7 @@ exports.assignChat = async (req, res) => {
     const { chatId, memberId } = req.body;
     const member = await TeamMember.findOne({ _id: memberId, tenantId: req.tenant._id });
     if (!member) return res.status(404).json({ success: false, message: 'Team member not found' });
-    await Chat.findByIdAndUpdate(chatId, { assignedTo: memberId });
+    await Chat.findOneAndUpdate({ _id: chatId, tenantId: req.tenant._id }, { assignedTo: memberId });
     await TeamMember.findByIdAndUpdate(memberId, { $addToSet: { assignedChats: chatId } });
     res.json({ success: true, message: 'Chat assigned' });
   } catch (err) {
@@ -87,7 +87,7 @@ exports.addInternalNote = async (req, res) => {
   try {
     const { chatId, note } = req.body;
     const chat = await Chat.findOneAndUpdate(
-      { _id: chatId },
+      { _id: chatId, tenantId: req.tenant._id },
       { $push: { internalNotes: { text: note, addedBy: req.user._id, addedAt: new Date() } } },
       { new: true }
     );

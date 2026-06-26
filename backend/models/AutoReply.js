@@ -12,10 +12,8 @@ const autoReplySchema = new mongoose.Schema({
   sessionId: { type: String, default: '' },
   isActive: { type: Boolean, default: true },
   oncePerContact: { type: Boolean, default: false },
-  sentContacts: [{ type: String }],
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
-});
+  sentContacts: [{ type: String }]
+}, { timestamps: true });
 
 autoReplySchema.index({ tenantId: 1, keyword: 1 });
 

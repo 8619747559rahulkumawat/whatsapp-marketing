@@ -80,21 +80,23 @@ function ClientChat({ user }) {
         }
       }
     };
-    socket?.on('chat:new', handleChatNew);
-    socket?.on('chat:read:update', ({ messageId, read }) => {
+    const handleReadUpdate = ({ messageId, read }) => {
       setMessages(prev => prev.map(msg => msg._id === messageId ? { ...msg, read } : msg));
-    });
+    };
     const handleConnect = () => {
       if (user?._id) socket.emit('join:user', user._id);
       fetchMessages();
     };
+    socket?.on('chat:new', handleChatNew);
+    socket?.on('chat:read:update', handleReadUpdate);
     socket?.on('connect', handleConnect);
     const loadingTimer = setTimeout(() => setLoading(false), 8000);
     return () => {
       clearTimeout(loadingTimer);
       socket?.off('chat:new', handleChatNew);
-      socket?.off('chat:read:update');
+      socket?.off('chat:read:update', handleReadUpdate);
       socket?.off('connect', handleConnect);
+      socket?.disconnect();
     };
   }, [user, fetchMessages]);
 
@@ -246,7 +248,9 @@ function ClientChat({ user }) {
           </div>
         ) : (
           messages.map((msg, idx) => {
-            const isMe = msg.senderRole === 'user';
+            const uidStr = user?._id?.toString();
+            const senderId = msg.senderId?._id || msg.senderId;
+            const isMe = senderId?.toString() === uidStr;
             const showDate = idx === 0 || formatDate(getMsgTime(msg)) !== formatDate(getMsgTime(messages[idx - 1]));
             return (
               <div key={msg._id || idx}>
@@ -369,22 +373,24 @@ function AdminSupport() {
       }
       fetchUsers();
     };
-    socket?.on('chat:new', handleChatNew);
-    socket?.on('chat:read:update', ({ messageId, read }) => {
+    const handleReadUpdate = ({ messageId, read }) => {
       setMessages(prev => prev.map(msg => msg._id === messageId ? { ...msg, read } : msg));
-    });
+    };
     const handleConnect = () => {
       socket.emit('join:admin');
       if (selectedUser) fetchMessages(selectedUser._id);
       fetchUsers();
     };
+    socket?.on('chat:new', handleChatNew);
+    socket?.on('chat:read:update', handleReadUpdate);
     socket?.on('connect', handleConnect);
     const loadingTimer = setTimeout(() => setMsgLoading(false), 8000);
     return () => {
       clearTimeout(loadingTimer);
       socket?.off('chat:new', handleChatNew);
-      socket?.off('chat:read:update');
+      socket?.off('chat:read:update', handleReadUpdate);
       socket?.off('connect', handleConnect);
+      socket?.disconnect();
     };
   }, [selectedUser, fetchUsers, fetchMessages]);
 
@@ -582,7 +588,9 @@ function AdminSupport() {
           </div>
         ) : (
           messages.map((msg, idx) => {
-            const isMe = msg.senderRole === 'admin' || msg.senderRole === 'super_admin';
+            const adminIdStr = user?._id?.toString();
+            const msgSenderId = msg.senderId?._id || msg.senderId;
+            const isMe = msgSenderId?.toString() === adminIdStr;
             const showDate = idx === 0 || formatDate(msg.createdAt) !== formatDate(messages[idx - 1]?.createdAt);
             return (
               <div key={msg._id || idx}>

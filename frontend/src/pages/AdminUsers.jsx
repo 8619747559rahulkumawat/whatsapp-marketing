@@ -23,11 +23,16 @@ export default function AdminUsers() {
   const [creating, setCreating] = useState(false);
   const [planUpdating, setPlanUpdating] = useState(false);
 
-  useEffect(() => { fetchUsers(); }, [page, search]);
+  useEffect(() => { fetchUsers(); }, [page]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => fetchUsers(), 500);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const fetchUsers = async () => {
     try {
-      const { data } = await API.get(`/admin/users?page=${page}&limit=20&search=${search}`);
+      const { data } = await API.get(`/admin/users?page=${page}&limit=20&search=${encodeURIComponent(search)}`);
       if (data.success) { setUsers(data.users); setTotalPages(data.pagination.pages); }
     } catch { console.error("API Error"); } finally { setLoading(false); }
   };

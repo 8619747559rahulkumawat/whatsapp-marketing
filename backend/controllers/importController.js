@@ -16,13 +16,38 @@ exports.importContacts = async (req, res) => {
     if (ext === '.csv') {
       const csv = fs.readFileSync(filePath, 'utf8').replace(/\r/g, '');
       const lines = csv.split('\n').filter(Boolean);
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+
+      const parseCSVLine = (line) => {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+              current += '"';
+              i++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (ch === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+          } else {
+            current += ch;
+          }
+        }
+        result.push(current.trim());
+        return result;
+      };
+
+      const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
       const phoneIdx = headers.findIndex(h => h.includes('phone') || h.includes('mobile') || h.includes('number') || h === 'no');
       const nameIdx = headers.findIndex(h => h.includes('name'));
       const emailIdx = headers.findIndex(h => h.includes('email'));
 
       for (let i = 1; i < lines.length; i++) {
-        const vals = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+        const vals = parseCSVLine(lines[i]);
         if (phoneIdx >= 0 && vals[phoneIdx]) {
           contacts.push({
             phone: vals[phoneIdx].replace(/[^0-9]/g, ''),

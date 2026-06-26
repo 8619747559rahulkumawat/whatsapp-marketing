@@ -3,8 +3,10 @@ import { motion } from 'framer-motion';
 import API from '../utils/api';
 import { HiOutlinePlus, HiOutlineTrash, HiOutlineLink, HiOutlineCode, HiOutlineClipboardCopy, HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineRefresh } from 'react-icons/hi';
 import { FaPuzzlePiece, FaPlug, FaRocket } from 'react-icons/fa';
+import { useToast } from '../contexts/ToastContext';
 
 export default function Integrations() {
+  const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState('webhooks');
   const [webhooks, setWebhooks] = useState([]);
   const [apiKeys, setApiKeys] = useState([]);
@@ -38,7 +40,7 @@ export default function Integrations() {
       setWebhookForm({ name: '', url: '', events: ['message.sent'] });
       fetchData();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to create webhook');
+      addToast(err.response?.data?.message || 'Failed to create webhook', 'error');
     }
   };
 
@@ -66,7 +68,7 @@ export default function Integrations() {
       setApiForm({ name: '', permissions: ['send'] });
       fetchData();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to create API key');
+      addToast(err.response?.data?.message || 'Failed to create API key', 'error');
     }
   };
 

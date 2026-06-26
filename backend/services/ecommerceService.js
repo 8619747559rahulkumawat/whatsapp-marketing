@@ -7,12 +7,22 @@ const automationService = require('./automationService');
 
 const SHOPIFY_API_VERSION = '2024-01';
 
+const timingSafeCompare = (a, b) => {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (a.length !== b.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  } catch {
+    return false;
+  }
+};
+
 const verifyShopifyWebhook = (req) => {
   const hmacHeader = req.headers['x-shopify-hmac-sha256'];
   if (!hmacHeader) return false;
   const secret = process.env.SHOPIFY_WEBHOOK_SECRET || '';
   const digest = crypto.createHmac('sha256', secret).update(JSON.stringify(req.body)).digest('base64');
-  return digest === hmacHeader;
+  return timingSafeCompare(digest, hmacHeader);
 };
 
 const verifyWooCommerceWebhook = (req) => {
@@ -20,7 +30,7 @@ const verifyWooCommerceWebhook = (req) => {
   if (!signature) return false;
   const secret = process.env.WOOCOMMERCE_WEBHOOK_SECRET || '';
   const digest = crypto.createHmac('sha256', secret).update(req.rawBody || JSON.stringify(req.body)).digest('base64');
-  return digest === signature;
+  return timingSafeCompare(digest, signature);
 };
 
 const handleAbandonedCheckout = async (data, platform, tenantId, io) => {

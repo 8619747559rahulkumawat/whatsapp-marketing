@@ -12,8 +12,10 @@ export default function Webhooks() {
   const [form, setForm] = useState({ name: '', url: '', events: [] });
 
   const fetch = useCallback(async () => {
-    const r = await API.get('/webhooks/api');
-    if (r.data.success) setWebhooks(r.data.webhooks);
+    try {
+      const r = await API.get('/webhooks/api');
+      if (r.data.success) setWebhooks(r.data.webhooks);
+    } catch (err) { toast.error('Failed to load webhooks'); }
   }, []);
   useEffect(() => { fetch(); }, [fetch]);
 
@@ -41,8 +43,11 @@ export default function Webhooks() {
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this webhook?')) return;
-    await API.delete(`/webhooks/api/${id}`);
-    fetch();
+    try {
+      await API.delete(`/webhooks/api/${id}`);
+      toast.success('Webhook deleted');
+      fetch();
+    } catch (err) { toast.error(err.response?.data?.message || 'Delete failed'); }
   };
 
   return (

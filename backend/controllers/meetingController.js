@@ -18,7 +18,7 @@ exports.getMeetings = async (req, res) => {
 
 exports.getMeeting = async (req, res) => {
   try {
-    const meeting = await Meeting.findById(req.params.id);
+    const meeting = await Meeting.findOne({ _id: req.params.id, tenantId: req.tenant._id });
     if (!meeting) return res.status(404).json({ success: false, message: 'Meeting not found' });
     res.json({ success: true, meeting });
   } catch (err) {
@@ -55,7 +55,7 @@ exports.updateMeeting = async (req, res) => {
     if (data.startTime && !data.endTime) {
       data.endTime = new Date(new Date(data.startTime).getTime() + (data.duration || 30) * 60000);
     }
-    const meeting = await Meeting.findByIdAndUpdate(req.params.id, data, { new: true });
+    const meeting = await Meeting.findOneAndUpdate({ _id: req.params.id, tenantId: req.tenant._id }, data, { new: true });
     if (!meeting) return res.status(404).json({ success: false, message: 'Meeting not found' });
     res.json({ success: true, meeting });
   } catch (err) {
@@ -65,7 +65,7 @@ exports.updateMeeting = async (req, res) => {
 
 exports.deleteMeeting = async (req, res) => {
   try {
-    const meeting = await Meeting.findByIdAndDelete(req.params.id);
+    const meeting = await Meeting.findOneAndDelete({ _id: req.params.id, tenantId: req.tenant._id });
     if (!meeting) return res.status(404).json({ success: false, message: 'Meeting not found' });
     res.json({ success: true, message: 'Meeting deleted' });
   } catch (err) {

@@ -11,13 +11,16 @@ exports.getTeamMembers = async (req, res) => {
 
 exports.updateUserRole = async (req, res) => {
   try {
+    if (req.user.role !== 'super_admin') {
+      return res.status(403).json({ success: false, message: 'Only super_admin can update roles' });
+    }
     const { role, permissions } = req.body;
-    const allowedRoles = ['admin', 'reseller', 'user', 'super_admin'];
+    const allowedRoles = ['admin', 'manager', 'agent', 'user', 'super_admin'];
     if (!allowedRoles.includes(role)) {
       return res.status(400).json({ success: false, message: 'Invalid role' });
     }
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
+    const user = await User.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.tenant._id },
       { role, permissions: permissions || {}, updatedAt: new Date() },
       { new: true }
     ).select('-password');

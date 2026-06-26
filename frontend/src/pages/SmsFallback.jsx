@@ -29,7 +29,10 @@ export default function SmsFallback() {
   };
 
   const testFallback = async () => {
-    if (!testPhone || !testMessage) return;
+    if (!testPhone || !testMessage) {
+      setTestResult({ success: false, result: { error: 'Phone number and message are required' } });
+      return;
+    }
     setTestResult(null);
     try {
       const { data } = await API.post('/sms-fallback/test', { to: testPhone, message: testMessage });
@@ -91,7 +94,7 @@ export default function SmsFallback() {
                       {log.smsStatus === 'sent' ? <HiOutlineCheckCircle className="text-green-400" /> : <HiOutlineXCircle className="text-red-400" />}
                     </div>
                     <div>
-                      <p className="text-white text-sm">{log.to || log.phone}</p>
+                      <p className="text-white text-sm">{log.phone || log.to}</p>
                       <p className="text-gray-500 text-xs">{log.content?.substring(0, 50)}</p>
                     </div>
                   </div>

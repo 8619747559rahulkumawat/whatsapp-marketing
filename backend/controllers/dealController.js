@@ -23,7 +23,7 @@ exports.getDeals = async (req, res) => {
 
 exports.getDeal = async (req, res) => {
   try {
-    const deal = await Deal.findById(req.params.id)
+    const deal = await Deal.findOne({ _id: req.params.id, tenantId: req.tenant._id })
       .populate('assignedTo', 'name email');
     if (!deal) return res.status(404).json({ success: false, message: 'Deal not found' });
     res.json({ success: true, deal });
@@ -57,8 +57,8 @@ exports.createDeal = async (req, res) => {
 
 exports.updateDeal = async (req, res) => {
   try {
-    const old = await Deal.findById(req.params.id);
-    const deal = await Deal.findByIdAndUpdate(req.params.id, { ...req.body, updatedAt: new Date() }, { new: true });
+    const old = await Deal.findOne({ _id: req.params.id, tenantId: req.tenant._id });
+    const deal = await Deal.findOneAndUpdate({ _id: req.params.id, tenantId: req.tenant._id }, { ...req.body, updatedAt: new Date() }, { new: true });
     if (!deal) return res.status(404).json({ success: false, message: 'Deal not found' });
     if (old && old.stage !== deal.stage) {
       await Activity.create({
@@ -80,7 +80,7 @@ exports.updateDeal = async (req, res) => {
 
 exports.deleteDeal = async (req, res) => {
   try {
-    const deal = await Deal.findByIdAndDelete(req.params.id);
+    const deal = await Deal.findOneAndDelete({ _id: req.params.id, tenantId: req.tenant._id });
     if (!deal) return res.status(404).json({ success: false, message: 'Deal not found' });
     res.json({ success: true, message: 'Deal deleted' });
   } catch (err) {
@@ -91,16 +91,15 @@ exports.deleteDeal = async (req, res) => {
 exports.updateDealStage = async (req, res) => {
   try {
     const { stage, order } = req.body;
-    const old = await Deal.findById(req.params.id);
-    const deal = await Deal.findByIdAndUpdate(
-      req.params.id,
-      { stage, order: order || 0, updatedAt: new Date() },
+    const old = await Deal.findOne({ _id: req.params.id, tenantId: req.tenant._id });
+    const updateFields = { stage, order: order || 0, updatedAt: new Date() };
+    if (stage === 'won' || stage === 'lost') updateFields.closedDate = new Date();
+    const deal = await Deal.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.tenant._id },
+      updateFields,
       { new: true }
     );
     if (!deal) return res.status(404).json({ success: false, message: 'Deal not found' });
-    if (stage === 'won') deal.closedDate = new Date();
-    if (stage === 'lost') deal.closedDate = new Date();
-    await deal.save();
     if (old && old.stage !== stage) {
       await Activity.create({
         tenantId: req.tenant._id,
@@ -123,7 +122,7 @@ exports.reorderDeals = async (req, res) => {
   try {
     const { deals } = req.body;
     const ops = deals.map((d, i) => ({
-      updateOne: { filter: { _id: d._id }, update: { order: i, stage: d.stage } }
+      updateOne: { filter: { _id: d._id, tenantId: req.tenant._id }, update: { order: i, stage: d.stage } }
     }));
     await Deal.bulkWrite(ops);
     res.json({ success: true, message: 'Reordered' });

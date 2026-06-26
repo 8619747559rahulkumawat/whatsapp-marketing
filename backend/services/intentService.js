@@ -3,6 +3,16 @@ const aiService = require('./aiService');
 
 const intentCache = new Map();
 const CACHE_TTL = 60000;
+const CACHE_MAX_SIZE = 100;
+
+const trimCache = () => {
+  if (intentCache.size <= CACHE_MAX_SIZE) return;
+  const keys = [...intentCache.keys()].sort((a, b) => intentCache.get(a).ts - intentCache.get(b).ts);
+  const toDelete = intentCache.size - CACHE_MAX_SIZE;
+  for (let i = 0; i < toDelete && i < keys.length; i++) {
+    intentCache.delete(keys[i]);
+  }
+};
 
 const getIntentFlows = async (tenantId) => {
   const cacheKey = `intent_flows_${tenantId}`;
@@ -18,6 +28,7 @@ const getIntentFlows = async (tenantId) => {
   const intentFlows = flows.filter(f => f.trigger?.config?.intentDetection);
 
   intentCache.set(cacheKey, { flows: intentFlows, ts: Date.now() });
+  trimCache();
   return intentFlows;
 };
 

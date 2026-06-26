@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { uploadWithCompression } = require('../middleware/upload');
 const { auth } = require('../middleware/auth');
+const { tenantMiddleware } = require('../middleware/tenant');
 
-router.post('/', auth, uploadWithCompression('file'), (req, res) => {
+router.post('/', auth, tenantMiddleware, uploadWithCompression('file'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No file uploaded' });

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import API from '../utils/api';
-import { HiOutlinePlus, HiOutlineTrash, HiOutlineX, HiOutlineDocumentText, HiOutlineEye, HiOutlineDownload } from 'react-icons/hi';
+import { HiOutlinePlus, HiOutlineTrash, HiOutlineX, HiOutlineDocumentText, HiOutlineEye, HiOutlineDownload, HiOutlinePencil } from 'react-icons/hi';
 import { useToast } from '../contexts/ToastContext';
 
 export default function Quotes() {
@@ -62,6 +62,12 @@ export default function Quotes() {
     fetchQuotes();
   };
 
+  const editQuote = (q) => {
+    setForm({ contactName: q.contactName || '', contactPhone: q.contactPhone || '', contactEmail: q.contactEmail || '', items: q.items || [{ productName: '', quantity: 1, unitPrice: 0, taxRate: 0 }], notes: q.notes || '', validUntil: q.validUntil ? q.validUntil.split('T')[0] : '' });
+    setEditing(q);
+    setShowForm(true);
+  };
+
   const handleDelete = async (id) => {
     if (!confirm('Delete this quote?')) return;
     await API.delete(`/quotes/${id}`);
@@ -103,6 +109,7 @@ export default function Quotes() {
               <div className="flex items-center gap-2 flex-wrap">
                 {q.status === 'draft' && <button onClick={() => updateStatus(q._id, 'sent')} className="text-xs px-3 py-1.5 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30">Send</button>}
                 {q.status === 'sent' && <button onClick={() => updateStatus(q._id, 'accepted')} className="text-xs px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30">Accept</button>}
+                <button onClick={() => editQuote(q)} className="text-gray-500 hover:text-purple-400 p-1.5"><HiOutlinePencil size={16} /></button>
                 <button onClick={() => handleDelete(q._id)} className="text-gray-500 hover:text-red-400 p-1.5"><HiOutlineTrash size={16} /></button>
               </div>
             </div>

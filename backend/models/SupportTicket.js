@@ -19,10 +19,8 @@ const supportTicketSchema = new mongoose.Schema({
     addedAt: { type: Date, default: Date.now }
   }],
   resolvedAt: { type: Date },
-  resolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
-});
+  resolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+}, { timestamps: true });
 
 supportTicketSchema.index({ tenantId: 1, status: 1 });
 supportTicketSchema.index({ tenantId: 1, assignedTo: 1 });

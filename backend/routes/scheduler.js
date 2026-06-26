@@ -51,6 +51,14 @@ router.delete('/:id', async (req, res) => {
   try {
     const sc = await ScheduledCampaign.findOneAndDelete({ _id: req.params.id, tenantId: req.tenant._id });
     if (!sc) return res.status(404).json({ success: false, message: 'Scheduled campaign not found' });
+    const queue = schedulerService.scheduledQueue;
+    if (queue && sc.queueJobId) {
+      try {
+        await queue.remove(sc.queueJobId);
+      } catch (qErr) {
+        console.warn('Failed to remove BullMQ job on delete:', qErr.message);
+      }
+    }
     res.json({ success: true, message: 'Scheduled campaign deleted' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -65,6 +73,14 @@ router.post('/:id/cancel', async (req, res) => {
       { new: true }
     );
     if (!sc) return res.status(404).json({ success: false, message: 'Scheduled campaign not found' });
+    const queue = schedulerService.scheduledQueue;
+    if (queue && sc.queueJobId) {
+      try {
+        await queue.remove(sc.queueJobId);
+      } catch (qErr) {
+        console.warn('Failed to remove BullMQ job:', qErr.message);
+      }
+    }
     res.json({ success: true, scheduled: sc });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

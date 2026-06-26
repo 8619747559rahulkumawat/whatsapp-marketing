@@ -11,7 +11,8 @@ const { Readable } = require('stream');
 
 exports.getContacts = async (req, res) => {
   try {
-    const filter = req.user.role === 'admin' ? {} : { userId: req.user._id };
+    const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
+    const filter = isAdmin ? {} : { userId: req.user._id };
     if (req.query.groupId) {
       filter.groups = req.query.groupId;
     }
@@ -29,7 +30,7 @@ exports.getContacts = async (req, res) => {
       .limit(limit);
     
     // If user is admin, hide sensitive contact data for other users' contacts
-    if (req.user.role === 'admin') {
+    if (isAdmin) {
       const sanitizedContacts = contacts.map(contact => {
         // Convert to plain object to avoid modifying original Mongoose document
         const contactObj = contact.toObject ? contact.toObject() : { ...contact };
@@ -84,7 +85,7 @@ exports.createContact = async (req, res) => {
   try {
     const { name, phone, countryCode, email, tags, groups, customFields } = req.body;
     const formattedPhone = formatPhoneNumber(phone, countryCode || process.env.DEFAULT_COUNTRY_CODE || '91');
-    const exists = await Contact.findOne({ userId: req.user._id, phone: formattedPhone });
+    const exists = await Contact.findOne({ tenantId: req.tenant?._id || req.user.tenantId, phone: formattedPhone });
     if (exists) {
       return res.status(400).json({ success: false, message: 'Contact with this phone already exists' });
     }
@@ -185,7 +186,8 @@ exports.importContacts = async (req, res) => {
 exports.exportContacts = async (req, res) => {
   try {
     const format = normalizeExportFormat(req.query.format || req.params.format);
-    const filter = req.user.role === 'admin' ? {} : { userId: req.user._id };
+    const isAdminUser = ['admin', 'super_admin'].includes(req.user.role);
+    const filter = isAdminUser ? {} : { userId: req.user._id };
     const contacts = await Contact.find(filter).lean();
     
     if (!contacts.length) {
@@ -239,7 +241,7 @@ exports.bulkDelete = async (req, res) => {
 
 exports.getGroups = async (req, res) => {
   try {
-    const filter = req.user.role === 'admin' ? {} : { userId: req.user._id };
+    const filter = ['admin', 'super_admin'].includes(req.user.role) ? {} : { userId: req.user._id };
     const groups = await ContactGroup.find(filter).sort({ name: 1 });
     res.json({ success: true, groups });
   } catch (err) {
@@ -288,7 +290,7 @@ exports.deleteGroup = async (req, res) => {
 
 exports.getTagStats = async (req, res) => {
   try {
-    const filter = req.user.role === 'admin' ? {} : { userId: req.user._id };
+    const filter = ['admin', 'super_admin'].includes(req.user.role) ? {} : { userId: req.user._id };
     const contacts = await Contact.find(filter).lean();
     const tagMap = {};
     for (const c of contacts) {
@@ -307,7 +309,7 @@ exports.getTagStats = async (req, res) => {
 
 exports.getContactVariables = async (req, res) => {
   try {
-    const filter = req.user.role === 'admin' ? {} : { userId: req.user._id };
+    const filter = ['admin', 'super_admin'].includes(req.user.role) ? {} : { userId: req.user._id };
     const contacts = await Contact.find(filter).lean().limit(100);
     const variables = new Set();
     for (const c of contacts) {

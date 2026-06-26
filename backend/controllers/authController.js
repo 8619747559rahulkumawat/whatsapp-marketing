@@ -175,8 +175,15 @@ exports.updateProfile = async (req, res) => {
     if (name) updates.name = name;
     if (phone !== undefined) updates.phone = phone;
     if (businessName !== undefined) updates.businessName = businessName;
-    const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true });
-    res.json({ success: true, user });
+    const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true }).populate('tenantId');
+    res.json({
+      success: true,
+      user: {
+        ...user.toJSON(),
+        plan: user.tenantId?.plan || 'free',
+        planStatus: user.tenantId?.status || 'active'
+      }
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -185,6 +192,24 @@ exports.updateProfile = async (req, res) => {
 exports.changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current and new password required' });
+    }
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ success: false, message: 'New password must be different from current password' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 8 characters' });
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      return res.status(400).json({ success: false, message: 'New password must contain an uppercase letter' });
+    }
+    if (!/[a-z]/.test(newPassword)) {
+      return res.status(400).json({ success: false, message: 'New password must contain a lowercase letter' });
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      return res.status(400).json({ success: false, message: 'New password must contain a number' });
+    }
     const user = await User.findById(req.user._id);
     const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) {

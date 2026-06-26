@@ -68,7 +68,7 @@ export default function ApiDocs() {
                 <button onClick={() => deleteKey(key._id)} className="text-red-400 hover:text-red-300"><HiOutlineTrash size={16} /></button>
               </div>
               <div className="flex items-center gap-2 bg-white/5 rounded-lg p-2">
-                <code className="text-xs text-purple-300 flex-1 truncate">{key.key}</code>
+                <code className="text-xs text-purple-300 flex-1 truncate">{key.key.slice(0, 8)}...{key.key.slice(-4)}</code>
                 <button onClick={() => copyToClipboard(key.key)} className="text-gray-400 hover:text-white"><HiOutlineClipboardCopy size={14} /></button>
               </div>
               <div className="flex gap-1 mt-2">

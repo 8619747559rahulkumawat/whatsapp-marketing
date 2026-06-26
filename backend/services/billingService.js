@@ -1,5 +1,6 @@
 const Razorpay = require('razorpay');
 const Stripe = require('stripe');
+const mongoose = require('mongoose');
 const Invoice = require('../models/Invoice');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
@@ -49,7 +50,8 @@ exports.verifyRazorpayPayment = (orderId, paymentId, signature) => {
     .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
     .update(`${orderId}|${paymentId}`)
     .digest('hex');
-  return expectedSig === signature;
+  if (expectedSig.length !== signature.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(expectedSig), Buffer.from(signature));
 };
 
 exports.createStripePaymentIntent = async (amount, currency = 'usd') => {
@@ -63,9 +65,16 @@ exports.createStripePaymentIntent = async (amount, currency = 'usd') => {
 };
 
 exports.generateInvoiceNumber = async () => {
-  const count = await Invoice.countDocuments();
   const year = new Date().getFullYear();
-  return `INV-${year}-${String(count + 1).padStart(6, '0')}`;
+  const db = mongoose.connection.db;
+  const counters = db.collection('counters');
+  const result = await counters.findOneAndUpdate(
+    { name: `invoice_${year}` },
+    { $inc: { seq: 1 } },
+    { upsert: true, returnDocument: 'after' }
+  );
+  const seq = (result && result.seq) || 1;
+  return `INV-${year}-${String(seq).padStart(6, '0')}`;
 };
 
 exports.createInvoice = async ({ tenantId, userId, amount, currency, items, billingDetails, planId }) => {
@@ -84,35 +93,47 @@ exports.createInvoice = async ({ tenantId, userId, amount, currency, items, bill
 };
 
 exports.processCreditPurchase = async ({ userId, amount, credits, paymentMethod, paymentId, invoiceId }) => {
-  const user = await User.findById(userId);
-  if (!user) throw new Error('User not found');
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const user = await User.findById(userId).session(session);
+    if (!user) throw new Error('User not found');
 
-  const balanceBefore = user.credits;
-  user.credits += credits;
-  await user.save();
+    const balanceBefore = user.credits;
+    const updated = await User.findByIdAndUpdate(userId,
+      { $inc: { credits } },
+      { new: true, session }
+    );
 
-  await Transaction.create({
-    userId: user._id,
-    tenantId: user.tenantId,
-    type: 'credit',
-    amount: credits,
-    balanceBefore,
-    balanceAfter: user.credits,
-    description: `Purchased ${credits} credits via ${paymentMethod}`,
-    paymentMethod,
-    status: 'completed'
-  });
-
-  if (invoiceId) {
-    await Invoice.findByIdAndUpdate(invoiceId, {
-      status: 'paid',
-      paidAt: new Date(),
+    await Transaction.create([{
+      userId: user._id,
+      tenantId: user.tenantId,
+      type: 'credit',
+      amount: credits,
+      balanceBefore,
+      balanceAfter: updated.credits,
+      description: `Purchased ${credits} credits via ${paymentMethod}`,
       paymentMethod,
-      paymentId
-    });
-  }
+      status: 'completed'
+    }], { session });
 
-  return { balance: user.credits, credits };
+    if (invoiceId) {
+      await Invoice.findByIdAndUpdate(invoiceId, {
+        status: 'paid',
+        paidAt: new Date(),
+        paymentMethod,
+        paymentId
+      }, { session });
+    }
+
+    await session.commitTransaction();
+    return { balance: updated.credits, credits };
+  } catch (err) {
+    await session.abortTransaction();
+    throw err;
+  } finally {
+    session.endSession();
+  }
 };
 
 exports.getCreditRate = async () => {

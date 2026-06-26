@@ -15,7 +15,7 @@ exports.getContracts = async (req, res) => {
 
 exports.getContract = async (req, res) => {
   try {
-    const contract = await Contract.findById(req.params.id).populate('contactId', 'name phone');
+    const contract = await Contract.findOne({ _id: req.params.id, tenantId: req.tenant._id }).populate('contactId', 'name phone');
     if (!contract) return res.status(404).json({ success: false, message: 'Contract not found' });
     res.json({ success: true, contract });
   } catch (err) {
@@ -42,8 +42,8 @@ exports.createContract = async (req, res) => {
 
 exports.updateContract = async (req, res) => {
   try {
-    const contract = await Contract.findByIdAndUpdate(
-      req.params.id, { ...req.body, updatedAt: new Date() }, { new: true }
+    const contract = await Contract.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.tenant._id }, { ...req.body, updatedAt: new Date() }, { new: true }
     );
     if (!contract) return res.status(404).json({ success: false, message: 'Contract not found' });
     res.json({ success: true, contract });
@@ -54,7 +54,8 @@ exports.updateContract = async (req, res) => {
 
 exports.deleteContract = async (req, res) => {
   try {
-    await Contract.findByIdAndDelete(req.params.id);
+    const contract = await Contract.findOneAndDelete({ _id: req.params.id, tenantId: req.tenant._id });
+    if (!contract) return res.status(404).json({ success: false, message: 'Contract not found' });
     res.json({ success: true, message: 'Contract deleted' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

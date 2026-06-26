@@ -39,8 +39,8 @@ const stripToDigits = (phone) => {
 };
 
 const calculatePagination = (page = 1, limit = 20) => {
-  const p = Math.max(1, parseInt(page));
-  const l = Math.min(100, Math.max(1, parseInt(limit)));
+  const p = Math.max(1, parseInt(page) || 1);
+  const l = Math.min(100, Math.max(1, parseInt(limit) || 20));
   return { skip: (p - 1) * l, limit: l, page: p };
 };
 
@@ -63,8 +63,9 @@ const buildFilterFromQuery = (query, allowedFields = []) => {
 };
 
 const calculateCreditsNeeded = (contactsCount, messageType = 'text') => {
+  const count = Math.max(0, parseInt(contactsCount) || 0);
   const creditsPerMessage = messageType === 'text' ? 1 : 2;
-  return contactsCount * creditsPerMessage;
+  return count * creditsPerMessage;
 };
 
 module.exports = {

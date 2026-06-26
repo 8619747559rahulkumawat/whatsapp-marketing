@@ -23,7 +23,7 @@ exports.markRead = async (req, res) => {
         { read: true }
       );
     } else {
-      await Notification.findByIdAndUpdate(id, { read: true });
+      await Notification.findOneAndUpdate({ _id: id, tenantId: req.tenant._id, userId: req.user._id }, { read: true });
     }
     res.json({ success: true });
   } catch (err) {
@@ -33,9 +33,14 @@ exports.markRead = async (req, res) => {
 
 exports.createNotification = async (req, res) => {
   try {
-    const notification = await Notification.create({
-      ...req.body, tenantId: req.tenant._id
-    });
+    const allowed = ['title', 'message', 'type', 'metadata'];
+    const data = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) data[key] = req.body[key];
+    }
+    data.tenantId = req.tenant._id;
+    data.userId = req.user._id;
+    const notification = await Notification.create(data);
     const io = req.app.get('io');
     if (io) {
       io.to(`user_${notification.userId}`).emit('notification:new', notification);
@@ -48,7 +53,7 @@ exports.createNotification = async (req, res) => {
 
 exports.deleteNotification = async (req, res) => {
   try {
-    await Notification.findByIdAndDelete(req.params.id);
+    await Notification.findOneAndDelete({ _id: req.params.id, tenantId: req.tenant._id, userId: req.user._id });
     res.json({ success: true, message: 'Notification deleted' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

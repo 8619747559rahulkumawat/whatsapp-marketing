@@ -35,10 +35,8 @@ const tenantSchema = new mongoose.Schema({
     currentPeriodEnd: { type: Date },
     invoiceDate: { type: Date }
   },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
-});
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+}, { timestamps: true });
 
 tenantSchema.index({ status: 1 });
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import API from '../utils/api';
 import { HiOutlinePlus, HiOutlineUpload, HiOutlineDownload, HiOutlineSearch, HiOutlineTrash } from 'react-icons/hi';
@@ -9,6 +9,7 @@ export default function Contacts() {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [form, setForm] = useState({ name: '', phone: '', email: '', groups: [] });
@@ -16,6 +17,13 @@ export default function Contacts() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [selected, setSelected] = useState([]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   useEffect(() => { fetchData(); }, [page, search]);
 
@@ -126,7 +134,7 @@ export default function Contacts() {
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <div className="relative flex-1 sm:flex-none min-w-[140px] sm:min-w-0">
             <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
-            <input className="input-field pl-9 py-2 w-full sm:w-48 text-sm" placeholder="Search..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+            <input className="input-field pl-9 py-2 w-full sm:w-48 text-sm" placeholder="Search..." value={searchInput} onChange={e => { setSearchInput(e.target.value); setPage(1); }} />
           </div>
           <label className="btn-primary px-3 sm:px-4 py-2 rounded-xl text-white text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 cursor-pointer">
             <HiOutlineUpload size={14} /> <span className="hidden sm:inline">Import</span>

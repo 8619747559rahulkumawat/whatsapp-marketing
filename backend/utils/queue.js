@@ -29,7 +29,11 @@ class MessageQueue {
       } catch (err) {
         console.error(`Queue job ${job.id} failed:`, err.message);
         if (job.attempts < 3) {
-          setTimeout(() => this.queue.push(job), 5000);
+          const maxDelay = job.attempts * 5000;
+          setTimeout(() => {
+            this.queue.push(job);
+            this.process();
+          }, maxDelay);
         }
       }
       if (job.delay && this.queue.length > 0) {
@@ -37,6 +41,9 @@ class MessageQueue {
       }
     }
     this.processing = false;
+    if (this.queue.length > 0) {
+      setTimeout(() => this.process(), 0);
+    }
   }
 
   on(type, handler) {

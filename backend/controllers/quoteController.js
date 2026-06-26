@@ -27,7 +27,7 @@ exports.getQuotes = async (req, res) => {
 
 exports.getQuote = async (req, res) => {
   try {
-    const quote = await Quote.findById(req.params.id);
+    const quote = await Quote.findOne({ _id: req.params.id, tenantId: req.tenant._id });
     if (!quote) return res.status(404).json({ success: false, message: 'Quote not found' });
     res.json({ success: true, quote });
   } catch (err) {
@@ -96,8 +96,8 @@ exports.updateQuote = async (req, res) => {
       req.body.discountTotal = discountTotal;
       req.body.grandTotal = subtotal + taxTotal - discountTotal;
     }
-    const quote = await Quote.findByIdAndUpdate(
-      req.params.id,
+    const quote = await Quote.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.tenant._id },
       { ...req.body, updatedAt: new Date() },
       { new: true }
     );
@@ -110,7 +110,7 @@ exports.updateQuote = async (req, res) => {
 
 exports.deleteQuote = async (req, res) => {
   try {
-    const quote = await Quote.findByIdAndDelete(req.params.id);
+    const quote = await Quote.findOneAndDelete({ _id: req.params.id, tenantId: req.tenant._id });
     if (!quote) return res.status(404).json({ success: false, message: 'Quote not found' });
     res.json({ success: true, message: 'Quote deleted' });
   } catch (err) {
@@ -124,7 +124,7 @@ exports.updateQuoteStatus = async (req, res) => {
     const data = { status, updatedAt: new Date() };
     if (status === 'sent') data.sentAt = new Date();
     if (status === 'accepted') data.acceptedAt = new Date();
-    const quote = await Quote.findByIdAndUpdate(req.params.id, data, { new: true });
+    const quote = await Quote.findOneAndUpdate({ _id: req.params.id, tenantId: req.tenant._id }, data, { new: true });
     if (!quote) return res.status(404).json({ success: false, message: 'Quote not found' });
     res.json({ success: true, quote });
   } catch (err) {

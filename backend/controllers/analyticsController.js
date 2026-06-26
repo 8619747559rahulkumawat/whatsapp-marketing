@@ -83,9 +83,9 @@ exports.getMessageAnalytics = async (req, res) => {
         delivered,
         read,
         failed,
-        deliveryRate: total > 0 ? ((delivered / total) * 100).toFixed(1) : 0,
-        readRate: total > 0 ? ((read / total) * 100).toFixed(1) : 0,
-        failureRate: total > 0 ? ((failed / total) * 100).toFixed(1) : 0
+        deliveryRate: total > 0 ? parseFloat(((delivered / total) * 100).toFixed(1)) : 0,
+        readRate: total > 0 ? parseFloat(((read / total) * 100).toFixed(1)) : 0,
+        failureRate: total > 0 ? parseFloat(((failed / total) * 100).toFixed(1)) : 0
       }
     });
   } catch (err) {

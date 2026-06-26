@@ -10,8 +10,10 @@ export default function EmailCampaigns() {
   const [form, setForm] = useState({ name: '', subject: '', body: '', recipients: '' });
 
   const fetch = useCallback(async () => {
-    const r = await API.get('/email-campaigns');
-    if (r.data.success) setCampaigns(r.data.campaigns);
+    try {
+      const r = await API.get('/email-campaigns');
+      if (r.data.success) setCampaigns(r.data.campaigns);
+    } catch (err) { toast.error('Failed to load campaigns'); }
   }, []);
 
   useEffect(() => { fetch(); }, [fetch]);
@@ -42,8 +44,11 @@ export default function EmailCampaigns() {
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this campaign?')) return;
-    await API.delete(`/email-campaigns/${id}`);
-    fetch();
+    try {
+      await API.delete(`/email-campaigns/${id}`);
+      toast.success('Campaign deleted');
+      fetch();
+    } catch (err) { toast.error(err.response?.data?.message || 'Delete failed'); }
   };
 
   return (

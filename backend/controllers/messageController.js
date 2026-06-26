@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Message = require('../models/Message');
 const Chat = require('../models/Chat');
 const Contact = require('../models/Contact');
@@ -141,6 +142,8 @@ exports.sendBulk = async (req, res) => {
   }
 };
 
+const sessionLocks = new Map();
+
 exports.sendBulkWithImage = async (req, res) => {
   try {
     const sessionId = req.body.sessionId;
@@ -162,68 +165,74 @@ exports.sendBulkWithImage = async (req, res) => {
       return res.status(400).json({ success: false, message: 'sessionId and message required' });
     }
 
-    const sendOne = async (contact) => {
-      const phone = formatPhoneNumber(contact.phone);
-      let result;
-      if (mediaUrl) {
-        result = await whatsappService.sendMediaMessage(sessionId, phone, mediaUrl, 'image', message);
-      } else {
-        result = await whatsappService.sendTextMessage(sessionId, phone, message);
-      }
-      const waId = result?.id || '';
-      const recipJid = result?.remoteJid || '';
-      const msg = await Message.create({
-        userId: req.user._id,
-        tenantId: req.tenant?._id || req.user.tenantId,
-        sessionId,
-        to: phone,
-        waMessageId: waId,
-        recipientJid: recipJid,
-        messageType: mediaUrl ? 'image' : 'text',
-        content: message,
-        mediaUrl: mediaUrl || '',
-        status: waId ? 'sent' : 'failed',
-        sentAt: new Date()
-      });
-      return { phone, status: waId ? 'sent' : 'failed', messageId: msg._id };
-    };
-
-    const results = [];
-    for (let i = 0; i < contacts.length; i += BATCH_SIZE) {
-      const batch = contacts.slice(i, i + BATCH_SIZE);
-      const batchResults = await Promise.allSettled(batch.map(c => sendOne(c)));
-      for (let j = 0; j < batchResults.length; j++) {
-        const r = batchResults[j];
-        if (r.status === 'fulfilled') {
-          results.push(r.value);
+    if (sessionLocks.get(sessionId)) {
+      return res.status(429).json({ success: false, message: 'Another bulk send is already in progress for this session. Please wait.' });
+    }
+    sessionLocks.set(sessionId, true);
+    try {
+      const sendOne = async (contact) => {
+        const phone = formatPhoneNumber(contact.phone);
+        let result;
+        if (mediaUrl) {
+          result = await whatsappService.sendMediaMessage(sessionId, phone, mediaUrl, 'image', message);
         } else {
-          results.push({ phone: batch[j].phone, status: 'failed', error: r.reason?.message || 'Unknown' });
+          result = await whatsappService.sendTextMessage(sessionId, phone, message);
+        }
+        const waId = result?.id || '';
+        const recipJid = result?.remoteJid || '';
+        const msg = await Message.create({
+          userId: req.user._id,
+          tenantId: req.tenant?._id || req.user.tenantId,
+          sessionId,
+          to: phone,
+          waMessageId: waId,
+          recipientJid: recipJid,
+          messageType: mediaUrl ? 'image' : 'text',
+          content: message,
+          mediaUrl: mediaUrl || '',
+          status: waId ? 'sent' : 'failed',
+          sentAt: new Date()
+        });
+        return { phone, status: waId ? 'sent' : 'failed', messageId: msg._id };
+      };
+
+      const results = [];
+      for (let i = 0; i < contacts.length; i++) {
+        const contact = contacts[i];
+        try {
+          const result = await sendOne(contact);
+          results.push(result);
+        } catch (err) {
+          results.push({ phone: contact.phone, status: 'failed', error: err.message || 'Unknown' });
+        }
+
+        if (io && (i + 1) % BATCH_SIZE === 0) {
+          io.to('admin_room').emit('bulk:progress', {
+            sent: results.filter(r => r.status === 'sent').length,
+            failed: results.filter(r => r.status === 'failed').length,
+            total: contacts.length
+          });
+        }
+        if (i < contacts.length - 1) {
+          await new Promise(r => setTimeout(r, safeDelay));
+        }
+        if ((i + 1) % 10 === 0 && i < contacts.length - 1) {
+          await new Promise(r => setTimeout(r, 30000));
         }
       }
-      if (io) {
-        io.to('admin_room').emit('bulk:progress', {
-          sent: results.filter(r => r.status === 'sent').length,
-          failed: results.filter(r => r.status === 'failed').length,
-          total: contacts.length
-        });
-      }
-      if (i + BATCH_SIZE < contacts.length) {
-        await new Promise(r => setTimeout(r, safeDelay));
-      }
-      if ((i / BATCH_SIZE + 1) % 10 === 0 && i + BATCH_SIZE < contacts.length) {
-        await new Promise(r => setTimeout(r, 30000));
-      }
-    }
 
-    if (req.user.role === 'admin') {
-      results.forEach(r => { r.phone = '[Private]'; });
+      if (req.user.role === 'admin') {
+        results.forEach(r => { r.phone = '[Private]'; });
+      }
+      const sent = results.filter(r => r.status === 'sent').length;
+      const failed = results.filter(r => r.status === 'failed').length;
+      if (io) {
+        io.to('admin_room').emit('bulk:completed', { sent, failed, total: contacts.length });
+      }
+      res.json({ success: true, results, sent, failed });
+    } finally {
+      sessionLocks.delete(sessionId);
     }
-    const sent = results.filter(r => r.status === 'sent').length;
-    const failed = results.filter(r => r.status === 'failed').length;
-    if (io) {
-      io.to('admin_room').emit('bulk:completed', { sent, failed, total: contacts.length });
-    }
-    res.json({ success: true, results, sent, failed });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -383,8 +392,13 @@ exports.getDailyStats = async (req, res) => {
 
 exports.getUserStats = async (req, res) => {
   try {
+    const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
+    if (!isAdmin && req.params.userId && req.params.userId !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Access denied. You can only view your own stats.' });
+    }
+    const targetUserId = isAdmin ? (req.params.userId || req.user._id) : req.user._id;
     const stats = await Message.aggregate([
-      { $match: { userId: req.params.userId || req.user._id } },
+      { $match: { userId: new mongoose.Types.ObjectId(targetUserId), tenantId: req.tenant._id } },
       { $group: { _id: '$status', count: { $sum: 1 } } }
     ]);
     res.json({ success: true, stats: stats.map(s => ({ status: s._id, count: s.count })) });

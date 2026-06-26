@@ -24,8 +24,9 @@ exports.createWebhook = async (req, res) => {
 
 exports.updateWebhook = async (req, res) => {
   try {
-    const webhook = await Webhook.findByIdAndUpdate(
-      req.params.id, { ...req.body, updatedAt: new Date() }, { new: true }
+    const webhook = await Webhook.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.tenant._id },
+      { ...req.body, updatedAt: new Date() }, { new: true }
     );
     if (!webhook) return res.status(404).json({ success: false, message: 'Webhook not found' });
     res.json({ success: true, webhook });
@@ -36,7 +37,8 @@ exports.updateWebhook = async (req, res) => {
 
 exports.deleteWebhook = async (req, res) => {
   try {
-    await Webhook.findByIdAndDelete(req.params.id);
+    const webhook = await Webhook.findOneAndDelete({ _id: req.params.id, tenantId: req.tenant._id });
+    if (!webhook) return res.status(404).json({ success: false, message: 'Webhook not found' });
     res.json({ success: true, message: 'Webhook deleted' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -45,7 +47,7 @@ exports.deleteWebhook = async (req, res) => {
 
 exports.testWebhook = async (req, res) => {
   try {
-    const webhook = await Webhook.findById(req.params.id);
+    const webhook = await Webhook.findOne({ _id: req.params.id, tenantId: req.tenant._id });
     if (!webhook) return res.status(404).json({ success: false, message: 'Webhook not found' });
     await axios.post(webhook.url, {
       event: 'test',

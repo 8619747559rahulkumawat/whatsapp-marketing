@@ -15,6 +15,14 @@ const defaultOptions = {
   }
 };
 
+const arcOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { labels: { color: '#9ca3af', usePointStyle: true } }
+  }
+};
+
 export function StatCard({ label, value, icon: Icon, color, bg, subtitle }) {
   return (
     <div className={`glass-card p-5 glass-card-hover`}>
@@ -50,7 +58,7 @@ export function DoughnutChart({ data, options, height = 300 }) {
   return (
     <div className="glass-card p-5 flex items-center justify-center">
       <div style={{ height }}>
-        <Doughnut data={data} options={{ ...defaultOptions, cutout: '65%', ...options }} />
+        <Doughnut data={data} options={{ ...arcOptions, cutout: '65%', ...options }} />
       </div>
     </div>
   );
@@ -60,7 +68,7 @@ export function PieChart({ data, options, height = 300 }) {
   return (
     <div className="glass-card p-5 flex items-center justify-center">
       <div style={{ height }}>
-        <Pie data={data} options={{ ...defaultOptions, ...options }} />
+        <Pie data={data} options={{ ...arcOptions, ...options }} />
       </div>
     </div>
   );

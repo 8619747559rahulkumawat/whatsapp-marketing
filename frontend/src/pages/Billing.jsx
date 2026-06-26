@@ -58,13 +58,23 @@ export default function Billing() {
     } catch { console.error('Operation failed'); }
   };
 
+  const normalizePlanName = (name) => (name || '').toLowerCase().trim();
+
+  const getPlanId = (plan) => plan._id || normalizePlanName(plan.name);
+
+  const isCurrentPlan = (plan) => {
+    const planName = normalizePlanName(plan.name);
+    const planId = getPlanId(plan);
+    return planName === normalizePlanName(currentPlan) || planId === currentPlan || planId === normalizePlanName(currentPlan);
+  };
+
   const handleSubscribe = async (plan) => {
-    if (plan.name.toLowerCase() === currentPlan) return;
+    if (isCurrentPlan(plan)) return;
     if (plan.price === 0) {
       try {
         await API.post('/billing/subscribe', { planId: plan._id });
         alert(`Subscribed to ${plan.name} plan!`);
-        setCurrentPlan(plan.name.toLowerCase());
+        setCurrentPlan(normalizePlanName(plan.name));
       } catch (err) {
         alert(err.response?.data?.message || err.message);
       }
@@ -101,6 +111,10 @@ export default function Billing() {
 
   const handleRazorpayPurchase = async () => {
     if (!purchaseAmount || processing) return;
+    if (typeof window.Razorpay === 'undefined') {
+      alert('Razorpay SDK not loaded. Please refresh the page or try again.');
+      return;
+    }
     setProcessing(true);
     try {
       const { data } = await API.post('/billing/razorpay/create-order', { amount: parseFloat(purchaseAmount) });
@@ -214,7 +228,7 @@ export default function Billing() {
       {activeTab === 'plans' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {plans.length > 0 ? plans.map((plan, idx) => {
-            const isCurrent = plan.name.toLowerCase() === currentPlan;
+            const isCurrent = isCurrentPlan(plan);
             return (
               <motion.div key={plan._id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }}
                 className={`glass-card p-4 sm:p-6 ${idx === 2 ? 'border-purple-500/50 ring-1 ring-purple-500/30' : ''}`}>

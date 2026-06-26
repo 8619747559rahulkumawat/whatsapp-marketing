@@ -594,8 +594,8 @@ const connectSession = async (sessionId, io) => {
     });
 
     sock.ev.on('messages.upsert', async (m) => {
-      const msg = m.messages[0];
-      if (msg?.key?.remoteJid) {
+      for (const msg of m.messages) {
+        if (msg?.key?.remoteJid) {
         try {
           const jid = msg.key.remoteJid;
           if (!messageStore.has(sessionId)) messageStore.set(sessionId, new Map());
@@ -676,7 +676,8 @@ const connectSession = async (sessionId, io) => {
             }
             if (body) {
               const Chat = require('../models/Chat');
-              const clientUser = await require('../models/User').findOne({ phone: { $regex: phone.replace('91', '') } });
+              const cleanPhone = phone.replace('91', '');
+              const clientUser = await require('../models/User').findOne({ phone: { $regex: `^${cleanPhone.replace(/[^0-9]/g, '')}$` } });
               const waName = msg.pushName && msg.pushName !== phone ? msg.pushName : '';
               let mediaType = 'text';
               if (contentType === 'imageMessage') mediaType = 'image';
@@ -781,6 +782,7 @@ const connectSession = async (sessionId, io) => {
           from: msg.key.remoteJid,
           body: msg.message?.conversation || msg.message?.extendedTextMessage?.text || ''
         });
+      }
       }
     });
 
@@ -1300,10 +1302,12 @@ const sendButtonMessage = async (sessionId, to, text, buttons) => {
     throw new Error(`Number ...${lastTen} is NOT registered on WhatsApp`);
   }
   
-  const buttonList = buttons.map((btn, idx) => ({
-    buttonId: `btn_${idx}`,
-    buttonText: { displayText: btn.title },
-    type: btn.type === 'url' ? 1 : btn.type === 'call' ? 2 : 1
+  const interactiveButtons = buttons.map((btn, idx) => ({
+    name: 'quick_reply',
+    buttonParamsJson: JSON.stringify({
+      display_text: btn.title,
+      id: `btn_${idx}`
+    })
   }));
 
   const finalizedText = replaceSpintax(text);
@@ -1313,11 +1317,16 @@ const sendButtonMessage = async (sessionId, to, text, buttons) => {
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       validateSocketForSend(sock, sessionId, 'sendButtonMessage-retry');
-      const result = await sock.sendMessage(jid, { text: finalizedText, footer: 'RSendix.pro', buttons: buttonList, headerType: 1 });
+      const result = await sock.sendMessage(jid, {
+        text: finalizedText,
+        footer: 'RSendix.pro',
+        interactiveButtons,
+        header: { title: '', subtitle: '', hasMediaAttachment: false }
+      });
       const msgId = result?.key?.id || '';
       if (!msgId) throw new Error('Message failed to send - no response from WhatsApp');
       console.log(`[sendButtonMessage] SUCCESS msgId=${msgId}`);
-      return { key: result?.key, id: msgId };
+      return { key: result?.key, id: msgId, remoteJid: result?.key?.remoteJid || '' };
     } catch (err) {
       lastError = err;
       const errCode = getBaileysErrorCode(err);
