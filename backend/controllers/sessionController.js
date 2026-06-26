@@ -290,15 +290,15 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
       let entries = [];
       if (sock.contacts instanceof Map) {
         for (const [jid, c] of sock.contacts) {
-          if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
+          if (jid && !jid.includes('@g.us') && !jid.includes('@lid') && !jid.includes('@broadcast')) entries.push([jid, c]);
         }
       } else if (typeof sock.contacts === 'object') {
-        entries = Object.entries(sock.contacts).filter(([j]) => j && !j.includes('@g.us'));
+        entries = Object.entries(sock.contacts).filter(([j]) => j && !j.includes('@g.us') && !j.includes('@lid') && !j.includes('@broadcast'));
       }
       console.log('[AutoSync] Socket contacts:', entries.length);
       for (const [jid, c] of entries) {
-        const raw = (c.id || jid).split('@')[0].replace(/[^0-9]/g, '');
-        if (raw.length >= 10 && raw.length <= 13) rawContacts.push({ phone: raw, name: c.name || c.notify || c.verifiedName || '', jid: c.id || jid || '' });
+        const raw = jid.split('@')[0].replace(/[^0-9]/g, '');
+        if (raw.length >= 10 && raw.length <= 13) rawContacts.push({ phone: raw, name: c.name || c.notify || c.verifiedName || '', jid });
       }
     }
   } catch (e) { console.log('[AutoSync] Socket error:', e.message); }
@@ -311,15 +311,15 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
       let entries = [];
       if (store instanceof Map) {
         for (const [jid, c] of store) {
-          if (jid && !jid.includes('@g.us')) entries.push([jid, c]);
+          if (jid && !jid.includes('@g.us') && !jid.includes('@lid') && !jid.includes('@broadcast')) entries.push([jid, c]);
         }
       } else if (typeof store === 'object') {
-        entries = Object.entries(store).filter(([j]) => j && !j.includes('@g.us'));
+        entries = Object.entries(store).filter(([j]) => j && !j.includes('@g.us') && !j.includes('@lid') && !j.includes('@broadcast'));
       }
       console.log('[AutoSync] Store contacts:', entries.length);
       for (const [jid, c] of entries) {
-        const raw = (c.id || jid).split('@')[0].replace(/[^0-9]/g, '');
-        if (raw.length >= 10 && raw.length <= 13) rawContacts.push({ phone: raw, name: c.name || c.notify || c.verifiedName || '', jid: c.id || jid || '' });
+        const raw = jid.split('@')[0].replace(/[^0-9]/g, '');
+        if (raw.length >= 10 && raw.length <= 13) rawContacts.push({ phone: raw, name: c.name || c.notify || c.verifiedName || '', jid });
       }
     }
   } catch (e) { console.log('[AutoSync] Store error:', e.message); }
@@ -348,7 +348,7 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
       else if (Array.isArray(sock.chats)) chats = [...chats, ...sock.chats.map(c => c.id).filter(Boolean)];
       else if (typeof sock.chats === 'object') chats = [...chats, ...Object.keys(sock.chats)];
     }
-    chats = [...new Set(chats)].filter(j => j && !j.includes('@g.us') && !j.includes('@broadcast') && j.split('@')[0].replace(/[^0-9]/g, '').length >= 10);
+    chats = [...new Set(chats)].filter(j => j && !j.includes('@g.us') && !j.includes('@broadcast') && !j.includes('@lid') && j.split('@')[0].replace(/[^0-9]/g, '').length >= 10);
     console.log('[AutoSync] Chat JIDs:', chats.length);
     for (const jid of chats) {
       const raw = jid.split('@')[0].replace(/[^0-9]/g, '');
@@ -515,7 +515,7 @@ const collectSessionContacts = async (sessionId, userId) => {
     results.sources.savedContacts = savedContacts.length;
     for (const c of savedContacts) {
       const p = c.phone;
-      if (!p) continue;
+      if (!p || !isRealPhone(p + '@s.whatsapp.net')) continue;
       if (results.all.has(p)) {
         const ex = results.all.get(p);
         if (c.name && !ex.name) ex.name = c.name;
@@ -631,6 +631,30 @@ const collectSessionContacts = async (sessionId, userId) => {
       results.sources.chatModelEnriched = enriched;
     }
   } catch (e) { console.log('[CollectContacts] Chat model enrichment error:', e.message); }
+
+  // Phase N+1: Enrich from sessionsContactMap (Baileys in-memory event-driven contacts)
+  try {
+    const sock = whatsappService.sessions?.get?.(sessionId);
+    const cmap = whatsappService.sessionsContactMap?.get?.(sessionId);
+    if (cmap && cmap.size > 0) {
+      let enriched = 0;
+      for (const [phone, c] of results.all) {
+        if (!c.name && phone) {
+          const jid = phone + '@s.whatsapp.net';
+          const waContact = cmap.get(jid);
+          if (waContact) {
+            const name = waContact.name || waContact.notify || waContact.verifiedName || '';
+            if (name && !/^\d+$/.test(name)) {
+              c.name = name;
+              enriched++;
+            }
+          }
+        }
+      }
+      if (enriched > 0) console.log('[CollectContacts] Enriched', enriched, 'contacts with names from sessionsContactMap');
+      results.sources.eventMapEnriched = enriched;
+    }
+  } catch (e) { console.log('[CollectContacts] sessionsContactMap enrichment error:', e.message); }
 
   results.total = results.all.size;
   return results;

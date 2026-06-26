@@ -33,6 +33,7 @@ const isLikelyInvalidPhone = (phone) => {
   if (/^0{10}$/.test(phone)) return true;
   if (/^(\d)\1{9}$/.test(phone)) return true;
   if (/^\d{10}$/.test(phone) === false) return true;
+  if (!/^[6-9]/.test(phone)) return true;
   return false;
 };
 
