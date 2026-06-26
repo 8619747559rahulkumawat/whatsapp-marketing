@@ -341,6 +341,9 @@ export default function WhatsAppSessions() {
 
   const downloadBlob = (data, filename) => {
     const blob = data instanceof Blob ? data : new Blob([data]);
+    if (blob.size === 0) {
+      throw new Error('Export file is empty');
+    }
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -353,21 +356,38 @@ export default function WhatsAppSessions() {
 
   const exportPhoneContacts = async (session) => {
     if (!session?.sessionId || session.status !== 'connected') {
-      alert('WhatsApp session connected nahi hai.');
+      alert('WhatsApp session is not connected. Please connect first.');
       return;
     }
 
     setExportingSessionId(session.sessionId);
     try {
-      const { data } = await API.get(`/sessions/${session.sessionId}/export`, {
+      const response = await API.get(`/sessions/${session.sessionId}/export`, {
         params: { format: 'xlsx' },
         responseType: 'blob',
         timeout: 120000
       });
+      const data = response.data;
+      
+      if (data.type && data.type.includes('application/json')) {
+        const text = await data.text();
+        const parsed = JSON.parse(text);
+        throw new Error(parsed.message || 'Export failed');
+      }
+      
+      if (data.size === 0) {
+        throw new Error('Export file is empty');
+      }
+
       const safeName = String(session.name || session.sessionId).replace(/[^a-z0-9_-]+/gi, '-');
       downloadBlob(data, `phone-contacts-${safeName}.xlsx`);
     } catch (err) {
-      alert(await getBlobErrorMessage(err, 'No named phone contacts found to export.'));
+      const msg = err.message || 'No named phone contacts found to export.';
+      if (msg.includes('No phone contacts found')) {
+        alert('No contacts found to export. Make sure the session is connected and contacts are synced.');
+      } else {
+        alert('Export failed: ' + msg);
+      }
     } finally {
       setExportingSessionId('');
     }

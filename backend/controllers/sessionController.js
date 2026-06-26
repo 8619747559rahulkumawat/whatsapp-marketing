@@ -678,15 +678,16 @@ exports.exportContacts = async (req, res) => {
 
   console.log('[ExportContacts] ====== START ======', { sessionId, format, userId: req.user?._id?.toString() });
 
-  try {
-  // Overall timeout: 55s so frontend 120s timeout doesn't fire first
-  const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('Export timed out after 55s')), 55000)
-  );
+  let responded = false;
+  const safeJson = (status, body) => {
+    if (responded || res.headersSent) return;
+    responded = true;
+    res.status(status).json(body);
+  };
 
-  const exportPromise = (async () => {
+  try {
     if (!sessionId || sessionId.length < 3 || sessionId.length > 256) {
-      return res.status(422).json({ success: false, message: 'Invalid session ID format' });
+      return safeJson(422, { success: false, message: 'Invalid session ID format' });
     }
 
     const tenantId = req.tenant?._id || req.user?.tenantId;
@@ -697,40 +698,31 @@ exports.exportContacts = async (req, res) => {
     const session = await Session.findOne(sessionFilter).lean();
     console.log('[ExportContacts] Session found:', !!session, 'Status:', session?.status);
     if (!session) {
-      return res.status(404).json({ success: false, message: 'Session not found or access denied' });
+      return safeJson(404, { success: false, message: 'Session not found or access denied' });
     }
 
     const exportUserId = session.userId || req.user._id;
-    const savedContacts = await Contact.find({ userId: exportUserId }).lean();
-    const savedRows = normalizeContactExportRows(savedContacts.map(c => ({
-      name: c.name || '',
-      phone: c.phone || '',
-      address: c.address || c.city || '',
-      group: 'Saved Contacts',
-      admin: '-',
-      sessionId,
-      groupJid: '',
-      scrapedAt: ''
-    })));
 
-    if (savedRows.length) {
-      console.log('[ExportContacts] Fast DB export:', savedRows.length, 'contacts for session', sessionId);
-      return sendContactExport(res, savedRows, { format, filenameBase: `contacts-${sessionId}` });
+    // Verify session is still connected before expensive operations
+    const sock = whatsappService.sessions?.get?.(sessionId);
+    const isConnected = sock?.user && sock?.ws?.readyState === 1;
+    if (!isConnected && session.status === 'connected') {
+      console.log('[ExportContacts] Session DB says connected but socket not ready. Proceeding with DB-only contacts.');
     }
 
-    // Phase 0: Wait for Baileys to sync contacts (up to 20s, need at least 5 contacts)
-    if (session.status === 'connected') {
+    // Phase 0: Wait for Baileys to sync contacts (up to 15s, need at least 5 contacts)
+    if (isConnected) {
       console.log('[ExportContacts] Phase 0: waiting for contact sync...');
-      const syncedCount = await whatsappService.waitForContactSync(sessionId, 5, 20000);
+      const syncedCount = await whatsappService.waitForContactSync(sessionId, 5, 15000);
       console.log('[ExportContacts] Phase 0 done:', syncedCount, 'contacts synced');
     }
 
-    // Phase 1: collect from all existing sources (DB + scrapes + in-memory)
+    // Phase 1: collect from ALL existing sources (DB + scrapes + in-memory + Baileys)
     let collected = await collectSessionContacts(sessionId, exportUserId);
     console.log('[ExportContacts] Phase 1 collection:', collected.total, 'sources:', collected.sources);
 
     // Phase 2: if empty and connected, auto-sync Baileys store contacts to MongoDB
-    if (collected.total === 0 && session.status === 'connected') {
+    if (collected.total === 0 && isConnected) {
       console.log('[ExportContacts] Phase 2: auto-syncing Baileys contacts to MongoDB...');
       const synced = await autoSyncContactsToDb(sessionId, exportUserId, tenantId);
       console.log('[ExportContacts] Auto-sync result:', synced, 'contacts saved');
@@ -740,38 +732,22 @@ exports.exportContacts = async (req, res) => {
       }
     }
 
-    // Phase 3: supplementary direct read from sock.contacts + store (always run, even if we have contacts)
-    // This catches any contacts that events haven't populated into sessionsContactMap yet
-    if (session.status === 'connected') {
+    // Phase 3: supplementary direct read from sock.contacts + store (always run for connected sessions)
+    if (isConnected) {
       console.log('[ExportContacts] Phase 3: supplementary direct socket read...');
-      const sock = whatsappService.sessions?.get?.(sessionId);
       let added = 0;
 
-      // Pre-merge sock.contacts directly (most authoritative source)
       if (sock?.contacts) {
-        const contacts = sock.contacts instanceof Map ? sock.contacts : typeof sock.contacts === 'object' ? Object.entries(sock.contacts) : [];
-        if (sock.contacts instanceof Map) {
-          for (const [jid, c] of sock.contacts) {
-            if (jid && !jid.includes('@g.us') && isRealPhone(jid)) {
-              const p = c.id?.split('@')[0] || jid.split('@')[0];
-              if (!p || collected.all.has(p)) continue;
-              collected.all.set(p, { name: c.name || c.notify || c.verifiedName || '', group: 'WhatsApp Contacts', phone: p, admin: '-', sessionId, groupJid: jid, scrapedAt: '', address: '' });
-              added++;
-            }
-          }
-        } else if (typeof sock.contacts === 'object') {
-          for (const [jid, c] of Object.entries(sock.contacts)) {
-            if (jid && !jid.includes('@g.us') && isRealPhone(jid)) {
-              const p = c.id?.split('@')[0] || jid.split('@')[0];
-              if (!p || collected.all.has(p)) continue;
-              collected.all.set(p, { name: c.name || c.notify || c.verifiedName || '', group: 'WhatsApp Contacts', phone: p, admin: '-', sessionId, groupJid: jid, scrapedAt: '', address: '' });
-              added++;
-            }
-          }
+        const entries = sock.contacts instanceof Map ? [...sock.contacts] : typeof sock.contacts === 'object' ? Object.entries(sock.contacts) : [];
+        for (const [jid, c] of entries) {
+          if (!jid || jid.includes('@g.us') || !isRealPhone(jid)) continue;
+          const p = c.id?.split('@')[0] || jid.split('@')[0];
+          if (!p || collected.all.has(p)) continue;
+          collected.all.set(p, { name: c.name || c.notify || c.verifiedName || '', group: 'WhatsApp Contacts', phone: p, admin: '-', sessionId, groupJid: jid, scrapedAt: '', address: '' });
+          added++;
         }
       }
 
-      // Also merge in store contacts
       if (sock?.store?.contacts) {
         const store = sock.store.contacts;
         const entries = store instanceof Map ? [...store] : typeof store === 'object' ? Object.entries(store) : [];
@@ -792,34 +768,32 @@ exports.exportContacts = async (req, res) => {
       }
     }
 
-    const finalContacts = normalizeContactExportRows(Array.from(collected.all.values()).map(c => ({
+    const rawContacts = Array.from(collected.all.values()).map(c => ({
       ...c, admin: c.admin || '-', sessionId, groupJid: c.groupJid || '', scrapedAt: c.scrapedAt || '', address: c.address || ''
-    })));
+    }));
 
-    console.log('[ExportContacts] Final 10-digit contacts count:', finalContacts.length, 'Session:', sessionId);
+    // Free collected map memory
+    collected.all.clear();
 
-    if (!finalContacts.length) {
+    console.log('[ExportContacts] Raw contacts before normalization:', rawContacts.length, 'Session:', sessionId);
+
+    if (!rawContacts.length) {
       console.log('[ExportContacts] No contacts from ANY source after all fallbacks');
-      return res.status(404).json({
+      return safeJson(404, {
         success: false,
-        message: 'No 10-digit phone contacts found to export after checking all sources.',
+        message: 'No phone contacts found to export after checking all sources.',
         diagnostics: collected.sources
       });
     }
 
-    console.log('[ExportContacts] Generating', format, 'file for', finalContacts.length, 'contacts');
-    await sendContactExport(res, finalContacts, { format, filenameBase: `contacts-${sessionId}` });
+    console.log('[ExportContacts] Generating', format, 'file for', rawContacts.length, 'raw contacts');
+    await sendContactExport(res, rawContacts, { format, filenameBase: `contacts-${sessionId}` });
 
     console.log('[ExportContacts] ====== SUCCESS ======', {
-      sessionId, format, contactCount: finalContacts.length, durationMs: Date.now() - startTime
+      sessionId, format, rawCount: rawContacts.length, durationMs: Date.now() - startTime
     });
-  })();
-
-  await Promise.race([exportPromise, timeoutPromise]);
   } catch (err) {
-    console.error('[ExportContacts] Error:', err.message);
-    if (!res.headersSent) {
-      res.status(500).json({ success: false, message: err.message });
-    }
+    console.error('[ExportContacts] Error:', err.message, err.stack);
+    safeJson(500, { success: false, message: err.message });
   }
 };

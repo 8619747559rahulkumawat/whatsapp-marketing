@@ -20,10 +20,20 @@ const escapeCsvValue = (value) => {
 
 const normalizePhone10 = (value) => {
   const digits = String(value || '').split('@')[0].replace(/[^0-9]/g, '');
-  return digits.length >= 10 ? digits.slice(-10) : '';
+  if (digits.length < 10) return '';
+  const phone = digits.slice(-10);
+  if (phone.startsWith('0') || phone.length !== 10) return '';
+  return phone;
 };
 
 const cleanContactName = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+
+const isLikelyInvalidPhone = (phone) => {
+  if (!phone || phone.length !== 10) return true;
+  if (/^0{10}$/.test(phone)) return true;
+  if (/^(\d)\1{9}$/.test(phone)) return true;
+  return false;
+};
 
 const isUsableContactName = (value) => {
   const name = cleanContactName(value);
@@ -34,17 +44,23 @@ const isUsableContactName = (value) => {
 
 const normalizeContactExportRows = (rows = [], { requireName = false } = {}) => {
   const byPhone = new Map();
+  let invalidPhones = 0;
+  let duplicatePhones = 0;
+  let skippedNames = 0;
 
   for (const row of rows) {
     const phone = normalizePhone10(row.phone || row.Phone || row.jid);
-    if (!phone) continue;
+    if (!phone) { invalidPhones++; continue; }
+    if (isLikelyInvalidPhone(phone)) { invalidPhones++; continue; }
 
     const name = cleanContactName(row.name || row.Name);
-    if (requireName && !isUsableContactName(name)) continue;
+    if (requireName && !isUsableContactName(name)) { skippedNames++; continue; }
+
+    const finalName = name || 'Unknown';
 
     const normalized = {
       ...row,
-      name,
+      name: finalName,
       phone,
       address: cleanContactName(row.address || row.Address || row.city),
       group: cleanContactName(row.group || row.Group),
@@ -60,6 +76,7 @@ const normalizeContactExportRows = (rows = [], { requireName = false } = {}) => 
       continue;
     }
 
+    duplicatePhones++;
     if (!existing.name && normalized.name) existing.name = normalized.name;
     if (!existing.address && normalized.address) existing.address = normalized.address;
     if (normalized.group && !String(existing.group || '').split('; ').includes(normalized.group)) {
@@ -71,7 +88,17 @@ const normalizeContactExportRows = (rows = [], { requireName = false } = {}) => 
     if (!existing.scrapedAt && normalized.scrapedAt) existing.scrapedAt = normalized.scrapedAt;
   }
 
-  return Array.from(byPhone.values());
+  const exportRows = Array.from(byPhone.values());
+  return {
+    rows: exportRows,
+    stats: {
+      totalInput: rows.length,
+      totalExported: exportRows.length,
+      duplicatesRemoved: duplicatePhones,
+      invalidPhones,
+      skippedNames
+    }
+  };
 };
 
 const toCsv = (rows) => {
@@ -140,14 +167,16 @@ const buildGroupScrapeRows = (scrapes = [], contacts = []) => {
 const sendContactExport = async (res, rows, { format = 'xlsx', filenameBase = 'contacts', requireName = false } = {}) => {
   const normalizedFormat = normalizeExportFormat(format);
   const filename = `${filenameBase}.${normalizedFormat}`;
-  const exportRows = normalizeContactExportRows(rows, { requireName });
+  const { rows: exportRows, stats } = normalizeContactExportRows(rows, { requireName });
+
+  console.log('[ExportStats]', JSON.stringify({ filenameBase, format: normalizedFormat, ...stats }));
 
   res.setHeader('Content-Type', getExportContentType(normalizedFormat));
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
   try {
     if (normalizedFormat === 'json') {
-      return res.send(JSON.stringify({ success: true, count: exportRows.length, contacts: exportRows }, null, 2));
+      return res.send(JSON.stringify({ success: true, ...stats, contacts: exportRows }, null, 2));
     }
 
     if (normalizedFormat === 'csv') {
@@ -156,6 +185,20 @@ const sendContactExport = async (res, rows, { format = 'xlsx', filenameBase = 'c
 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet(requireName ? 'Phone Contacts' : 'Group Members');
+
+    const summarySheet = wb.addWorksheet('Summary');
+    summarySheet.columns = [
+      { header: 'Metric', key: 'metric', width: 30 },
+      { header: 'Value', key: 'value', width: 20 }
+    ];
+    summarySheet.getRow(1).font = { bold: true };
+    summarySheet.addRow({ metric: 'Total Contacts Found', value: stats.totalInput });
+    summarySheet.addRow({ metric: 'Total Exported', value: stats.totalExported });
+    summarySheet.addRow({ metric: 'Duplicates Removed', value: stats.duplicatesRemoved });
+    summarySheet.addRow({ metric: 'Invalid Numbers Removed', value: stats.invalidPhones });
+    summarySheet.addRow({ metric: 'Contacts Without Name', value: stats.totalExported });
+    summarySheet.addRow({ metric: 'Generated At', value: new Date().toISOString() });
+
     ws.columns = [
       { header: 'Name', key: 'name', width: 30 },
       { header: 'Phone', key: 'phone', width: 18 },
@@ -168,6 +211,7 @@ const sendContactExport = async (res, rows, { format = 'xlsx', filenameBase = 'c
     ];
     ws.getRow(1).font = { bold: true };
     ws.addRows(exportRows);
+
     await wb.xlsx.write(res);
     return res.end();
   } catch (err) {

@@ -9,7 +9,12 @@ const { formatPhoneNumber } = require('../utils/helpers');
 exports.sendMessage = async (req, res) => {
   try {
     const { sessionId, to, messageType, message, mediaUrl, buttons } = req.body;
+    if (!sessionId || !to || !message) {
+      return res.status(400).json({ success: false, message: 'sessionId, to, and message are required' });
+    }
     const phone = formatPhoneNumber(to);
+    console.log(`[MessageController] sendMessage: sessionId=${sessionId}, to=${phone}, type=${messageType || 'text'}`);
+
     let result;
     if (buttons && buttons.length > 0) {
       result = await whatsappService.sendButtonMessage(sessionId, phone, message, buttons);
@@ -20,6 +25,7 @@ exports.sendMessage = async (req, res) => {
     }
     const waId = typeof result === 'object' && result ? (result.id || '') : '';
     const recipJid = typeof result === 'object' && result ? (result.remoteJid || '') : '';
+    console.log(`[MessageController] sendMessage SUCCESS: waId=${waId}, recipJid=${recipJid}`);
     const msg = await Message.create({
       userId: req.user._id,
       tenantId: req.tenant?._id || req.user.tenantId,
@@ -43,6 +49,7 @@ exports.sendMessage = async (req, res) => {
     }
     res.json({ success: true, message: msg });
   } catch (err) {
+    console.error(`[MessageController] sendMessage FAILED:`, err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -50,61 +57,70 @@ exports.sendMessage = async (req, res) => {
 exports.sendBulk = async (req, res) => {
   try {
     const { sessionId, contacts, messageType, message, mediaUrl, delay, buttons } = req.body;
+    if (!sessionId || !Array.isArray(contacts) || contacts.length === 0 || !message) {
+      return res.status(400).json({ success: false, message: 'sessionId, contacts array, and message are required' });
+    }
     const safeDelay = Math.max(4000, parseInt(delay) || 4000);
     const BATCH_SIZE = 5;
     const results = [];
     const io = req.app.get('io');
+    console.log(`[MessageController] sendBulk START: ${contacts.length} contacts, delay=${safeDelay}ms`);
 
-    const sendOne = async (contact) => {
+    const sendOne = async (contact, index) => {
       const phone = formatPhoneNumber(contact.phone);
-      let result;
-      if (buttons && buttons.length > 0) {
-        result = await whatsappService.sendButtonMessage(sessionId, phone, message, buttons);
-      } else if (mediaUrl && messageType !== 'text') {
-        result = await whatsappService.sendMediaMessage(sessionId, phone, mediaUrl, messageType, message);
-      } else {
-        result = await whatsappService.sendTextMessage(sessionId, phone, message);
+      const lastTen = phone.replace(/[^0-9]/g, '').slice(-10);
+      try {
+        let result;
+        if (buttons && buttons.length > 0) {
+          result = await whatsappService.sendButtonMessage(sessionId, phone, message, buttons);
+        } else if (mediaUrl && messageType !== 'text') {
+          result = await whatsappService.sendMediaMessage(sessionId, phone, mediaUrl, messageType, message);
+        } else {
+          result = await whatsappService.sendTextMessage(sessionId, phone, message);
+        }
+        const waId = result?.id || '';
+        const recipJid = result?.remoteJid || '';
+        // Await DB write to prevent race conditions
+        const msg = await Message.create({
+          userId: req.user._id,
+          tenantId: req.tenant?._id || req.user.tenantId,
+          sessionId,
+          to: phone,
+          waMessageId: waId,
+          recipientJid: recipJid,
+          messageType: messageType || 'text',
+          content: message,
+          mediaUrl: mediaUrl || '',
+          status: waId ? 'sent' : 'failed',
+          sentAt: new Date()
+        });
+        console.log(`[MessageController] sendBulk [${index + 1}] ...${lastTen} => ${waId ? 'SENT' : 'FAILED'}`);
+        return { phone, status: waId ? 'sent' : 'failed', messageId: msg._id };
+      } catch (err) {
+        console.error(`[MessageController] sendBulk [${index + 1}] ...${lastTen} FAILED: ${err.message}`);
+        return { phone, status: 'failed', error: err.message || 'Unknown' };
       }
-      const waId = result?.id || '';
-      const recipJid = result?.remoteJid || '';
-      const msg = await Message.create({
-        userId: req.user._id,
-        tenantId: req.tenant?._id || req.user.tenantId,
-        sessionId,
-        to: phone,
-        waMessageId: waId,
-        recipientJid: recipJid,
-        messageType: messageType || 'text',
-        content: message,
-        mediaUrl: mediaUrl || '',
-        status: waId ? 'sent' : 'failed',
-        sentAt: new Date()
-      });
-      return { phone, status: waId ? 'sent' : 'failed', messageId: msg._id };
     };
 
-    for (let i = 0; i < contacts.length; i += BATCH_SIZE) {
-      const batch = contacts.slice(i, i + BATCH_SIZE);
-      const batchResults = await Promise.allSettled(batch.map(c => sendOne(c)));
-      for (let j = 0; j < batchResults.length; j++) {
-        const r = batchResults[j];
-        if (r.status === 'fulfilled') {
-          results.push(r.value);
-        } else {
-          results.push({ phone: batch[j].phone, status: 'failed', error: r.reason?.message || 'Unknown' });
-        }
-      }
-      if (io) {
+    // Process sequentially to respect anti-ban delays and prevent race conditions
+    for (let i = 0; i < contacts.length; i++) {
+      const result = await sendOne(contacts[i], i);
+      results.push(result);
+
+      if (io && (i + 1) % BATCH_SIZE === 0) {
         io.to('admin_room').emit('bulk:progress', {
           sent: results.filter(r => r.status === 'sent').length,
           failed: results.filter(r => r.status === 'failed').length,
           total: contacts.length
         });
       }
-      if (i + BATCH_SIZE < contacts.length) {
+
+      if (i < contacts.length - 1) {
         await new Promise(r => setTimeout(r, safeDelay));
       }
-      if ((i / BATCH_SIZE + 1) % 10 === 0 && i + BATCH_SIZE < contacts.length) {
+      // Extra long pause every 10 messages to avoid rate limits
+      if ((i + 1) % 10 === 0 && i < contacts.length - 1) {
+        console.log(`[MessageController] sendBulk: 10-message checkpoint, pausing 30s...`);
         await new Promise(r => setTimeout(r, 30000));
       }
     }
@@ -114,11 +130,13 @@ exports.sendBulk = async (req, res) => {
     }
     const sent = results.filter(r => r.status === 'sent').length;
     const failed = results.filter(r => r.status === 'failed').length;
+    console.log(`[MessageController] sendBulk DONE: sent=${sent}, failed=${failed}, total=${contacts.length}`);
     if (io) {
       io.to('admin_room').emit('bulk:completed', { sent, failed, total: contacts.length });
     }
     res.json({ success: true, results, sent, failed });
   } catch (err) {
+    console.error(`[MessageController] sendBulk ERROR:`, err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 };

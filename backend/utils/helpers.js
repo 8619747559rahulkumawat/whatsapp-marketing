@@ -12,18 +12,30 @@ const formatPhoneNumber = (phone, countryCode = process.env.DEFAULT_COUNTRY_CODE
   if (!phone) return '';
   let cleaned = phone.replace(/[^+\d]/g, '');
   if (cleaned.startsWith('+')) {
-    if (cleaned.startsWith(`+${countryCode}`)) {
-      return cleaned;
+    // Already has + prefix — check if it already has country code
+    const withoutPlus = cleaned.substring(1);
+    if (withoutPlus.startsWith(countryCode)) {
+      return cleaned; // Already correctly formatted: +91XXXXXXXXXX
     }
-    cleaned = cleaned.substring(1);
+    // Has + but different country code, replace
+    cleaned = withoutPlus;
   }
-  if (cleaned.startsWith(countryCode) && cleaned.length > countryCode.length) {
-    return `+${cleaned}`;
-  }
+  // Strip leading 0 (local format: 0XXXXXXXXXX)
   if (cleaned.startsWith('0')) {
     cleaned = cleaned.substring(1);
   }
+  // Already has country code as prefix
+  if (cleaned.startsWith(countryCode) && cleaned.length > countryCode.length) {
+    return `+${cleaned}`;
+  }
+  // Missing country code — prepend it
   return `+${countryCode}${cleaned}`;
+};
+
+// Strip everything except digits — used for JID construction
+const stripToDigits = (phone) => {
+  if (!phone) return '';
+  return phone.replace(/[^0-9]/g, '');
 };
 
 const calculatePagination = (page = 1, limit = 20) => {
@@ -59,6 +71,7 @@ module.exports = {
   generateApiKey,
   generateSessionId,
   formatPhoneNumber,
+  stripToDigits,
   calculatePagination,
   buildFilterFromQuery,
   calculateCreditsNeeded

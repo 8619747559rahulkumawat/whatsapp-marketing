@@ -4,7 +4,7 @@ const GroupScrape = require('../models/GroupScrape');
 const Session = require('../models/Session');
 const whatsappService = require('../services/whatsappService');
 const { formatPhoneNumber, calculatePagination } = require('../utils/helpers');
-const { buildGroupScrapeRows, normalizeExportFormat, sendContactExport } = require('../utils/contactExport');
+const { buildGroupScrapeRows, normalizeContactExportRows, normalizeExportFormat, sendContactExport } = require('../utils/contactExport');
 const csv = require('csv-parser');
 const mongoose = require('mongoose');
 const { Readable } = require('stream');
@@ -184,17 +184,34 @@ exports.importContacts = async (req, res) => {
 
 exports.exportContacts = async (req, res) => {
   try {
+    const format = normalizeExportFormat(req.query.format || req.params.format);
     const filter = req.user.role === 'admin' ? {} : { userId: req.user._id };
     const contacts = await Contact.find(filter).lean();
-    let csv = 'Name,Phone,Email,Tags\n';
-    for (const c of contacts) {
-      csv += `"${c.name || ''}","${c.phone}","${c.email || ''}","${(c.tags || []).join(';')}"\n`;
+    
+    if (!contacts.length) {
+      return res.status(404).json({ success: false, message: 'No contacts found to export' });
     }
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename=contacts.csv');
-    res.send(csv);
+
+    const rows = contacts.map(c => ({
+      name: c.name || '',
+      phone: c.phone || '',
+      address: c.address || c.city || '',
+      group: 'CRM Contacts',
+      admin: '-',
+      sessionId: '',
+      groupJid: '',
+      scrapedAt: ''
+    }));
+
+    await sendContactExport(res, rows, {
+      format,
+      filenameBase: 'crm-contacts'
+    });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error('[ExportContacts] CRM export error:', err.message);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: err.message });
+    }
   }
 };
 

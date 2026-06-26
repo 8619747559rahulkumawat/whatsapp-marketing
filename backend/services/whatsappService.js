@@ -155,18 +155,19 @@ const randomDelay = (minSeconds = 15, maxSeconds = 30) => {
 
 // 3. Typing Emulation: Mimics human typing/recording state
 const emulateHumanActivity = async (sock, jid, mediaType = 'text') => {
+  // Skip if WebSocket isn't fully open (presence will fail anyway)
+  if (!sock || sock.ws?.readyState !== 1) {
+    console.log(`[AntiBan] Skipping presence - WebSocket not OPEN (state=${sock?.ws?.readyState})`);
+    return;
+  }
   try {
     const presenceState = mediaType === 'audio' ? 'recording' : 'composing';
     console.log(`[AntiBan] Typing... for ${jid}`);
     await sock.sendPresenceUpdate(presenceState, jid);
-    
-    // Hold typing for exactly 3 seconds (human typing speed)
     await new Promise(r => setTimeout(r, 3000));
-    
     await sock.sendPresenceUpdate('paused', jid);
   } catch (err) {
-    // Fail silently so the message still sends if presence update errors out
-    console.log('[AntiBan] Presence update failed, skipping...');
+    console.log(`[AntiBan] Presence update failed (${err.message}), skipping...`);
   }
 };
 
@@ -202,19 +203,36 @@ const getSessionDir = (sessionId) => {
   return dir;
 };
 
+// WebSocket readyState constants (ws library)
+const WS_OPEN = 1;
+
+const isSocketTrulyReady = (sock) => {
+  if (!sock) return false;
+  if (!sock.user) return false;
+  const wsState = sock.ws?.readyState;
+  return wsState === WS_OPEN;
+};
+
 const isSessionConnected = (sessionId) => {
   const sock = sessions.get(sessionId);
-  return sock && sock.user ? true : false;
+  return isSocketTrulyReady(sock);
 };
 
 const isSessionReady = (sessionId) => {
   const sock = sessions.get(sessionId);
-  return sock && sock.user ? true : false;
+  return isSocketTrulyReady(sock);
 };
 
 const getConnectionStatus = async (sessionId) => {
   const sock = sessions.get(sessionId);
-  if (sock && sock.user) return { status: 'connected', phone: sock.user.id.split(':')[0] };
+  if (isSocketTrulyReady(sock)) {
+    return { status: 'connected', phone: sock.user.id.split(':')[0], wsState: 'OPEN' };
+  }
+  if (sock && sock.user) {
+    const wsState = sock.ws?.readyState;
+    const label = wsState === 0 ? 'CONNECTING' : wsState === 1 ? 'OPEN' : wsState === 2 ? 'CLOSING' : 'CLOSED';
+    return { status: 'connecting', phone: sock.user.id?.split(':')[0] || '', wsState: label };
+  }
   try {
     const Session = require('../models/Session');
     const dbSession = await Session.findOne({ sessionId }).select('status phone errorMessage errorDetails');
@@ -227,7 +245,7 @@ const getConnectionStatus = async (sessionId) => {
       };
     }
   } catch (err) { console.error("WhatsApp Error:", err); }
-  if (sock) return { status: 'connecting', phone: '' };
+  if (sock) return { status: 'connecting', phone: '', wsState: 'NO_USER' };
   return { status: 'disconnected', phone: '', errorMessage: '', errorDetails: null };
 };
 
@@ -289,8 +307,8 @@ const connectSession = async (sessionId, io) => {
       logger: pino({ level: 'warn' }),
       printQRInTerminal: false,
       markOnlineOnConnect: false,
-      syncFullHistory: true,
-      shouldSyncHistoryMessage: () => true,
+      syncFullHistory: false,
+      shouldSyncHistoryMessage: () => false,
       generateHighQualityLinkPreview: false,
       version,
       keepAliveIntervalMs: 10000,
@@ -381,7 +399,11 @@ const connectSession = async (sessionId, io) => {
             healthCheckers.set(sessionId, setInterval(async () => {
               if (reconnectTimers.has(sessionId) || connectingSessions.has(sessionId)) return;
               const s = sessions.get(sessionId);
-              if (!s || !s.user) return;
+              if (!s) return;
+              const wsOk = s.ws?.readyState === 1;
+              if (!wsOk || !s.user) {
+                console.warn(`[Health] ${sessionId} UNHEALTHY: ws=${s.ws?.readyState}, user=${!!s.user}`);
+              }
             }, 30000));
           }
         }
@@ -904,20 +926,38 @@ const waitForSocketReady = async (sessionId, timeoutMs) => {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const sock = sessions.get(sessionId);
-    if (sock && sock.user) return sock;
+    if (isSocketTrulyReady(sock)) return sock;
+    if (sock && sock.ws) {
+      const state = sock.ws.readyState;
+      if (state !== 0) { // 0 = CONNECTING
+        console.log(`[Baileys] ${sessionId} ws.readyState=${state} (1=OPEN), waiting...`);
+      }
+    }
     await new Promise(r => setTimeout(r, RECONNECT_POLL_INTERVAL));
+  }
+  const sock = sessions.get(sessionId);
+  if (sock) {
+    console.warn(`[Baileys] ${sessionId} waitForSocketReady timeout. ws.readyState=${sock.ws?.readyState}, user=${!!sock.user}`);
   }
   return null;
 };
 
 const getOrReconnectSocket = async (sessionId, retries = 2) => {
   let sock = sessions.get(sessionId);
-  if (sock && sock.user) return sock;
+  // Check actual WebSocket state, not just sock.user
+  if (isSocketTrulyReady(sock)) {
+    console.log(`[Baileys] ${sessionId} socket truly ready (WS OPEN, user: ${sock.user?.id?.split(':')[0]})`);
+    return sock;
+  }
+
+  if (sock && sock.user) {
+    console.warn(`[Baileys] ${sessionId} sock.user exists but WS not open (state=${sock.ws?.readyState}). Forcing reconnection...`);
+  }
 
   const pendingPromise = reconnectPromises.get(sessionId);
   if (pendingPromise) {
     const result = await pendingPromise;
-    if (result) return result;
+    if (result && isSocketTrulyReady(result)) return result;
   }
 
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -931,13 +971,17 @@ const getOrReconnectSocket = async (sessionId, retries = 2) => {
             return null;
           }
         }
-        if (!sock || !sock.user) {
+        if (!sock || !isSocketTrulyReady(sock)) {
           if (!connectingSessions.has(sessionId)) {
             console.log(`[Baileys] Reconnecting session ${sessionId} (attempt ${attempt + 1}/${retries + 1})...`);
             connectSession(sessionId, globalIo).catch(e => console.error(`[Baileys] ${sessionId} reconnect error:`, e.message));
           }
         }
-        return await waitForSocketReady(sessionId, RECONNECT_POLL_TIMEOUT);
+        const readySock = await waitForSocketReady(sessionId, RECONNECT_POLL_TIMEOUT);
+        if (readySock) {
+          console.log(`[Baileys] ${sessionId} socket ready after reconnect attempt ${attempt + 1}`);
+        }
+        return readySock;
       } catch (err) {
         console.error(`[Baileys] Reconnect error for ${sessionId} (attempt ${attempt + 1}):`, err.message);
         return null;
@@ -950,7 +994,7 @@ const getOrReconnectSocket = async (sessionId, retries = 2) => {
     });
 
     const result = await promise;
-    if (result) return result;
+    if (result && isSocketTrulyReady(result)) return result;
 
     if (attempt < retries) {
       console.log(`[Baileys] Retrying socket for ${sessionId} in 2s...`);
@@ -965,29 +1009,187 @@ const getOrReconnectSocket = async (sessionId, retries = 2) => {
 // ANTI-BAN IMPLEMENTATION IN MESSAGE SENDING
 // ==========================================
 
-const sendTextMessage = async (sessionId, to, text) => {
-  const sock = await getOrReconnectSocket(sessionId);
+// Rate-limit backoff helper
+const WAIT_RATE_LIMITED = 60000;
+
+// Resolve JID: ALWAYS construct @s.whatsapp.net from clean digits.
+// CRITICAL: Never trust onWhatsApp() returned JID — Baileys v6.7.9+ can return @lid JIDs
+// which are NOT valid for direct messaging. Use onWhatsApp() ONLY for existence check.
+const resolveJid = async (sock, to) => {
+  // If already a full JID, return as-is
+  if (to.includes('@s.whatsapp.net')) {
+    const num = to.split('@')[0].replace(/[^0-9]/g, '');
+    if (num.length < 10) return { jid: to, verified: false, notOnWA: true };
+    return { jid: to, verified: true };
+  }
+
+  // CRITICAL FIX: Always construct JID from clean digits, never from onWhatsApp() response
   const clean = to.replace(/[^0-9]/g, '');
-  const jid = to.includes('@s.whatsapp.net') ? to : `${clean}@s.whatsapp.net`;
-  
-  // 1. Spintax parsing
+  if (clean.length < 10 || clean.length > 15) {
+    console.error(`[resolveJid] Invalid phone number length (${clean.length}): ${clean}`);
+    return { jid: `${clean}@s.whatsapp.net`, verified: false, notOnWA: true };
+  }
+
+  const jid = `${clean}@s.whatsapp.net`;
+
+  // Use onWhatsApp ONLY for existence verification, NOT for JID construction
+  try {
+    const result = await sock.onWhatsApp(clean);
+    if (Array.isArray(result) && result.length > 0) {
+      const entry = result[0];
+      console.log(`[resolveJid] onWhatsApp(${clean}): exists=${entry.exists}, returnedJid=${entry.jid || 'none'}`);
+
+      if (entry.exists === false) {
+        console.warn(`[resolveJid] ${clean} is NOT registered on WhatsApp`);
+        return { jid, verified: false, notOnWA: true };
+      }
+      // ALWAYS use our constructed JID, ignore entry.jid (could be @lid)
+      return { jid, verified: true };
+    }
+    // Empty response — number might still exist, try sending anyway
+    console.warn(`[resolveJid] onWhatsApp returned empty for ${clean}, will attempt send with ${jid}`);
+    return { jid, verified: false };
+  } catch (err) {
+    console.warn(`[resolveJid] onWhatsApp failed for ${clean}: ${err.message}. Attempting with ${jid}`);
+    // Even if onWhatsApp fails, the JID format is correct — let sendMessage try
+    return { jid, verified: false };
+  }
+};
+
+// Decode Baileys/WhatsApp error to a readable code
+const getBaileysErrorCode = (err) => {
+  if (!err) return null;
+  // Baileys HTTP errors have statusCode in output
+  const statusCode = err.output?.statusCode || err.data?.reason || err.statusCode;
+  if (statusCode) return statusCode;
+  // Check message for known codes
+  const msg = (err.message || '').toLowerCase();
+  if (msg.includes('rate') || msg.includes('too many') || msg.includes('429')) return 429;
+  if (msg.includes('401') || msg.includes('unauthorized') || msg.includes('logged out')) return 401;
+  if (msg.includes('403') || msg.includes('forbidden') || msg.includes('blocked')) return 403;
+  if (msg.includes('404') || msg.includes('not found') || msg.includes('not on whatsapp')) return 404;
+  if (msg.includes('timeout') || msg.includes('econnrefused') || msg.includes('econnreset')) return 500;
+  return null;
+};
+
+// Validate socket is truly ready at SEND time (not just connection time)
+const validateSocketForSend = (sock, sessionId, context = 'send') => {
+  if (!sock) {
+    throw new Error(`[${context}] WhatsApp socket is null for session ${sessionId}`);
+  }
+  if (!sock.user) {
+    throw new Error(`[${context}] WhatsApp socket has no user (not authenticated). Session: ${sessionId}`);
+  }
+  const wsState = sock.ws?.readyState;
+  if (wsState !== WS_OPEN) {
+    const stateLabel = wsState === 0 ? 'CONNECTING' : wsState === 2 ? 'CLOSING' : 'CLOSED';
+    throw new Error(`[${context}] WhatsApp WebSocket is ${stateLabel} (readyState=${wsState}). Session: ${sessionId}. Wait and retry.`);
+  }
+  return true;
+};
+
+const sendTextMessage = async (sessionId, to, text) => {
+  const cleanTo = to.replace(/[^0-9]/g, '');
+  const lastTen = cleanTo.slice(-10);
+  console.log(`[sendTextMessage] START sessionId=${sessionId}, to=...${lastTen}`);
+
+  const sock = await getOrReconnectSocket(sessionId);
+
+  // CRITICAL: Validate socket at send time, not just at connection time
+  validateSocketForSend(sock, sessionId, 'sendTextMessage');
+  console.log(`[sendTextMessage] Socket validated: ws.readyState=${sock.ws?.readyState}, user=${sock.user?.id?.split(':')[0]}`);
+
+  // 1. Resolve JID with onWhatsApp verification
+  const { jid, verified, notOnWA } = await resolveJid(sock, to);
+  if (notOnWA) {
+    throw new Error(`Number ...${lastTen} is NOT registered on WhatsApp`);
+  }
+  console.log(`[sendTextMessage] JID=${jid}, verified=${verified}`);
+
+  // 2. Spintax parsing
   const finalizedText = replaceSpintax(text);
+  console.log(`[sendTextMessage] Sending to ${jid}: "${finalizedText.slice(0, 50)}${finalizedText.length > 50 ? '...' : ''}"`);
 
-  // 2. Typing status simulation
-  await emulateHumanActivity(sock, jid, 'text');
+  // 3. Typing status simulation (skip if short message to reduce latency)
+  if (finalizedText.length > 20) {
+    await emulateHumanActivity(sock, jid, 'text');
+  }
 
-  const result = await sock.sendMessage(jid, { text: finalizedText });
-  const msgId = result?.key?.id || '';
-  if (!msgId) throw new Error('Message failed to send - no response from WhatsApp');
-  const remoteJid = result?.key?.remoteJid || '';
-  return { key: result?.key, id: msgId, remoteJid };
+  // 4. Send with retry for transient failures
+  let lastError = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    // Re-validate WS state before each attempt (connection can drop between retries)
+    try {
+      validateSocketForSend(sock, sessionId, 'sendTextMessage-retry');
+    } catch (valErr) {
+      console.error(`[sendTextMessage] Socket invalid before attempt ${attempt}: ${valErr.message}`);
+      // Try to get a fresh socket
+      const freshSock = await getOrReconnectSocket(sessionId);
+      validateSocketForSend(freshSock, sessionId, 'sendTextMessage-fresh');
+    }
+
+    try {
+      const result = await sock.sendMessage(jid, { text: finalizedText });
+      const msgId = result?.key?.id || '';
+      if (!msgId) throw new Error('Message failed to send - no response from WhatsApp');
+      const remoteJid = result?.key?.remoteJid || '';
+      console.log(`[sendTextMessage] SUCCESS msgId=${msgId}, remoteJid=${remoteJid}`);
+      return { key: result?.key, id: msgId, remoteJid };
+    } catch (err) {
+      lastError = err;
+      const errCode = getBaileysErrorCode(err);
+      console.error(`[sendTextMessage] FAILED attempt ${attempt}/2, code=${errCode}: ${err.message}`);
+
+      if (errCode === 401) {
+        console.error(`[sendTextMessage] FATAL: Session ${sessionId} logged out (401). Clearing connection.`);
+        sessions.delete(sessionId);
+        throw new Error('WhatsApp session logged out (401). Please re-scan QR code.');
+      }
+      if (errCode === 403) {
+        throw new Error(`Message blocked by WhatsApp (403). Your number may be restricted or the recipient has privacy settings. Number: ...${lastTen}`);
+      }
+      if (errCode === 404) {
+        throw new Error(`Recipient ...${lastTen} not found on WhatsApp (404).`);
+      }
+      if (errCode === 429) {
+        if (attempt < 2) {
+          const waitSec = WAIT_RATE_LIMITED / 1000;
+          console.log(`[sendTextMessage] Rate limited (429). Waiting ${waitSec}s before retry...`);
+          await new Promise(r => setTimeout(r, WAIT_RATE_LIMITED));
+          continue;
+        }
+        throw new Error('WhatsApp rate limit exceeded (429). Please wait before sending more messages.');
+      }
+      if (errCode === 500 && attempt < 2) {
+        console.log(`[sendTextMessage] Transient server error (500). Retrying in 3s...`);
+        await new Promise(r => setTimeout(r, 3000));
+        continue;
+      }
+      if (attempt < 2) {
+        console.log(`[sendTextMessage] Retrying in 2s...`);
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    }
+  }
+  throw lastError || new Error('Message failed after 2 retries');
 };
 
 const sendMediaMessage = async (sessionId, to, url, type, caption = '') => {
-  const sock = await getOrReconnectSocket(sessionId);
-  const clean = to.replace(/[^0-9]/g, '');
-  const jid = to.includes('@s.whatsapp.net') ? to : `${clean}@s.whatsapp.net`;
+  const cleanTo = to.replace(/[^0-9]/g, '');
+  const lastTen = cleanTo.slice(-10);
+  console.log(`[sendMediaMessage] START sessionId=${sessionId}, type=${type}, to=...${lastTen}`);
 
+  const sock = await getOrReconnectSocket(sessionId);
+  validateSocketForSend(sock, sessionId, 'sendMediaMessage');
+
+  // 1. Resolve JID with onWhatsApp
+  const { jid, verified, notOnWA } = await resolveJid(sock, to);
+  if (notOnWA) {
+    throw new Error(`Number ...${lastTen} is NOT registered on WhatsApp`);
+  }
+  console.log(`[sendMediaMessage] JID=${jid}, verified=${verified}`);
+
+  // 2. Prepare media content
   let mediaContent;
   let fileName = 'file';
   if (url.startsWith('http')) {
@@ -1034,20 +1236,69 @@ const sendMediaMessage = async (sessionId, to, url, type, caption = '') => {
     default: throw new Error('Unsupported media type');
   }
 
-  // 1. Status emulation (composing for files, recording for audios)
+  console.log(`[sendMediaMessage] Sending ${type} to ${jid}`);
+
+  // 3. Status emulation (composing for files, recording for audios)
   await emulateHumanActivity(sock, jid, type);
 
-  const result = await sock.sendMessage(jid, mediaMsg);
-  const msgId = result?.key?.id || '';
-  if (!msgId) throw new Error('Message failed to send - no response from WhatsApp');
-  const remoteJid = result?.key?.remoteJid || '';
-  return { key: result?.key, id: msgId, remoteJid };
+  // 4. Send with retry
+  let lastError = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      validateSocketForSend(sock, sessionId, 'sendMediaMessage-retry');
+      const result = await sock.sendMessage(jid, mediaMsg);
+      const msgId = result?.key?.id || '';
+      if (!msgId) throw new Error('Message failed to send - no response from WhatsApp');
+      const remoteJid = result?.key?.remoteJid || '';
+      console.log(`[sendMediaMessage] SUCCESS msgId=${msgId}, remoteJid=${remoteJid}`);
+      return { key: result?.key, id: msgId, remoteJid };
+    } catch (err) {
+      lastError = err;
+      const errCode = getBaileysErrorCode(err);
+      console.error(`[sendMediaMessage] FAILED attempt ${attempt}/2, code=${errCode}: ${err.message}`);
+
+      if (errCode === 401) {
+        sessions.delete(sessionId);
+        throw new Error('WhatsApp session logged out (401). Please re-scan QR code.');
+      }
+      if (errCode === 403) {
+        throw new Error('Message blocked by WhatsApp (403). Your number may be restricted.');
+      }
+      if (errCode === 404) {
+        throw new Error(`Recipient ...${lastTen} not found on WhatsApp (404).`);
+      }
+      if (errCode === 429) {
+        if (attempt < 2) {
+          console.log(`[sendMediaMessage] Rate limited (429). Waiting ${WAIT_RATE_LIMITED / 1000}s...`);
+          await new Promise(r => setTimeout(r, WAIT_RATE_LIMITED));
+          continue;
+        }
+        throw new Error('WhatsApp rate limit exceeded (429). Please wait before sending more messages.');
+      }
+      if (errCode === 500 && attempt < 2) {
+        console.log(`[sendMediaMessage] Transient error (500). Retrying in 3s...`);
+        await new Promise(r => setTimeout(r, 3000));
+        continue;
+      }
+      if (attempt < 2) {
+        console.log(`[sendMediaMessage] Retrying in 2s...`);
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    }
+  }
+  throw lastError || new Error('Media message failed after retries');
 };
 
 const sendButtonMessage = async (sessionId, to, text, buttons) => {
+  const cleanTo = to.replace(/[^0-9]/g, '');
+  const lastTen = cleanTo.slice(-10);
+  console.log(`[sendButtonMessage] START sessionId=${sessionId}, to=...${lastTen}, buttons=${buttons?.length}`);
   const sock = await getOrReconnectSocket(sessionId);
-  const clean = to.replace(/[^0-9]/g, '');
-  const jid = to.includes('@s.whatsapp.net') ? to : `${clean}@s.whatsapp.net`;
+  validateSocketForSend(sock, sessionId, 'sendButtonMessage');
+  const { jid, notOnWA } = await resolveJid(sock, to);
+  if (notOnWA) {
+    throw new Error(`Number ...${lastTen} is NOT registered on WhatsApp`);
+  }
   
   const buttonList = buttons.map((btn, idx) => ({
     buttonId: `btn_${idx}`,
@@ -1055,32 +1306,68 @@ const sendButtonMessage = async (sessionId, to, text, buttons) => {
     type: btn.type === 'url' ? 1 : btn.type === 'call' ? 2 : 1
   }));
 
-  // Emulation & Spintax
   const finalizedText = replaceSpintax(text);
   await emulateHumanActivity(sock, jid, 'text');
 
-  const result = await sock.sendMessage(jid, { text: finalizedText, footer: 'RSendix.pro', buttons: buttonList, headerType: 1 });
-  const msgId = result?.key?.id || '';
-  if (!msgId) throw new Error('Message failed to send - no response from WhatsApp');
-  return { key: result?.key, id: msgId };
+  let lastError = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      validateSocketForSend(sock, sessionId, 'sendButtonMessage-retry');
+      const result = await sock.sendMessage(jid, { text: finalizedText, footer: 'RSendix.pro', buttons: buttonList, headerType: 1 });
+      const msgId = result?.key?.id || '';
+      if (!msgId) throw new Error('Message failed to send - no response from WhatsApp');
+      console.log(`[sendButtonMessage] SUCCESS msgId=${msgId}`);
+      return { key: result?.key, id: msgId };
+    } catch (err) {
+      lastError = err;
+      const errCode = getBaileysErrorCode(err);
+      console.error(`[sendButtonMessage] FAILED attempt ${attempt}/2, code=${errCode}: ${err.message}`);
+      if (errCode === 401) throw new Error('WhatsApp session logged out. Please re-scan QR code.');
+      if (errCode === 403) throw new Error('Message blocked by WhatsApp (403).');
+      if (errCode === 429 && attempt < 2) {
+        await new Promise(r => setTimeout(r, WAIT_RATE_LIMITED));
+        continue;
+      }
+      if (attempt < 2) await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+  throw lastError || new Error('Button message failed after retries');
 };
 
 const sendGroupMessage = async (sessionId, groupJid, text) => {
+  console.log(`[sendGroupMessage] START sessionId=${sessionId}, groupJid=${groupJid}`);
   const sock = await getOrReconnectSocket(sessionId);
+  validateSocketForSend(sock, sessionId, 'sendGroupMessage');
   
-  // Spintax & Typing delay in groups
   const finalizedText = replaceSpintax(text);
   await emulateHumanActivity(sock, groupJid, 'text');
 
-  const result = await sock.sendMessage(groupJid, { text: finalizedText });
-  const msgId = result?.key?.id || '';
-  if (!msgId) throw new Error('Message failed to send - no response from WhatsApp');
-  return { key: result?.key, id: msgId };
+  let lastError = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      validateSocketForSend(sock, sessionId, 'sendGroupMessage-retry');
+      const result = await sock.sendMessage(groupJid, { text: finalizedText });
+      const msgId = result?.key?.id || '';
+      if (!msgId) throw new Error('Message failed to send - no response from WhatsApp');
+      console.log(`[sendGroupMessage] SUCCESS msgId=${msgId}`);
+      return { key: result?.key, id: msgId };
+    } catch (err) {
+      lastError = err;
+      const errCode = getBaileysErrorCode(err);
+      console.error(`[sendGroupMessage] FAILED attempt ${attempt}/2, code=${errCode}: ${err.message}`);
+      if (attempt < 2) await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+  throw lastError || new Error('Group message failed after retries');
 };
 
 const getReadySocket = async (sessionId, timeoutMs = 60000) => {
   let sock = sessions.get(sessionId);
-  if (sock && sock.user) return sock;
+  if (isSocketTrulyReady(sock)) return sock;
+
+  if (sock && sock.user) {
+    console.warn(`[Baileys] ${sessionId} getReadySocket: user exists but WS not open (state=${sock.ws?.readyState})`);
+  }
 
   const pendingPromise = reconnectPromises.get(sessionId);
   if (pendingPromise) {
@@ -1088,7 +1375,7 @@ const getReadySocket = async (sessionId, timeoutMs = 60000) => {
       pendingPromise,
       new Promise(r => setTimeout(() => r(null), timeoutMs))
     ]);
-    if (result && result.user) return result;
+    if (result && isSocketTrulyReady(result)) return result;
   }
 
   if (!connectingSessions.has(sessionId)) {
@@ -1099,7 +1386,9 @@ const getReadySocket = async (sessionId, timeoutMs = 60000) => {
 
 const getGroups = async (sessionId) => {
   const sock = await getReadySocket(sessionId);
-  if (!sock || !sock.user) throw new Error('WhatsApp session not connected. Please scan QR code from WhatsApp Sessions page first.');
+  if (!isSocketTrulyReady(sock)) {
+    throw new Error('WhatsApp session not connected (WebSocket not OPEN). Please scan QR code from WhatsApp Sessions page first.');
+  }
   const groups = await sock.groupFetchAllParticipating();
   return Object.entries(groups).map(([id, g]) => ({
     id, name: g.subject, memberCount: g.size, profilePic: g.profilePictureUrl || ''
@@ -1133,15 +1422,16 @@ const restoreSessions = async (io) => {
       if (!fs.existsSync(path.join(sessionDir, 'creds.json'))) continue;
       for (let i = 0; i < 30; i++) {
         const sock = sessions.get(session.sessionId);
-        if (sock && sock.user) break;
+        if (isSocketTrulyReady(sock)) break;
         await new Promise(r => setTimeout(r, 1000));
       }
       const sock = sessions.get(session.sessionId);
-      if (sock && sock.user) {
+      if (isSocketTrulyReady(sock)) {
         await Session.findOneAndUpdate({ sessionId: session.sessionId }, { status: 'connected' });
-        console.log(`Session ${session.sessionId} restored successfully`);
+        console.log(`Session ${session.sessionId} restored successfully (WS OPEN)`);
       } else {
-        console.log(`Session ${session.sessionId} could not be restored - may need QR re-scan`);
+        const wsState = sock?.ws?.readyState;
+        console.warn(`Session ${session.sessionId} restore: user=${!!sock?.user}, ws.readyState=${wsState} - may need QR re-scan`);
       }
     }
   } catch (err) {
@@ -1152,7 +1442,10 @@ const restoreSessions = async (io) => {
 const fetchProfilePic = async (sessionId, phone) => {
   try {
     const sock = sessions.get(sessionId);
-    if (!sock || !sock.user) { console.log('[Profile] No socket or user for', sessionId); return ''; }
+    if (!isSocketTrulyReady(sock)) {
+      console.log(`[Profile] Socket not ready for ${sessionId} (ws=${sock?.ws?.readyState}, user=${!!sock?.user})`);
+      return '';
+    }
     const cleanPhone = phone.replace('@s.whatsapp.net', '').replace(/[^0-9]/g, '');
     const jid = `${cleanPhone}@s.whatsapp.net`;
     console.log('[Profile] Fetching pic for', jid);
@@ -1207,7 +1500,7 @@ const fetchContactName = async (sessionId, phone) => {
 const getAllContacts = async (sessionId) => {
   try {
     const sock = await getReadySocket(sessionId);
-    if (!sock || !sock.user) throw new Error('WhatsApp session not connected.');
+    if (!isSocketTrulyReady(sock)) throw new Error('WhatsApp session not connected (WebSocket not OPEN).');
 
     const combined = new Map();
     const isRealPhone = (jid) => {
@@ -1366,8 +1659,8 @@ const createPairingSession = async (sessionId, phoneNumber, io) => {
       logger: pino({ level: 'warn' }),
       printQRInTerminal: false,
       markOnlineOnConnect: false,
-      syncFullHistory: true,
-      shouldSyncHistoryMessage: () => true,
+      syncFullHistory: false,
+      shouldSyncHistoryMessage: () => false,
       generateHighQualityLinkPreview: false,
       mobile: false,
       version,

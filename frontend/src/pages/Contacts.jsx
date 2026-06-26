@@ -60,18 +60,33 @@ export default function Contacts() {
 
   const handleExport = async () => {
     try {
-      const { data } = await API.get('/contacts/export', { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([data]));
+      const response = await API.get('/contacts/export', {
+        params: { format: 'xlsx' },
+        responseType: 'blob'
+      });
+      const data = response.data;
+      
+      if (data.type && data.type.includes('application/json')) {
+        const text = await data.text();
+        const parsed = JSON.parse(text);
+        throw new Error(parsed.message || 'Export failed');
+      }
+      
+      if (data.size === 0) {
+        throw new Error('No contacts to export');
+      }
+
+      const url = window.URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'contacts.csv';
+      a.download = 'contacts.xlsx';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     } catch (err) { 
       console.error(err);
-      alert('Export failed: ' + (err.response?.data?.message || err.message));
+      alert('Export failed: ' + (err.message || 'Unknown error'));
     }
   };
 

@@ -85,6 +85,10 @@ export default function GroupScraper() {
   const downloadBlob = (data, filename) => {
     try {
       const blob = data instanceof Blob ? data : new Blob([data]);
+      if (blob.size === 0) {
+        addToast('Export file is empty. No contacts found.', 'error');
+        return;
+      }
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -171,24 +175,38 @@ export default function GroupScraper() {
     try {
       console.log('[ExportContacts] Starting export', { sessionId, format });
       
-      const { data } = await API.get(`/sessions/${sessionId}/export`, {
+      const response = await API.get(`/sessions/${sessionId}/export`, {
         params: { format },
         responseType: 'blob',
         timeout: 120000
       });
+      const data = response.data;
+
+      if (data.type && data.type.includes('application/json')) {
+        const text = await data.text();
+        const parsed = JSON.parse(text);
+        throw new Error(parsed.message || 'Export failed');
+      }
+
+      if (data.size === 0) {
+        throw new Error('Export file is empty. No contacts found.');
+      }
       
       const filename = `contacts-${selectedSession.name || sessionId}.${format}`;
       downloadBlob(data, filename);
       addToast('Contacts exported successfully', 'success');
       console.log('[ExportContacts] Export completed', { sessionId, format, filename });
     } catch (err) {
-      let errorMsg = await getBlobErrorMessage(err, 'No contacts found to export for this session');
+      let errorMsg = err.message || 'No contacts found to export for this session';
+      if (errorMsg.includes('No phone contacts found')) {
+        errorMsg = 'No contacts found. Ensure the session is connected and contacts are synced.';
+      }
       if (err.response?.status === 404) {
         try {
           const diag = await API.get(`/debug/session/${sessionId}`);
           if (diag.data?.success) {
             const d = diag.data;
-            errorMsg = `❌ No contacts. Session=${d.sessionExists}, Connected=${d.connected}, DB Contacts=${d.contactsCount}, Scraped=${d.scrapedContactsCount}, Group Members=${d.groupMembersCount}, Store Contacts=${d.storeContactsCount}, Socket Contacts=${d.socketContactsCount}`;
+            errorMsg = `No contacts. Session=${d.sessionExists}, Connected=${d.connected}, DB=${d.contactsCount}, Scraped=${d.scrapedContactsCount}, Groups=${d.groupMembersCount}, Store=${d.storeContactsCount}, Socket=${d.socketContactsCount}`;
           }
         } catch (diagErr) {
           console.error('[ExportContacts] Diagnostics fetch error:', diagErr);
