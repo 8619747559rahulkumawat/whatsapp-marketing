@@ -20,21 +20,14 @@ const escapeCsvValue = (value) => {
 
 const normalizePhone = (value) => {
   const raw = String(value || '').split('@')[0].replace(/[^0-9]/g, '');
-  if (raw.length < 10 || raw.length > 13) return '';
-  return raw;
-};
-
-const phoneDedupKey = (phone) => {
-  if (!phone) return '';
-  return phone.slice(-10);
+  if (raw.length < 10) return '';
+  return raw.slice(-10);
 };
 
 const isLikelyInvalidPhone = (phone) => {
-  if (!phone) return true;
-  if (phone.length < 10 || phone.length > 13) return true;
-  const last10 = phone.slice(-10);
-  if (/^0{10}$/.test(last10)) return true;
-  if (/^(\d)\1{9}$/.test(last10)) return true;
+  if (!phone || phone.length !== 10) return true;
+  if (/^0{10}$/.test(phone)) return true;
+  if (/^(\d)\1{9}$/.test(phone)) return true;
   return false;
 };
 
@@ -96,11 +89,9 @@ const normalizeContactExportRows = (rows = [], { requireName = false } = {}) => 
       loggedSamples++;
     }
 
-    const key = phoneDedupKey(phone);
-    const existing = byPhone.get(key);
+    const existing = byPhone.get(phone);
     if (existing) {
       duplicatePhones++;
-      if (phone.length > existing.phone.length) existing.phone = phone;
       if (finalName !== 'Unknown' && (existing.name === 'Unknown' || !existing.name)) existing.name = finalName;
       if (row.group && !String(existing.group || '').split('; ').includes(row.group)) {
         existing.group = existing.group ? `${existing.group}; ${row.group}` : row.group;
@@ -108,7 +99,7 @@ const normalizeContactExportRows = (rows = [], { requireName = false } = {}) => 
       continue;
     }
 
-    byPhone.set(key, {
+    byPhone.set(phone, {
       name: finalName,
       phone,
       group: cleanContactName(row.group || row.Group) || 'WhatsApp Contacts'
@@ -164,7 +155,7 @@ const buildGroupScrapeRows = (scrapes = [], contacts = []) => {
 
     for (const member of scrape.participants || []) {
       const rawPhone = member.phone || (member.jid ? member.jid.split('@')[0] : '');
-      const phone = String(rawPhone || '').replace(/[^0-9]/g, '').trim();
+      const phone = normalizePhone(rawPhone);
       const jid = String(member.jid || '').trim();
       const rowKey = phone || jid;
       if (!rowKey) continue;

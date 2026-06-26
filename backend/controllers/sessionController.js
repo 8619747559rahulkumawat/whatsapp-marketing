@@ -647,16 +647,26 @@ const collectSessionContacts = async (sessionId, userId) => {
 
   // Phase N+1: Enrich from sessionsContactMap (Baileys in-memory event-driven contacts)
   try {
-    const sock = whatsappService.sessions?.get?.(sessionId);
     const cmap = whatsappService.sessionsContactMap?.get?.(sessionId);
     if (cmap && cmap.size > 0) {
+      const cmapByDigits = new Map();
+      for (const [jid, c] of cmap) {
+        if (!jid || jid.includes('@g.us')) continue;
+        const digits = jid.split('@')[0].replace(/[^0-9]/g, '');
+        const last10 = digits.length >= 10 ? digits.slice(-10) : '';
+        if (last10 && !cmapByDigits.has(last10)) {
+          cmapByDigits.set(last10, c);
+        }
+      }
+      console.log('[CollectContacts] sessionsContactMap lookup map:', cmapByDigits.size, 'entries from', cmap.size, 'total');
       let enriched = 0;
       for (const [phone, c] of results.all) {
         if (!c.name && phone) {
-          const jid = phone + '@s.whatsapp.net';
-          const waContact = cmap.get(jid);
+          const last10 = phone.replace(/[^0-9]/g, '').slice(-10);
+          if (!last10) continue;
+          const waContact = cmapByDigits.get(last10);
           if (waContact) {
-            const name = waContact.name || waContact.notify || waContact.verifiedName || '';
+            const name = waContact.name || waContact.notify || waContact.verifiedName || waContact.pushName || waContact.fullName || '';
             if (name && !/^\d+$/.test(name)) {
               c.name = name;
               enriched++;
@@ -668,6 +678,38 @@ const collectSessionContacts = async (sessionId, userId) => {
       results.sources.eventMapEnriched = enriched;
     }
   } catch (e) { console.log('[CollectContacts] sessionsContactMap enrichment error:', e.message); }
+
+  // Phase N+2: Final enrichment from sock.contacts + sock.store.contacts by last-10-digits
+  try {
+    const sock = whatsappService.sessions?.get?.(sessionId);
+    const sockByName = new Map();
+    const addSockContact = (jid, c) => {
+      if (!jid || jid.includes('@g.us')) return;
+      const digits = jid.split('@')[0].replace(/[^0-9]/g, '');
+      const last10 = digits.length >= 10 ? digits.slice(-10) : '';
+      if (!last10 || sockByName.has(last10)) return;
+      const name = c.name || c.notify || c.verifiedName || c.pushName || c.fullName || '';
+      if (name && !/^\d+$/.test(name)) sockByName.set(last10, name);
+    };
+    if (sock?.contacts) {
+      if (sock.contacts instanceof Map) { for (const [jid, c] of sock.contacts) addSockContact(jid, c); }
+      else if (typeof sock.contacts === 'object') { for (const [jid, c] of Object.entries(sock.contacts)) addSockContact(jid, c); }
+    }
+    if (sock?.store?.contacts) {
+      const store = sock.store.contacts;
+      if (store instanceof Map) { for (const [jid, c] of store) addSockContact(jid, c); }
+      else if (typeof store === 'object') { for (const [jid, c] of Object.entries(store)) addSockContact(jid, c); }
+    }
+    let enriched = 0;
+    for (const [phone, c] of results.all) {
+      if (!c.name && phone) {
+        const last10 = phone.replace(/[^0-9]/g, '').slice(-10);
+        const name = sockByName.get(last10);
+        if (name) { c.name = name; enriched++; }
+      }
+    }
+    if (enriched > 0) console.log('[CollectContacts] Final enrichment added', enriched, 'names from sock.contacts/store');
+  } catch (e) { console.log('[CollectContacts] sock enrichment error:', e.message); }
 
   results.total = results.all.size;
   return results;
