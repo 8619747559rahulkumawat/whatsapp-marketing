@@ -356,17 +356,20 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
     }
   } catch (e) { console.log('[AutoSync] Chats error:', e.message); }
 
-  // 6) Fetch all participating groups and extract members (concurrent, max 20)
+  // 6) Fetch all participating groups and extract members (concurrent, max 10)
   try {
     const sock = whatsappService.sessions?.get?.(sessionId);
     if (sock?.groupFetchAllParticipating) {
       console.log('[AutoSync] Fetching all groups to extract members...');
       const groupsMap = await sock.groupFetchAllParticipating();
-      const groupIds = Object.keys(groupsMap || {}).slice(0, 20);
+      const groupIds = Object.keys(groupsMap || {}).slice(0, 10);
       console.log('[AutoSync] Found', Object.keys(groupsMap || {}).length, 'groups, processing', groupIds.length);
       let added = 0;
       await Promise.allSettled(groupIds.map(gid =>
-        sock.groupMetadata(gid).then(meta => {
+        Promise.race([
+          sock.groupMetadata(gid),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('groupMetadata timeout')), 5000))
+        ]).then(meta => {
           for (const p of meta.participants || []) {
             const jid = p.id || p.jid || '';
             const raw = jid.split('@')[0].replace(/[^0-9]/g, '');
@@ -477,7 +480,10 @@ const collectSessionContacts = async (sessionId, userId) => {
 
   // Source 3: getAllContacts (Baileys sessionsContactMap — populated by events, may have extra names)
   try {
-    const waContacts = await whatsappService.getAllContacts(sessionId);
+    const waContacts = await Promise.race([
+      whatsappService.getAllContacts(sessionId),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('getAllContacts timeout')), 10000))
+    ]);
     results.sources.waContacts = waContacts.length;
     for (const c of waContacts) {
       if (!c.phone || results.all.has(c.phone)) continue;
@@ -551,14 +557,17 @@ const collectSessionContacts = async (sessionId, userId) => {
   // Source 8: Fetch all participating groups and extract members (concurrent, max 20 groups)
   try {
     const sock = whatsappService.sessions?.get?.(sessionId);
-    if (sock?.groupFetchAllParticipating) {
+    if (sock?.groupFetchAllParticipating && results.all.size < 50) {
       console.log('[CollectContacts] Fetching all groups for contacts...');
       const groupsMap = await sock.groupFetchAllParticipating();
-      const groupIds = Object.keys(groupsMap || {}).slice(0, 20);
+      const groupIds = Object.keys(groupsMap || {}).slice(0, 10);
       console.log('[CollectContacts] Found', Object.keys(groupsMap || {}).length, 'groups, processing', groupIds.length);
       let groupContactCount = 0;
       await Promise.allSettled(groupIds.map(gid =>
-        sock.groupMetadata(gid).then(meta => {
+        Promise.race([
+          sock.groupMetadata(gid),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('groupMetadata timeout')), 5000))
+        ]).then(meta => {
           for (const p of meta.participants || []) {
             const jid = p.id || p.jid || '';
             const phone = jid.split('@')[0];
@@ -773,7 +782,7 @@ exports.exportContacts = async (req, res) => {
     // Phase 0: Wait for Baileys to sync contacts (up to 15s, need at least 5 contacts)
     if (isConnected) {
       console.log('[ExportContacts] Phase 0: waiting for contact sync...');
-      const syncedCount = await whatsappService.waitForContactSync(sessionId, 5, 15000);
+      const syncedCount = await whatsappService.waitForContactSync(sessionId, 5, 8000);
       console.log('[ExportContacts] Phase 0 done:', syncedCount, 'contacts synced');
     }
 
