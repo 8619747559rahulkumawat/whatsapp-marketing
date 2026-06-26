@@ -256,7 +256,7 @@ const readContactsFromDisk = (sessionId) => {
         pushName: c.name || '',
         verifiedName: c.verifiedName || '',
         isBusiness: !!c.business
-      })).filter(c => { const n = c.phone.replace(/[^0-9]/g, ''); return n.length >= 10 && n.length <= 15; });
+      })).filter(c => { const n = c.phone.replace(/[^0-9]/g, ''); return n.length >= 10 && n.length <= 13; });
     } catch (e) {
       console.log('[DiskContacts] Parse error:', e.message);
     }
@@ -298,7 +298,7 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
       console.log('[AutoSync] Socket contacts:', entries.length);
       for (const [jid, c] of entries) {
         const raw = jid.split('@')[0].replace(/[^0-9]/g, '');
-        if (raw.length >= 10 && raw.length <= 15) rawContacts.push({ phone: raw, name: c.name || c.notify || c.verifiedName || c.pushName || c.fullName || '', jid });
+        if (raw.length >= 10 && raw.length <= 13) rawContacts.push({ phone: raw, name: c.name || c.notify || c.verifiedName || c.pushName || c.fullName || '', jid });
       }
     }
   } catch (e) { console.log('[AutoSync] Socket error:', e.message); }
@@ -319,7 +319,7 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
       console.log('[AutoSync] Store contacts:', entries.length);
       for (const [jid, c] of entries) {
         const raw = jid.split('@')[0].replace(/[^0-9]/g, '');
-        if (raw.length >= 10 && raw.length <= 15) rawContacts.push({ phone: raw, name: c.name || c.notify || c.verifiedName || c.pushName || c.fullName || '', jid });
+        if (raw.length >= 10 && raw.length <= 13) rawContacts.push({ phone: raw, name: c.name || c.notify || c.verifiedName || c.pushName || c.fullName || '', jid });
       }
     }
   } catch (e) { console.log('[AutoSync] Store error:', e.message); }
@@ -352,7 +352,7 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
     console.log('[AutoSync] Chat JIDs:', chats.length);
     for (const jid of chats) {
       const raw = jid.split('@')[0].replace(/[^0-9]/g, '');
-      if (raw.length >= 10 && raw.length <= 15) rawContacts.push({ phone: raw, name: '', jid });
+      if (raw.length >= 10 && raw.length <= 13) rawContacts.push({ phone: raw, name: '', jid });
     }
   } catch (e) { console.log('[AutoSync] Chats error:', e.message); }
 
@@ -373,7 +373,7 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
           for (const p of meta.participants || []) {
             const jid = p.id || p.jid || '';
             const raw = jid.split('@')[0].replace(/[^0-9]/g, '');
-            if (raw.length >= 10 && raw.length <= 15) {
+            if (raw.length >= 10 && raw.length <= 13) {
               rawContacts.push({ phone: raw, name: p.name || p.pushName || '', jid, group: meta.subject || '' });
               added++;
             }
@@ -432,7 +432,7 @@ const isRealPhone = (jid) => {
   const raw = String(jid || '');
   if (raw.includes('@lid') || raw.includes('@g.us') || raw.includes('@broadcast')) return false;
   const n = raw.split('@')[0].replace(/[^0-9]/g, '');
-  return n.length >= 10 && n.length <= 15;
+  return n.length >= 10 && n.length <= 13;
 };
 
 const collectSessionContacts = async (sessionId, userId) => {

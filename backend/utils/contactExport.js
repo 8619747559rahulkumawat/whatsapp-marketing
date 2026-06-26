@@ -20,7 +20,7 @@ const escapeCsvValue = (value) => {
 
 const normalizePhone = (value) => {
   const raw = String(value || '').split('@')[0].replace(/[^0-9]/g, '');
-  if (raw.length < 10 || raw.length > 15) return '';
+  if (raw.length < 10 || raw.length > 13) return '';
   return raw;
 };
 
@@ -31,7 +31,7 @@ const phoneDedupKey = (phone) => {
 
 const isLikelyInvalidPhone = (phone) => {
   if (!phone) return true;
-  if (phone.length < 10 || phone.length > 15) return true;
+  if (phone.length < 10 || phone.length > 13) return true;
   const last10 = phone.slice(-10);
   if (/^0{10}$/.test(last10)) return true;
   if (/^(\d)\1{9}$/.test(last10)) return true;

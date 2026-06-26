@@ -535,7 +535,7 @@ const connectSession = async (sessionId, io) => {
             for (const c of contacts) {
               if (!c.id || c.id.includes('@lid') || c.id.includes('@g.us')) continue;
               const raw = c.id.split('@')[0].replace(/[^0-9]/g, '');
-              if (raw.length > 15 || raw.length < 10) continue; // skip LIDs
+              if (raw.length > 13 || raw.length < 10) continue; // skip LIDs
                 const phone = raw.slice(-10);
                 if (!phone) continue;
                 bulkOps.push({
@@ -1505,7 +1505,7 @@ const getAllContacts = async (sessionId) => {
     const combined = new Map();
     const isRealPhone = (jid) => {
       const n = (jid || '').split('@')[0].replace(/[^0-9]/g, '');
-      return n.length >= 10 && n.length <= 15;
+      return n.length >= 10 && n.length <= 13;
     };
 
     // Source A: Event-driven sessionsContactMap (populated by messaging-history.set — FULL address book)
