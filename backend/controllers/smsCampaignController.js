@@ -100,7 +100,7 @@ const sendTwilioCampaign = async (campaignId) => {
           return client.messages.create({ body: campaign.message, from, to: toPhone })
             .then(() => ({ phone: recipient.phone, idx: i + idx, ok: true }))
             .catch((err) => ({ phone: recipient.phone, idx: i + idx, ok: false, error: err.message }));
-        }
+        })
       )
 
       const updateOps = {};
