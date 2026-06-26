@@ -554,12 +554,15 @@ const collectSessionContacts = async (sessionId, userId) => {
     }
   } catch (e) { results.sources.diskContactsError = e.message; }
 
-  // Source 8: Fetch all participating groups and extract members (concurrent, max 20 groups)
+  // Source 8: Fetch all participating groups and extract members (concurrent, max 10 groups)
   try {
     const sock = whatsappService.sessions?.get?.(sessionId);
     if (sock?.groupFetchAllParticipating && results.all.size < 50) {
       console.log('[CollectContacts] Fetching all groups for contacts...');
-      const groupsMap = await sock.groupFetchAllParticipating();
+      const groupsMap = await Promise.race([
+        sock.groupFetchAllParticipating(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('groupFetchAllParticipating timeout')), 10000))
+      ]).catch(() => ({}));
       const groupIds = Object.keys(groupsMap || {}).slice(0, 10);
       console.log('[CollectContacts] Found', Object.keys(groupsMap || {}).length, 'groups, processing', groupIds.length);
       let groupContactCount = 0;
@@ -779,24 +782,44 @@ exports.exportContacts = async (req, res) => {
       console.log('[ExportContacts] Session DB says connected but socket not ready. Proceeding with DB-only contacts.');
     }
 
-    // Phase 0: Wait for Baileys to sync contacts (up to 15s, need at least 5 contacts)
+    // Phase 0: Wait for Baileys to sync contacts (up to 8s, need at least 5 contacts)
     if (isConnected) {
       console.log('[ExportContacts] Phase 0: waiting for contact sync...');
       const syncedCount = await whatsappService.waitForContactSync(sessionId, 5, 8000);
       console.log('[ExportContacts] Phase 0 done:', syncedCount, 'contacts synced');
     }
 
-    // Phase 1: collect from ALL existing sources (DB + scrapes + in-memory + Baileys)
-    let collected = await collectSessionContacts(sessionId, exportUserId);
+    // Phase 1: collect from ALL existing sources — wrapped in 60s master timeout
+    let collected;
+    try {
+      collected = await Promise.race([
+        collectSessionContacts(sessionId, exportUserId),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('collection timeout')), 60000))
+      ]);
+    } catch (e) {
+      console.log('[ExportContacts] Phase 1 collection error/timeout:', e.message, '- falling back to DB only');
+      collected = { sources: { fallback: 'db-only' }, all: new Map(), total: 0 };
+    }
     console.log('[ExportContacts] Phase 1 collection:', collected.total, 'sources:', collected.sources);
 
     // Phase 2: if empty and connected, auto-sync Baileys store contacts to MongoDB
     if (collected.total === 0 && isConnected) {
       console.log('[ExportContacts] Phase 2: auto-syncing Baileys contacts to MongoDB...');
-      const synced = await autoSyncContactsToDb(sessionId, exportUserId, tenantId);
+      let synced = 0;
+      try {
+        synced = await Promise.race([
+          autoSyncContactsToDb(sessionId, exportUserId, tenantId),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('autoSync timeout')), 30000))
+        ]);
+      } catch (e) { console.log('[ExportContacts] AutoSync error/timeout:', e.message); }
       console.log('[ExportContacts] Auto-sync result:', synced, 'contacts saved');
       if (synced > 0) {
-        collected = await collectSessionContacts(sessionId, exportUserId);
+        try {
+          collected = await Promise.race([
+            collectSessionContacts(sessionId, exportUserId),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('collection timeout')), 30000))
+          ]);
+        } catch (e) { console.log('[ExportContacts] Phase 2 re-collection timeout:', e.message); }
         console.log('[ExportContacts] Phase 2 collection after sync:', collected.total);
       }
     }
