@@ -373,7 +373,7 @@ exports.startGroupScrape = async (req, res) => {
       participants = (metadata.participants || []).map(p => ({
         jid: p.id,
         name: '',
-        phone: (p.id.split('@')[0]).slice(-10),
+        phone: p.id.split('@')[0].replace(/[^0-9]/g, ''),
         isAdmin: ['admin', 'superadmin'].includes(p.admin || '')
       }));
     } catch (err) {
@@ -429,7 +429,7 @@ exports.scrapeAllGroups = async (req, res) => {
             seen.set(p.id, {
               jid: p.id,
               name: '',
-              phone: (p.id.split('@')[0]).slice(-10),
+              phone: p.id.split('@')[0].replace(/[^0-9]/g, ''),
               isAdmin: ['admin', 'superadmin'].includes(p.admin || '')
             });
           }

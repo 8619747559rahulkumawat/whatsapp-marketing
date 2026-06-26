@@ -18,30 +18,33 @@ const escapeCsvValue = (value) => {
   return `"${text.replace(/"/g, '""')}"`;
 };
 
-const normalizePhone10 = (value) => {
-  const digits = String(value || '').split('@')[0].replace(/[^0-9]/g, '');
-  if (digits.length < 10) return '';
-  const phone = digits.slice(-10);
-  if (phone.startsWith('0') || phone.length !== 10) return '';
-  return phone;
+const normalizePhone = (value) => {
+  const raw = String(value || '').split('@')[0].replace(/[^0-9]/g, '');
+  if (raw.length < 10 || raw.length > 15) return '';
+  return raw;
+};
+
+const phoneDedupKey = (phone) => {
+  if (!phone) return '';
+  return phone.slice(-10);
+};
+
+const isLikelyInvalidPhone = (phone) => {
+  if (!phone) return true;
+  if (phone.length < 10 || phone.length > 15) return true;
+  const last10 = phone.slice(-10);
+  if (/^0{10}$/.test(last10)) return true;
+  if (/^(\d)\1{9}$/.test(last10)) return true;
+  return false;
 };
 
 const cleanContactName = (value) => String(value || '').replace(/\s+/g, ' ').trim();
-
-const isLikelyInvalidPhone = (phone) => {
-  if (!phone || phone.length !== 10) return true;
-  if (/^0{10}$/.test(phone)) return true;
-  if (/^(\d)\1{9}$/.test(phone)) return true;
-  if (/^\d{10}$/.test(phone) === false) return true;
-  if (!/^[6-9]/.test(phone)) return true;
-  return false;
-};
 
 const isUsableContactName = (value) => {
   const name = cleanContactName(value);
   if (!name) return false;
   const digits = name.replace(/[^0-9]/g, '');
-  return !(digits.length >= 10 && digits === name.replace(/[^0-9]/g, ''));
+  return !(digits.length >= 10 && digits === name);
 };
 
 const normalizeContactExportRows = (rows = [], { requireName = false } = {}) => {
@@ -52,16 +55,36 @@ const normalizeContactExportRows = (rows = [], { requireName = false } = {}) => 
   let loggedSamples = 0;
 
   for (const row of rows) {
-    const phone = normalizePhone10(row.phone || row.Phone || row.jid);
-    if (!phone) { invalidPhones++; continue; }
-    if (isLikelyInvalidPhone(phone)) { invalidPhones++; continue; }
+    const phone = normalizePhone(row.phone || row.Phone || row.jid);
+    if (!phone) {
+      invalidPhones++;
+      if (loggedSamples < 3) {
+        console.log('[ExportNormalize][InvalidPhone]', {
+          inputPhone: row.phone || row.Phone || row.jid,
+          reason: 'empty_after_normalize'
+        });
+        loggedSamples++;
+      }
+      continue;
+    }
+    if (isLikelyInvalidPhone(phone)) {
+      invalidPhones++;
+      if (loggedSamples < 3) {
+        console.log('[ExportNormalize][InvalidPhone]', {
+          inputPhone: row.phone || row.Phone || row.jid,
+          normalizedPhone: phone,
+          reason: 'isLikelyInvalidPhone'
+        });
+        loggedSamples++;
+      }
+      continue;
+    }
 
     const name = cleanContactName(row.name || row.Name);
     if (requireName && !isUsableContactName(name)) { skippedNames++; continue; }
 
     const finalName = name || 'Unknown';
 
-    // Log first few normalized contacts for debugging
     if (loggedSamples < 5) {
       console.log('[ExportNormalize][Sample]', {
         inputPhone: row.phone || row.Phone || row.jid,
@@ -73,54 +96,46 @@ const normalizeContactExportRows = (rows = [], { requireName = false } = {}) => 
       loggedSamples++;
     }
 
-    const normalized = {
-      ...row,
-      name: finalName,
-      phone,
-      address: cleanContactName(row.address || row.Address || row.city),
-      group: cleanContactName(row.group || row.Group),
-      admin: row.admin || row.Admin || '',
-      sessionId: row.sessionId || row['Session ID'] || '',
-      groupJid: row.groupJid || row['Group JID'] || '',
-      scrapedAt: row.scrapedAt || row['Scraped At'] || ''
-    };
-
-    const existing = byPhone.get(phone);
-    if (!existing) {
-      byPhone.set(phone, normalized);
+    const key = phoneDedupKey(phone);
+    const existing = byPhone.get(key);
+    if (existing) {
+      duplicatePhones++;
+      if (phone.length > existing.phone.length) existing.phone = phone;
+      if (finalName !== 'Unknown' && (existing.name === 'Unknown' || !existing.name)) existing.name = finalName;
+      if (row.group && !String(existing.group || '').split('; ').includes(row.group)) {
+        existing.group = existing.group ? `${existing.group}; ${row.group}` : row.group;
+      }
       continue;
     }
 
-    duplicatePhones++;
-    if (!existing.name && normalized.name) existing.name = normalized.name;
-    if (!existing.address && normalized.address) existing.address = normalized.address;
-    if (normalized.group && !String(existing.group || '').split('; ').includes(normalized.group)) {
-      existing.group = existing.group ? `${existing.group}; ${normalized.group}` : normalized.group;
-    }
-    if (normalized.admin === 'Yes') existing.admin = 'Yes';
-    if (!existing.sessionId && normalized.sessionId) existing.sessionId = normalized.sessionId;
-    if (!existing.groupJid && normalized.groupJid) existing.groupJid = normalized.groupJid;
-    if (!existing.scrapedAt && normalized.scrapedAt) existing.scrapedAt = normalized.scrapedAt;
+    byPhone.set(key, {
+      name: finalName,
+      phone,
+      group: cleanContactName(row.group || row.Group) || 'WhatsApp Contacts'
+    });
   }
 
   const exportRows = Array.from(byPhone.values());
-  const withoutNames = exportRows.filter(r => !r.name || r.name === 'Unknown').length;
+  const withNames = exportRows.filter(r => r.name && r.name !== 'Unknown').length;
+  const withoutNames = exportRows.length - withNames;
   return {
     rows: exportRows,
     stats: {
       totalInput: rows.length,
       totalExported: exportRows.length,
+      totalValid: exportRows.length,
+      totalInvalid: invalidPhones,
       duplicatesRemoved: duplicatePhones,
-      invalidPhones,
       skippedNames,
+      withNames,
       withoutNames
     }
   };
 };
 
 const toCsv = (rows) => {
-  const headers = ['Name', 'Phone', 'Address', 'Group', 'Admin', 'Session ID', 'Group JID', 'Scraped At'];
-  const keys = ['name', 'phone', 'address', 'group', 'admin', 'sessionId', 'groupJid', 'scrapedAt'];
+  const headers = ['Name', 'Phone Number'];
+  const keys = ['name', 'phone'];
   const lines = [headers.map(escapeCsvValue).join(',')];
   for (const row of rows) {
     lines.push(keys.map((key) => escapeCsvValue(row[key] ?? '')).join(','));
@@ -146,11 +161,10 @@ const buildGroupScrapeRows = (scrapes = [], contacts = []) => {
   for (const scrape of scrapes) {
     const groupName = scrape.groupName || scrape.groupSubject || '';
     const groupJid = scrape.groupJid || '';
-    const scrapedAt = scrape.createdAt ? new Date(scrape.createdAt).toISOString() : '';
 
     for (const member of scrape.participants || []) {
       const rawPhone = member.phone || (member.jid ? member.jid.split('@')[0] : '');
-      const phone = String(rawPhone || '').trim();
+      const phone = String(rawPhone || '').replace(/[^0-9]/g, '').trim();
       const jid = String(member.jid || '').trim();
       const rowKey = phone || jid;
       if (!rowKey) continue;
@@ -161,19 +175,13 @@ const buildGroupScrapeRows = (scrapes = [], contacts = []) => {
         if (groupName && !existing.group.split('; ').includes(groupName)) {
           existing.group = existing.group ? `${existing.group}; ${groupName}` : groupName;
         }
-        if (member.isAdmin) existing.admin = 'Yes';
         continue;
       }
 
       rowsByPhone.set(rowKey, {
         name: (savedContact?.name || member.name || '').trim(),
         phone,
-        address: (savedContact?.address || savedContact?.city || '').trim(),
         group: groupName,
-        admin: member.isAdmin ? 'Yes' : 'No',
-        sessionId: scrape.sessionId || '',
-        groupJid,
-        scrapedAt
       });
     }
   }
@@ -186,7 +194,17 @@ const sendContactExport = async (res, rows, { format = 'xlsx', filenameBase = 'c
   const filename = `${filenameBase}.${normalizedFormat}`;
   const { rows: exportRows, stats } = normalizeContactExportRows(rows, { requireName });
 
-  console.log('[ExportStats]', JSON.stringify({ filenameBase, format: normalizedFormat, ...stats }));
+  console.log('[ExportStats]', JSON.stringify({
+    filenameBase,
+    format: normalizedFormat,
+    totalInput: stats.totalInput,
+    totalExported: stats.totalExported,
+    totalValid: stats.totalValid,
+    totalInvalid: stats.totalInvalid,
+    duplicatesRemoved: stats.duplicatesRemoved,
+    withNames: stats.withNames,
+    withoutNames: stats.withoutNames
+  }, null, 2));
 
   res.setHeader('Content-Type', getExportContentType(normalizedFormat));
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -201,7 +219,7 @@ const sendContactExport = async (res, rows, { format = 'xlsx', filenameBase = 'c
     }
 
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet(requireName ? 'Phone Contacts' : 'Group Members');
+    const ws = wb.addWorksheet('Contacts');
 
     const summarySheet = wb.addWorksheet('Summary');
     summarySheet.columns = [
@@ -210,21 +228,16 @@ const sendContactExport = async (res, rows, { format = 'xlsx', filenameBase = 'c
     ];
     summarySheet.getRow(1).font = { bold: true };
     summarySheet.addRow({ metric: 'Total Contacts Found', value: stats.totalInput });
-    summarySheet.addRow({ metric: 'Total Exported', value: stats.totalExported });
-    summarySheet.addRow({ metric: 'Duplicates Removed', value: stats.duplicatesRemoved });
-    summarySheet.addRow({ metric: 'Invalid Numbers Removed', value: stats.invalidPhones });
-    summarySheet.addRow({ metric: 'Contacts Without Name', value: stats.withoutNames || 0 });
+    summarySheet.addRow({ metric: 'Total Valid Contacts', value: stats.totalValid });
+    summarySheet.addRow({ metric: 'Total Invalid Contacts', value: stats.totalInvalid });
+    summarySheet.addRow({ metric: 'Total Duplicates Removed', value: stats.duplicatesRemoved });
+    summarySheet.addRow({ metric: 'Contacts With Names', value: stats.withNames || 0 });
+    summarySheet.addRow({ metric: 'Contacts Without Names', value: stats.withoutNames || 0 });
     summarySheet.addRow({ metric: 'Generated At', value: new Date().toISOString() });
 
     ws.columns = [
       { header: 'Name', key: 'name', width: 30 },
-      { header: 'Phone', key: 'phone', width: 18 },
-      { header: 'Address', key: 'address', width: 35 },
-      { header: 'Group', key: 'group', width: 30 },
-      { header: 'Admin', key: 'admin', width: 10 },
-      { header: 'Session ID', key: 'sessionId', width: 26 },
-      { header: 'Group JID', key: 'groupJid', width: 34 },
-      { header: 'Scraped At', key: 'scrapedAt', width: 24 }
+      { header: 'Phone Number', key: 'phone', width: 20 }
     ];
     ws.getRow(1).font = { bold: true };
     ws.addRows(exportRows);
@@ -249,7 +262,7 @@ module.exports = {
   cleanContactName,
   isUsableContactName,
   normalizeContactExportRows,
-  normalizePhone10,
+  normalizePhone,
   normalizeExportFormat,
   sendContactExport
 };

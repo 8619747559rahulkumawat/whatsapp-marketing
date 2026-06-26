@@ -251,12 +251,12 @@ const readContactsFromDisk = (sessionId) => {
       console.log('[DiskContacts] Found', entries.length, 'contacts in', file);
       return entries.map(([jid, c]) => ({
         phone: jid.split('@')[0] || '',
-        name: c.name || c.notify || c.verifiedName || '',
+        name: c.name || c.notify || c.verifiedName || c.pushName || c.fullName || '',
         jid: jid,
         pushName: c.name || '',
         verifiedName: c.verifiedName || '',
         isBusiness: !!c.business
-      })).filter(c => { const n = c.phone.replace(/[^0-9]/g, ''); return n.length >= 10 && n.length <= 13; });
+      })).filter(c => { const n = c.phone.replace(/[^0-9]/g, ''); return n.length >= 10 && n.length <= 15; });
     } catch (e) {
       console.log('[DiskContacts] Parse error:', e.message);
     }
@@ -298,7 +298,7 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
       console.log('[AutoSync] Socket contacts:', entries.length);
       for (const [jid, c] of entries) {
         const raw = jid.split('@')[0].replace(/[^0-9]/g, '');
-        if (raw.length >= 10 && raw.length <= 13) rawContacts.push({ phone: raw, name: c.name || c.notify || c.verifiedName || '', jid });
+        if (raw.length >= 10 && raw.length <= 15) rawContacts.push({ phone: raw, name: c.name || c.notify || c.verifiedName || c.pushName || c.fullName || '', jid });
       }
     }
   } catch (e) { console.log('[AutoSync] Socket error:', e.message); }
@@ -319,7 +319,7 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
       console.log('[AutoSync] Store contacts:', entries.length);
       for (const [jid, c] of entries) {
         const raw = jid.split('@')[0].replace(/[^0-9]/g, '');
-        if (raw.length >= 10 && raw.length <= 13) rawContacts.push({ phone: raw, name: c.name || c.notify || c.verifiedName || '', jid });
+        if (raw.length >= 10 && raw.length <= 15) rawContacts.push({ phone: raw, name: c.name || c.notify || c.verifiedName || c.pushName || c.fullName || '', jid });
       }
     }
   } catch (e) { console.log('[AutoSync] Store error:', e.message); }
@@ -352,7 +352,7 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
     console.log('[AutoSync] Chat JIDs:', chats.length);
     for (const jid of chats) {
       const raw = jid.split('@')[0].replace(/[^0-9]/g, '');
-      if (raw.length >= 10 && raw.length <= 13) rawContacts.push({ phone: raw, name: '', jid });
+      if (raw.length >= 10 && raw.length <= 15) rawContacts.push({ phone: raw, name: '', jid });
     }
   } catch (e) { console.log('[AutoSync] Chats error:', e.message); }
 
@@ -373,7 +373,7 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
           for (const p of meta.participants || []) {
             const jid = p.id || p.jid || '';
             const raw = jid.split('@')[0].replace(/[^0-9]/g, '');
-            if (raw.length >= 10 && raw.length <= 13) {
+            if (raw.length >= 10 && raw.length <= 15) {
               rawContacts.push({ phone: raw, name: p.name || p.pushName || '', jid, group: meta.subject || '' });
               added++;
             }
@@ -393,10 +393,11 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
   const seen = new Set();
   const unique = [];
   for (const c of rawContacts) {
-    const key = c.phone.replace(/[^0-9]/g, '').slice(-10);
-    if (!key || seen.has(key)) continue;
+    const digits = c.phone.replace(/[^0-9]/g, '');
+    const key = digits.slice(-10);
+    if (!key || key.length < 10 || seen.has(key)) continue;
     seen.add(key);
-    unique.push(c);
+    unique.push({ ...c, phone: digits, phoneKey: key });
   }
   console.log('[AutoSync] Unique contacts to save:', unique.length);
 
@@ -406,9 +407,9 @@ const autoSyncContactsToDb = async (sessionId, userId, tenantId) => {
     const chunk = unique.slice(i, i + chunkSize);
     const ops = chunk.map(c => ({
       updateOne: {
-        filter: { userId, phone: c.phone },
+        filter: { userId, phone: c.phoneKey },
         update: {
-          $setOnInsert: { userId, tenantId, phone: c.phone, name: c.name || '', source: 'whatsapp_sync', createdAt: new Date() },
+          $setOnInsert: { userId, tenantId, phone: c.phoneKey, name: c.name || '', source: 'whatsapp_sync', createdAt: new Date() },
           $set: { updatedAt: new Date() }
         },
         upsert: true
@@ -431,7 +432,7 @@ const isRealPhone = (jid) => {
   const raw = String(jid || '');
   if (raw.includes('@lid') || raw.includes('@g.us') || raw.includes('@broadcast')) return false;
   const n = raw.split('@')[0].replace(/[^0-9]/g, '');
-  return n.length >= 10 && n.length <= 13;
+  return n.length >= 10 && n.length <= 15;
 };
 
 const collectSessionContacts = async (sessionId, userId) => {
@@ -454,8 +455,8 @@ const collectSessionContacts = async (sessionId, userId) => {
       for (const [jid, c] of entries) {
         const p = jid.split('@')[0];
         if (!p || results.all.has(p)) continue;
-        const name = c.name || c.notify || c.verifiedName || '';
-        console.log('[CollectContacts][Source1:SocketContacts]', { jid, phone: p, name, rawContact: { id: c.id, name: c.name, notify: c.notify, verifiedName: c.verifiedName } });
+        const name = c.name || c.notify || c.verifiedName || c.pushName || c.fullName || '';
+        console.log('[CollectContacts][Source1:SocketContacts]', { jid, phone: p, name, rawContact: { id: c.id, name: c.name, notify: c.notify, verifiedName: c.verifiedName, pushName: c.pushName, fullName: c.fullName } });
         results.all.set(p, { name, group: 'WhatsApp Contacts', phone: p });
       }
     }
@@ -508,8 +509,8 @@ const collectSessionContacts = async (sessionId, userId) => {
       for (const [jid, c] of entries) {
         const p = jid.split('@')[0];
         if (!p || results.all.has(p)) continue;
-        const name = c.name || c.notify || c.verifiedName || '';
-        console.log('[CollectContacts][Source4:StoreContacts]', { jid, phone: p, name, rawContact: { id: c.id, name: c.name, notify: c.notify, verifiedName: c.verifiedName } });
+        const name = c.name || c.notify || c.verifiedName || c.pushName || c.fullName || '';
+        console.log('[CollectContacts][Source4:StoreContacts]', { jid, phone: p, name, rawContact: { id: c.id, name: c.name, notify: c.notify, verifiedName: c.verifiedName, pushName: c.pushName, fullName: c.fullName } });
         results.all.set(p, { name, group: 'WhatsApp Contacts', phone: p });
       }
     }
@@ -835,8 +836,8 @@ exports.exportContacts = async (req, res) => {
           if (!jid || !isRealPhone(jid)) continue;
           const p = jid.split('@')[0];
           if (!p || collected.all.has(p)) continue;
-          const name = c.name || c.notify || c.verifiedName || '';
-          console.log('[ExportContacts][Phase3:SocketContacts]', { jid, phone: p, name, rawContact: { id: c.id, name: c.name, notify: c.notify, verifiedName: c.verifiedName } });
+          const name = c.name || c.notify || c.verifiedName || c.pushName || c.fullName || '';
+          console.log('[ExportContacts][Phase3:SocketContacts]', { jid, phone: p, name, rawContact: { id: c.id, name: c.name, notify: c.notify, verifiedName: c.verifiedName, pushName: c.pushName, fullName: c.fullName } });
           collected.all.set(p, { name, group: 'WhatsApp Contacts', phone: p, admin: '-', sessionId, groupJid: jid, scrapedAt: '', address: '' });
           added++;
         }
@@ -849,8 +850,8 @@ exports.exportContacts = async (req, res) => {
           if (!jid || !isRealPhone(jid)) continue;
           const p = jid.split('@')[0];
           if (!p || collected.all.has(p)) continue;
-          const name = c.name || c.notify || c.verifiedName || '';
-          console.log('[ExportContacts][Phase3:StoreContacts]', { jid, phone: p, name, rawContact: { id: c.id, name: c.name, notify: c.notify, verifiedName: c.verifiedName } });
+          const name = c.name || c.notify || c.verifiedName || c.pushName || c.fullName || '';
+          console.log('[ExportContacts][Phase3:StoreContacts]', { jid, phone: p, name, rawContact: { id: c.id, name: c.name, notify: c.notify, verifiedName: c.verifiedName, pushName: c.pushName, fullName: c.fullName } });
           collected.all.set(p, { name, group: 'WhatsApp Contacts', phone: p, admin: '-', sessionId, groupJid: jid, scrapedAt: '', address: '' });
           added++;
         }

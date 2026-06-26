@@ -535,16 +535,16 @@ const connectSession = async (sessionId, io) => {
             for (const c of contacts) {
               if (!c.id || c.id.includes('@lid') || c.id.includes('@g.us')) continue;
               const raw = c.id.split('@')[0].replace(/[^0-9]/g, '');
-              if (raw.length > 13 || raw.length < 10) continue; // skip LIDs
-              const phone = raw.slice(-10);
-              if (!phone) continue;
-              bulkOps.push({
-                updateOne: {
-                  filter: { userId: sess.userId, phone },
-                  upsert: true,
-                  update: { $set: { name: c.name || c.notify || c.verifiedName || '', phone, source: 'baileys_history', sessionId } }
-                }
-              });
+              if (raw.length > 15 || raw.length < 10) continue; // skip LIDs
+                const phone = raw.slice(-10);
+                if (!phone) continue;
+                bulkOps.push({
+                  updateOne: {
+                    filter: { userId: sess.userId, phone },
+                    upsert: true,
+                    update: { $set: { name: c.name || c.notify || c.verifiedName || c.pushName || c.fullName || '', phone, source: 'baileys_history', sessionId } }
+                  }
+                });
             }
             if (bulkOps.length > 0) {
               await Contact.bulkWrite(bulkOps);
@@ -1505,7 +1505,7 @@ const getAllContacts = async (sessionId) => {
     const combined = new Map();
     const isRealPhone = (jid) => {
       const n = (jid || '').split('@')[0].replace(/[^0-9]/g, '');
-      return n.length >= 10 && n.length <= 13;
+      return n.length >= 10 && n.length <= 15;
     };
 
     // Source A: Event-driven sessionsContactMap (populated by messaging-history.set — FULL address book)
@@ -1573,8 +1573,8 @@ const getAllContacts = async (sessionId) => {
     if (combined.size === 0) return [];
     return Array.from(combined.values()).filter(c => c.id && typeof c.id === 'string' && !c.id.includes('@g.us') && isRealPhone(c.id)).map(c => ({
       jid: c.id,
-      name: c.name || c.notify || c.verifiedName || '',
-      phone: (c.id.split('@')[0]).slice(-10),
+      name: c.name || c.notify || c.verifiedName || c.pushName || c.fullName || '',
+      phone: c.id.split('@')[0].replace(/[^0-9]/g, ''),
       imgUrl: c.imgUrl || ''
     }));
   } catch (err) {
